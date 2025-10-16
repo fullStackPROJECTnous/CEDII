@@ -33,7 +33,7 @@ module.exports = (sequelize, DataTypes) => {
     defaultValue: 'En attente' 
 },
       
-        montantTotal: {
+        tarifTot: {
             type: DataTypes.DECIMAL(10, 2),
             allowNull: false
         }
@@ -44,6 +44,14 @@ module.exports = (sequelize, DataTypes) => {
         freezeTableName: true
     });
 
+
+     Location.associate = (models) => {
+        // Une location appartient à un client.
+        Location.belongsTo(models.client, {
+            foreignKey: 'idCli', 
+            as: 'client' // L'alias pour la relation inverse (non utilisée ici mais bonne pratique)
+        });
+    };
     // 🚨 N'oubliez pas les associations ici si nécessaire (ex: Location.belongsTo(db.client))
     
     return Location;

@@ -1,6 +1,6 @@
 <template>
     <div class="retour">
-     <router-link to="/home" class="btn btn-sm btn-outline-primary mt-3">
+     <router-link to="/dashboardAdmin" class="btn btn-sm btn-outline-primary mt-3">
       Retour à l'Acceuil
     </router-link>
   </div>

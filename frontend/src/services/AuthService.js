@@ -42,6 +42,12 @@ import axios from 'axios';
 // 🚨 Assurez-vous que ce port (5000) correspond à votre serveur Express
 const API_BASE_URL = 'http://localhost:5000/api/auth'; 
 
+export function getCurrentUserRole() {
+    const user = JSON.parse(localStorage.getItem('user'));
+    return user ? user.role : null;
+}
+
+
 const AuthService = {
     /**
      * Tente de connecter l'utilisateur et stocke le token JWT.
@@ -67,8 +73,9 @@ const AuthService = {
     },
     // 🚨 NOUVELLE MÉTHODE POUR L'INSCRIPTION
    async register(user) {
-    return axios.post(API_URL + '/register', user);
-  },
+        // Cela devient: http://localhost:5000/api/auth/register
+        return axios.post(`${API_BASE_URL}/register`, user); 
+    },
 
     /**
      * Supprime le token et les données utilisateur du Local Storage.

@@ -130,7 +130,7 @@ exports.getAllLocations = async (req, res) => {
     }
 };
 
-exports.getPendingReservations = async (req, res) => {
+/*exports.getPendingReservations = async (req, res) => {
     try {
         const Location = db.location; // Récupérez le modèle Location
         
@@ -155,3 +155,43 @@ exports.getPendingReservations = async (req, res) => {
 
 // ... autres fonctions CRUD : createLocation, updateLocation, deleteLocation
 
+*/
+
+// Ligne 130 (Exemple)
+exports.getPendingReservations = async (req, res) => {
+    try {
+        const Location = db.location; // Récupérez le modèle Location
+        
+        // Trouver les locations/réservations dont l'état est 'En attente'
+        const pendingLocations = await Location.findAll({
+            where: { etatLo: 'En attente' }, // Utilisez le nom de colonne et la valeur ENUM corrects
+            order: [['debLo', 'ASC']],
+            
+            // 💡 CORRECTION POUR L'ERREUR 500 : 
+            // Nous listons explicitement les attributs disponibles pour ignorer 'montantTotal'
+            // qui est manquant dans la DB. Assurez-vous que cette liste reflète les vraies colonnes.
+            attributes: [
+                'idLo', 
+                'idRes', 
+                'debLo', 
+                'finLo', 
+                'typeLo', 
+                'etatLo',
+                'tarifTot'
+                // Si vous avez d'autres colonnes existantes dans la table `location` et nécessaires, ajoutez-les ici.
+            ], 
+            
+            // Si vous devez inclure des données d'association (par exemple, le Client ou le Matériel)
+            // Vous ajouteriez l'option `include: [...]` ici.
+        });
+
+        res.status(200).json(pendingLocations);
+        
+    } catch (error) {
+        console.error("Erreur lors de la récupération des événements en attente:", error);
+        res.status(500).send({ 
+            message: "Erreur serveur lors de la récupération des événements en attente.", 
+            error: error.message 
+        });
+    }
+};

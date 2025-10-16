@@ -1,0 +1,16 @@
+/* Styles globaux (dans votre fichier CSS principal) */
+html, body {
+    /* 🚨 LIGNE CRITIQUE : Force la hauteur à 100% pour que vh-100 fonctionne */
+    height: 100%; 
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    
+    /* 🚨 SOLUTION ULTIME : Définissez l'arrière-plan de la page en BLANC */
+    background-color: white; 
+}
+
+#app {
+    /* Assure que le conteneur Vue prend aussi toute la hauteur */
+    height: 100%;
+}

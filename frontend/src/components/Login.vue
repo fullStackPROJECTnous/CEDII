@@ -690,6 +690,7 @@ export default {
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+
 // 💡 Importation réelle du service d'authentification
 import AuthService from '../services/AuthService'; 
 
@@ -701,16 +702,38 @@ const credentials = ref({
 const error = ref('');
 
 async function handleLogin() {
-  error.value = '';
-  try {
-    // 🚀 Appel au service qui envoie les données au backend
-    const userData = await AuthService.login(credentials.value.loginUti, credentials.value.motDePasseUti);
-    
+    error.value = '';
+    try {
+        // 1. Réponse du service d'authentification (doit contenir le rôle)
+        const userData = await AuthService.login(credentials.value.loginUti, credentials.value.motDePasseUti);
+        
+        // 2. Vérification de la réussite (présence de token et/ou rôle)
+        if (!userData || !userData.role) {
+             // Si la connexion réussit mais la réponse est mal formée, forcer l'erreur
+             throw new Error("Réponse de connexion invalide du serveur.");
+        }
+
+      
+        switch (role) {
+            case 'admin':
+                router.push({ name: 'AdminDashboard' });
+                break;
+            case 'reception':
+                router.push({ name: 'ReceptionDashboard' });
+                break;
+            case 'finance':
+                router.push({ name: 'FinanceDashboard' });
+                break;
+            case 'client':
+            default:
+                router.push({ name: 'ClientDashboard' }); // ou 'MonCompteClient'
+                break;
+        }
     // Si le backend renvoie un jeton, la connexion est réussie.
-    if (userData.accessToken) {
+    /*if (userData.accessToken) {
       // Redirection vers la page d'accueil (acceuil)
       router.push('/home'); 
-    }
+    }*/
   } catch (err) {
     // Récupérer le message d'erreur du backend (401 Unauthorized, etc.)
     const msg = err.response?.data?.message || "Échec de la connexion. Vérifiez le serveur et les identifiants.";
@@ -719,47 +742,7 @@ async function handleLogin() {
 }
 </script>
 
-<!--<script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
 
-const router = useRouter();
-const credentials = ref({
-  loginUti: '',
-  motDePasseUti: ''
-});
-const error = ref('');
-
-
-
-  // ⚠️ SIMULATION DE LOGIN CÔTÉ FRONTEND ⚠️
-  // Cette logique devra être remplacée par un appel API vers votre backend Express
-  // (Exemple: axios.post('http://localhost:5000/api/auth/login', credentials.value))
-  
- // 🚨 Importez le service
-//import AuthService from '../services/AuthService'; 
-
-// ... autres variables (credentials, error) ...
-
-async function handleLogin() {
-  error.value = '';
-  try {
-    // 🚨 Appel API réel
-    const userData = await AuthService.login(credentials.value.loginUti, credentials.value.motDePasseUti);
-    
-    // Succès: stocker le token (fait dans AuthService) et rediriger
-    if (userData.accessToken) {
-      router.push('/home'); 
-    }
-  } catch (err) {
-    // Échec de connexion ou erreur réseau
-    const msg = err.response?.data?.message || "Échec de la connexion. Vérifiez le serveur et les identifiants.";
-    error.value = msg;
-  }
-}
-
-</script>
--->
 <style scoped>
 /* Les styles spécifiques de la page de login */
 .login-wrapper {

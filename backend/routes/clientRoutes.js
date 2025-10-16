@@ -12,4 +12,11 @@ router.get('/:id', clientController.findOneClient);       // Read One (GET by ID
 router.put('/:id', clientController.updateClient);        // Update (PUT)
 router.delete('/:id', clientController.deleteClient);     // Delete (DELETE)
 
+// [GET] /api/clients/rankings : Classement des clients
+//router.get('/rankings', clientController.getRankings);
+
+// [GET] /api/clients/:id/history : Historique des locations d'un client
+//router.get('/:id/history', clientController.getClientHistory);
+
+
 module.exports = router;

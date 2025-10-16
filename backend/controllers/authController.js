@@ -64,7 +64,7 @@ exports.login = async (req, res) => {
 
         // 3. Générer le token JWT
         const token = jwt.sign(
-            { id: user.idUti, login: user.loginUti, role: user.roleUti },
+            { id: user.idUti, login: user.loginUti, roleUti: user.roleUti },
             JWT_SECRET,
             { expiresIn: '24h' } // Le token expire après 24 heures
         );
@@ -74,7 +74,7 @@ exports.login = async (req, res) => {
             message: "Connexion réussie.",
             idUti: user.idUti,
             loginUti: user.loginUti,
-            role: user.roleUti, // Nécessaire pour le Dashboard Vue
+            roleUti: user.roleUti, // Nécessaire pour le Dashboard Vue
             accessToken: token
         });
 

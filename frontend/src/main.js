@@ -1,10 +1,12 @@
 import { createApp } from 'vue'
 import './style.css'
+import './assets/main.css'
 import App from './App.vue'
 import router from './router/router.js';
-//import Chart from "chart.js";
 
-//import client from './client.vue'
+// 🚨 IMPORTEZ ET UTILISEZ LE PLUGIN DE TOASTIFICATION
+import Toast from "vue-toastification";
+import "vue-toastification/dist/index.css"; // N'oubliez pas le CSS !
 
 // 🚨 1. Importation du CSS de Bootstrap 
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -15,9 +17,34 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 //import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
+const app = createApp(App);
 
-createApp(App)
+// Utilisez le plugin ici, AVANT de monter l'application
+app.use(router);
+app.use(Toast, {
+    // Options de configuration (vous pouvez laisser vide pour les options par défaut)
+    timeout: 3000, 
+    closeOnClick: true,
+    pauseOnFocusLoss: true,
+    pauseOnHover: true,
+    draggable: true,
+    draggablePercent: 0.6,
+    showCloseButtonOnHover: false,
+    hideProgressBar: false,
+    closeButton: "button",
+    icon: true,
+    rtl: false
+});
+
+app.mount('#app');
+//import Chart from "chart.js";
+
+//import client from './client.vue'
+
+
+
+/*createApp(App)
   .use(router) // 🚨 UTILISATION DU ROUTER
   .mount('#app');
 
-
+*/

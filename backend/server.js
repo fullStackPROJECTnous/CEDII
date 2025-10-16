@@ -48,5 +48,12 @@ const rapportRoutes = require('./routes/rapportRoutes');
 app.use('/api/rapports', rapportRoutes);
 
 
+const routesUsers = require('./routes/routeUsers');
+// ... autres imports de routes
+
+app.use('/api', routesUsers); 
+// ... autres app.use
+
+
 
 
