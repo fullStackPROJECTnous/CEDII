@@ -26,61 +26,14 @@ import DashboardReception from '../views/dashboardReception.vue';
 import DashboardFinance from '../views/dashboardFinance.vue';
 import CompteClient from '../views/compteClient.vue';
 import DashboardRedirector from '../views/DashboardRedirector.vue';
-
-
-
-// frontend/src/router/index.js
-
-/*import { createRouter, createWebHistory } from 'vue-router';
-// ... autres imports ...
-
-const routes = [
-  // Route de base (Login / Logout)
-  { path: '/', name: 'Login', component: () => import('../components/Login.vue') }, 
-  { path: '/deconnexion', name: 'Logout', component: () => import('../views/Dashboard.vue') }, 
-
-  // 🚨 ROUTE PARENTE : Le layout complet (Sidebar + Header)
-  { 
-    path: '/home', 
-    name: 'Dashboard', 
-    component: () => import('../views/Dashboard.vue'), // Le composant qui contient la sidebar
-    meta: { requiresAuth: true },
-  
-    // 🚨 ROUTES IMBRIQUÉES (CHILDREN)
-    children: [
-      {
-        // Chemin complet sera : /home
-        path: '', 
-        name: 'Dashboard', 
-        component: () => import('../views/Dashboard.vue') // Créez ce composant si votre page Home doit montrer un dashboard différent de Home.vue
-        // Alternative : Si le contenu du Dashboard est DÉJÀ dans Home.vue, vous pouvez OMETTRE cette route enfant.
-      },
-      {
-        // Chemin complet sera : /home/clients (Le lien sera toujours /clientManagement)
-        path: 'clientManagement', 
-        name: 'ClientManagement', 
-        component: () => import('../views/clientManagement.vue')
-      },
-      {
-        // Chemin complet sera : /home/patrimoine
-        path: 'patrimoine', 
-        name: 'Patrimoine', 
-        component: () => import('../views/patrimoine.vue')
-      },
-      {
-        // Chemin complet sera : /home/locations
-        path: 'locations', 
-        name: 'Locations', 
-        component: () => import('../views/locations.vue')
-      }
-    
-
-     
-    ]
-];*/
- 
-  
-  // Si vous aviez d'anciennes routes non imbriquées, supprimez-les ici.
+import ReservationForm from '../components/reservationForm.vue';
+import Catalogue from '../components/catalogue.vue';
+import DemandeAttente from '../views/demandeAttente.vue';
+import Calendrier from '../views/calendrier.vue';
+import Facturation from '../views/facturation.vue';
+import Suivi from '../views/suivi.vue';
+import Penalite from '../views/penalite.vue';
+import Synthese from '../views/synthese.vue';
 
 
 // ... (Garde de Navigation) ...
@@ -101,46 +54,19 @@ const routes = [
     component: DashboardRedirector,
     // PAS de meta: { requiresAuth: true } ici, car il doit être accessible temporairement
   },
-  /*{
-    path: '/home',
-    name: 'Dashboard',
-    component: Dashboard 
-    // Optionnel: ajouter un meta field pour la vérification du login
-    // meta: { requiresAuth: true }
-  },
-
-      {
-        path: '/home',
-        component: MainLayout,
-        meta: { requiresAuth: true }, // Protège toutes les routes enfants
-        children: [
-            // Route par défaut redirigée après login
-            {
-            path: '', // Chemin vide = /home
-            name: 'HomeDashboard',
-            // Redirige par défaut si l'utilisateur est déjà connecté et va sur /home
-            redirect: { name: 'ClientDashboard' } 
-            // NOTE: La redirection par rôle se fait MIEUX dans Login.vue après connexion.
-        },
-        
-              /*  redirect: to => {
-                    const user = AuthService.getCurrentUser();
-                    const role = user ? user.role : 'client'; // Par défaut client si non reconnu
-                    
-                    // La redirection par rôle doit être faite ici ou dans Login.vue
-                    switch (role) {
-                        case 'admin':
-                            return { name: 'AdminDashboard' };
-                        case 'reception':
-                            return { name: 'ReceptionDashboard' };
-                        case 'finance':
-                            return { name: 'FinanceDashboard' };
-                        case 'client':
-                        default:
-                            return { name: 'ClientDashboard' };
-                    }
-                }
-            },*/
+   {
+        path: '/reservationForm',
+        name: 'ReservationForm',
+        component: ReservationForm,
+        meta: { requiresAuth: true, roles: ['client'] }
+    },
+     {
+        path: '/catalogue',
+        name: 'CatalogView',
+        component: Catalogue,
+        // Accessible à tous les rôles logués pour faciliter la navigation
+        meta: { requiresAuth: true, roles: ['administrateur', 'réception', 'client'] }
+    },
             // Vues spécifiques aux rôles
             {
                 path: '/dashboardAdmin',
@@ -184,6 +110,55 @@ const routes = [
     // Optionnel: ajouter un meta field pour la vérification du login
     // meta: { requiresAuth: true }
   },
+
+    {
+    path: '/demandeAttente',
+    name: 'DemandesEnAttente',
+    component: DemandeAttente
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
+
+    {
+    path: '/calendrier',
+    name: 'CalendrierDisponibilites',
+    component: Calendrier
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
+
+   {
+    path: '/facturation',
+    name: 'FactureGene',
+    component: Facturation
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
+
+    {
+    path: '/suivi',
+    name: 'SuiviPaie',
+    component: Suivi
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
+
+   {
+    path: '/penalite',
+    name: 'PenaliteLiti',
+    component: Penalite
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
+
+   {
+    path: '/synthese',
+    name: 'RapportSynth',
+    component: Synthese
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
+
     // 🚨 AJOUTEZ CETTE REDIRECTION 🚨
 
      {
@@ -211,20 +186,7 @@ const routes = [
     redirect: '/patrimoine/materiel' // Redirige l'utilisateur vers la liste du matériel par défaut
   },
 
- /*  {
-    path: '/patrimoine/materiel',
-    name: 'PatrimoineMateriel',
-    component: Materiel
-    // Optionnel: ajouter un meta field pour la vérification du login
-    // meta: { requiresAuth: true }
-  },
-    {
-    path: '/patrimoine/salle',
-    name: 'PatrimoineSalle',
-    component: Salle
-    // Optionnel: ajouter un meta field pour la vérification du login
-    // meta: { requiresAuth: true }
-  },*/
+
     {
     path: '/rapport',
     name: 'Rapport',
@@ -251,6 +213,22 @@ const routes = [
     component: UserManagement, // Assurez-vous du chemin
     meta: { requiresAuth: true, roles: ['admin'] } // SEUL l'admin y accède
   },
+ /* {
+     path: '/patrimoine',
+      name: 'InventairePatrimoine',
+    component: InventairePatrimoine, // 🚨 Nouveau composant Parent
+    redirect: '/patrimoine/materiel', // Redirige par défaut vers le Matériel
+     
+    // 🚨 Routes Enfants
+    children: [
+      {
+        path: 'materiel', // Chemin complet: /patrimoine/materiel
+        name: 'PatrimoineMateriel',
+        component: Materiel // Utilise le composant Materiel.vue existant
+      },
+    ]
+  }*/
+
 ]
     
 
@@ -272,7 +250,7 @@ router.beforeEach((to, from, next) => {
         next({ name: 'Login' }); // Redirige vers login si non authentifié
     } 
     // 2. Protection des Rôles
-    else if (requiresAuth && requiredRoles && !requiredRoles.includes(user.role)) {
+    else if (requiresAuth && requiredRoles && !requiredRoles.includes(user.roleUti)) {
         // Redirige vers un message d'accès refusé ou la page par défaut
         alert("Accès non autorisé à cette page.");
         next(false); // Annule la navigation
@@ -284,86 +262,3 @@ router.beforeEach((to, from, next) => {
 
 
 export default router;
-
-// Facultatif: Rediriger vers la page de login si non authentifié
-// router.beforeEach((to, from, next) => {
-//     // Implémentez ici la vérification du token de session/utilisateur
-//     if (to.meta.requiresAuth && !userIsLoggedIn) {
-//         next('/'); 
-//     } else {
-//         next();
-//     }
-// });
-
-
-
-
-// frontend/src/router/router.js (CORRIGÉ)
-
-/*import { createRouter, createWebHistory } from 'vue-router'; 
-//                     ^ On utilise le mode History pour des URLs propres (recommandé)
-
-const routes = [
-  // 1. Route de connexion (Route publique)
-  { 
-    path: '/', 
-    name: 'Login', 
-    component: () => import('../components/Login.vue') // Assurez-vous que Login.vue est bien dans 'components'
-  }, 
-  
-  // 2. Route de déconnexion (Redirection)
-  // NOTE: La déconnexion est une fonction JS, cette route sert surtout à vider l'historique
-  { 
-    path: '/deconnexion', 
-    name: 'Logout', 
-    // On peut utiliser la vue Login pour cette page ou créer une page de déconnexion spécifique (Logout.vue)
-    component: () => import('../components/Login.vue') 
-  }, 
-
-  // 3. 🚨 ROUTE PARENTE : Le layout principal avec la Sidebar
-  { 
-    path: '/home', 
-    name: 'Dashboard', 
-    component: () => import('../views/Dashboard.vue'), // 💡 Assurez-vous que c'est le composant Home.vue qui contient la <router-view>
-    meta: { requiresAuth: true },
-    
-    // 🚨 ROUTES IMBRIQUÉES (CHILDREN) : Le contenu qui s'affiche DANS le HomeLayout
-    children: [
-      {
-        // Chemin: /home (sera le Dashboard par défaut du layout)
-        path: '', 
-        name: 'Dashboard', 
-        component: () => import('../views/Dashboard.vue') // 💡 Assurez-vous que Dashboard.vue est le contenu des statistiques
-      },
-      {
-        // Chemin: /home/clientManagement
-        path: 'clientManagement', 
-        name: 'ClientManagement', 
-        component: () => import('../views/clientManagement.vue') // ⚠️ Casse ajustée
-      },
-      {
-        // Chemin: /home/patrimoine
-        path: 'patrimoine', 
-        name: 'Patrimoine', 
-        component: () => import('../views/patrimoine.vue') // ⚠️ Casse ajustée
-      },
-      {
-        // Chemin: /home/locations
-        path: 'locations', 
-        name: 'Locations', 
-        component: () => import('../views/Locations.vue') // ⚠️ Casse ajustée
-      },
-      // ... Autres routes de gestion ...
-    ]
-  },
-];
- 
-const router = createRouter({
-  history: createWebHistory(), // 🚨 Utilisation du Mode History
-  routes
-});
-
-// Facultatif: Rediriger vers la page de login si non authentifié
-// Incluez votre garde de navigation (router.beforeEach) ici
-
-export default router;*/

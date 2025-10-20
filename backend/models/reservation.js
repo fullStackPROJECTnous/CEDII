@@ -42,7 +42,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false
         },
         etatRes: {
-            type: DataTypes.ENUM('En attente', 'Confirmée', 'Annulée', 'Terminée'),
+            type: DataTypes.ENUM('En attente', 'Confirmée', 'Annulée'),
             defaultValue: 'En attente',
             allowNull: true
         },
@@ -59,11 +59,15 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: false 
     });
 
-    // Définition des associations (doit être gérée dans models/index.js)
-    Reservation.associate = (models) => {
-       // Reservation.belongsTo(models.Client, { foreignKey: 'idCli', as: 'Client' });
-        // Reservation.hasOne(models.Location, { foreignKey: 'idRes' }); // 1:1 avec Location
-    };
+   // Définition des associations
+Reservation.associate = (models) => {
+    // 🚨 CORRECTION MAJEURE : Une Réservation appartient à un Client (via idCli)
+    Reservation.belongsTo(models.Client, { 
+        foreignKey: 'idCli', 
+        as: 'client' // Utilisation de l'alias 'client' pour l'inclusion
+    });
+    // Reservation.hasOne(models.Location, { foreignKey: 'idRes' }); // 1:1 avec Location
+};
 
     return Reservation;
 };

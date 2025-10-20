@@ -15,8 +15,26 @@ module.exports = router;*/
 const express = require('express');
 const router = express.Router();
 const locationController = require('../controllers/locationController');
+
+
+ router.get('/reception/dashboard', locationController.getReceptionDashboardData); 
+
+ router.put('/reservations/:idRes/status', locationController.updateReservationStatus);
+
 router.get('/reservations/pending', locationController.getPendingReservations);
 router.get('/', locationController.getAllLocations); 
+
+router.get('/availability', locationController.checkAvailability);
+
+router.get('/events/confirmed', locationController.getConfirmedEvents);
+
+
+
+// Route pour la mise à jour du statut (si non déjà présente)
+// Route: PUT /api/locations/reservations/:idRes/status
+
+
+// ...
 
 
 // Route pour récupérer toutes les locations

@@ -65,18 +65,6 @@ module.exports = (sequelize) => {
         freezeTableName: true // Prevents Sequelize from pluralizing the table name
     });
 
-     Client.associate = function(models) { 
-        // L'association doit pointer vers le modèle correct dans l'objet 'models'
-        
-        // CORRECTION PROBABLE :
-        Client.hasMany(models.Location, { 
-            foreignKey: 'idCli', // Clé étrangère dans la table 'Location'
-            as: 'locations'       // Alias optionnel
-        });
-        
-        // Si vous avez d'autres associations, mettez-les ici
-    
-
     
          // DOIT être un modèle Sequelize valide.
     Client.belongsTo(models.User, { // Supposition : Le client est lié à un utilisateur

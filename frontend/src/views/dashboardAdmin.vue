@@ -10,13 +10,13 @@
       <ul class="nav flex-column mb-auto">
         
         <li class="nav-item mb-2">
-          <router-link :to="{ name: 'AdminDashboard' }" class="nav-link text-white active">
+          <router-link :to="{ name: 'AdminDashboard'}" class="nav-link text-white active">
             <i class="bi bi-house-door-fill me-2"></i> Accueil 
           </router-link>
         </li>
 
-        <li class="nav-item mb-2" v-if="isAdmin">
-          <router-link :to="{ name: 'UserManagement' }" class="nav-link text-white">
+        <li class="nav-item mb-2" >
+          <router-link :to="{ name: 'UserManagement' }"  v-if="isAdmin" class="nav-link text-white">
             <i class="bi bi-person-gear me-2"></i> Gestion des Utilisateurs
           </router-link>
         </li>
@@ -131,8 +131,8 @@ const isAdmin = computed(() => userRole.value === 'ADMIN'); // Ajoutez cette pro
 
 onMounted(() => {
   const user = AuthService.getCurrentUser();
-  if (user && user.role) {
-    userRole.value = user.role.toUpperCase();
+  if (user && user.roleUti) {
+    userRole.value = user.roleUti.toUpperCase();
     
     // Si ce composant est utilisé pour tous les rôles, décommentez la redirection ci-dessous.
     // Si ce fichier est UNIQUEMENT pour l'Admin, l'AdminDashboard est la bonne destination.

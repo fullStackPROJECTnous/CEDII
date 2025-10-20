@@ -231,6 +231,7 @@ exports.getRankings = async (req, res) => {
 // controllers/clientController.js
 
 const db = require('../models'); 
+//const database = require('../config/db'); 
 const Client = db.Client; 
 const Utilisateur = db.utilisateur;
 const Location = db.location; // Modèle de location
@@ -376,7 +377,7 @@ exports.deleteClient = async (req, res) => {
 };
 
 /* --- Historique des Locations (GET /:id/history) --- */
-exports.getClientHistory = async (req, res) => {
+/*exports.getClientHistory = async (req, res) => {
     const idCli = req.params.id;
 
     try {
@@ -402,9 +403,9 @@ exports.getClientHistory = async (req, res) => {
         });
     }
 };
-
+*/
 /* --- Classements (GET /rankings) --- */
-exports.getRankings = async (req, res) => {
+/*exports.getRankings = async (req, res) => {
     try {
         const rankedClients = await Client.findAll({
             attributes: [
@@ -444,4 +445,127 @@ exports.getRankings = async (req, res) => {
         });
     }
 };
+
+*/
+// Côté BACKEND : controllers/ClientController.js (Exemple de nom de fichier)
+
+// 🚨 REMPLACEZ PAR LE CHEMIN RÉEL VERS VOTRE CONNEXION DB 🚨
+
+
+// REQUÊTES SQL PRÉCÉDEMMENT FOURNIES
+const sqlTopClient = `
+   SELECT C.nomCli, C.prenomCli, SUM(P.montantPaie) AS totalRevenue
+        FROM client C 
+        JOIN reservation R ON C.idCli = R.idCli 
+        JOIN location L ON R.idRes = L.idRes 
+        JOIN paiement P ON L.idLo = P.idLo  -- 🚨 CORRECTION APPLIQUÉE ICI 🚨
+        WHERE P.statutPaie = 'Effectué' 
+        GROUP BY C.idCli, C.nomCli, C.prenomCli
+        ORDER BY totalRevenue DESC LIMIT 1;
+`;
+
+
+const sqlActiveClient = `
+    SELECT C.nomCli, C.prenomCli, COUNT(L.idLo) AS totalLocations
+        FROM client C JOIN reservation R ON C.idCli = R.idCli JOIN location L ON R.idRes = L.idRes
+        WHERE L.etatLo IN ('Confirmée', 'Terminée') 
+        GROUP BY C.idCli, C.nomCli, C.prenomCli
+        ORDER BY totalLocations DESC LIMIT 1;
+`;
+
+// ----------------------------------------------------------------------
+// GESTION DES CLASSEMENTS
+// ----------------------------------------------------------------------
+exports.getRankings = async (req, res) => {
+
+    try {
+        // 🚨 CORRECTION: Utilisation de sequelize.query pour exécuter SQL brut
+        const [topClientResult] = await sequelize.query(sqlTopClient, { 
+            type: sequelize.QueryTypes.SELECT 
+        }); 
+        
+        const [activeClientResult] = await sequelize.query(sqlActiveClient, { 
+            type: sequelize.QueryTypes.SELECT 
+        }); 
+
+        res.status(200).send({
+            topClient: topClientResult[0] || {}, 
+            activeClient: activeClientResult[0] || {}
+        });
+    } catch (error) {
+        console.error("Erreur SQL lors de getRankings:", error);
+        res.status(500).send({ message: "Erreur serveur lors du classement.", details: error.message });
+    }
+    /*try {
+        // La méthode database.query doit être disponible sur votre objet de connexion
+        const topClientResult = await db.query(sqlTopClient); 
+        const activeClientResult = await db.query(sqlActiveClient); 
+
+        res.status(200).send({
+            topClient: topClientResult[0] ? topClientResult[0] : {}, 
+            activeClient: activeClientResult[0] ? activeClientResult[0] : {}
+        });
+    } catch (error) {
+        console.error("Erreur SQL lors de getRankings:", error);
+        res.status(500).send({ message: "Erreur serveur lors du classement.", details: error.message });
+    }*/
+};
+
+
+// ----------------------------------------------------------------------
+// GESTION DE L'HISTORIQUE CLIENT
+// ----------------------------------------------------------------------
+exports.getClientHistory = async (req, res) => {
+    const idCli = req.params.idCli || req.params.id;    
+
+    const sqlLocations = `
+        SELECT L.idLo, L.dateCre, L.debLo AS dateDebut, L.finLo AS dateFin, L.tarifTot AS montant, L.typeLo
+        FROM location L JOIN reservation R ON L.idRes = R.idRes
+        WHERE R.idCli = ? 
+        AND L.etatLo = 'Terminée'
+        ORDER BY L.dateCre DESC;
+        `;
+    
+    const sqlReservations = `
+        SELECT R.idRes AS idResa, R.dateCre AS dateResa, R.debRes AS dateDebut, R.finRes AS dateFin, R.typeRes AS type, R.etatRes AS statut
+        FROM reservation R
+        WHERE R.idCli = ? 
+        AND R.etatRes IN ('En attente', 'Confirmée')
+        ORDER BY R.debRes ASC;
+    `;
+
+
+      try {
+    const [locations] = await sequelize.query(sqlLocations, { 
+        type: sequelize.QueryTypes.SELECT,
+        replacements: [idCli] // N'oubliez pas le remplacement du ? !
+    }); 
+    
+    const [reservations] = await sequelize.query(sqlReservations, { 
+        type: sequelize.QueryTypes.SELECT,
+        replacements: [idCli] // N'oubliez pas le remplacement du ? !
+    }); 
+
+    // 🚨 CORRECTION : Envoyer les tableaux de résultats avec les bonnes clés
+    res.status(200).send({
+        locations: locations || [],       // Envoyer le tableau des locations
+        reservations: reservations || []  // Envoyer le tableau des réservations
+    });
+    } catch (error) {
+        console.error("Erreur SQL lors de getRankings:", error);
+        res.status(500).send({ message: "Erreur serveur lors du classement.", details: error.message });
+    }
+};
+
+  /*  try {
+        const [locations] = await db.query(sqlLocations, [idCli]); 
+        const [reservations] = await db.query(sqlReservations, [idCli]); 
+
+        res.status(200).send({ locations, reservations });
+    } catch (error) {
+        console.error("Erreur SQL lors de getClientHistory:", error);
+        res.status(500).send({ message: "Erreur serveur lors de la récupération de l'historique.", details: error.message });
+    }*/
+
+
 

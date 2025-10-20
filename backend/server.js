@@ -43,6 +43,7 @@ app.use('/api/patrimoine', patrimoineRoutes);
 
 const locationRoutes = require('./routes/locationRoutes');
 app.use('/api/locations', locationRoutes);
+app.use('/api/reception', locationRoutes);
 
 const rapportRoutes = require('./routes/rapportRoutes');
 app.use('/api/rapports', rapportRoutes);
@@ -53,6 +54,13 @@ const routesUsers = require('./routes/routeUsers');
 
 app.use('/api', routesUsers); 
 // ... autres app.use
+
+const financeRoute = require('./routes/financeRoute');
+
+// Définition de la route de base pour la finance
+app.use('/api/finance', financeRoute);
+
+
 
 
 

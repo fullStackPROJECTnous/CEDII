@@ -44,7 +44,7 @@ const API_BASE_URL = 'http://localhost:5000/api/auth';
 
 export function getCurrentUserRole() {
     const user = JSON.parse(localStorage.getItem('user'));
-    return user ? user.role : null;
+    return user ? user.roleUli : null;
 }
 
 

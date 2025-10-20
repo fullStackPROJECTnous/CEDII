@@ -119,6 +119,111 @@ const ClientService = {
         return axios.delete(`${API_BASE_URL}/${idCli}`, { headers: authHeader() });
     },
 
+
+  /*  async getRankingMetrics() {
+    // Requête 1: Client le plus rentable (Top Revenue)
+    const sqlTopClient = `
+        SELECT C.nomCli, C.prenomCli, SUM(P.montantPaie) AS totalRevenue
+        FROM client C
+        JOIN reservation R ON C.idCli = R.idCli
+        JOIN location L ON R.idRes = L.idRes
+        JOIN paiement P ON L.idLo = P.idPaie 
+        WHERE P.statutPaie = 'Effectué'
+        AND L.dateCre >= DATE_FORMAT(NOW(), '%Y-%m-01')
+        GROUP BY C.idCli, C.nomCli, C.prenomCli
+        ORDER BY totalRevenue DESC LIMIT 1;
+    `;
+    
+    // Requête 2: Client le plus actif (Top Locations)
+    const sqlActiveClient = `
+        SELECT C.nomCli, C.prenomCli, COUNT(L.idLo) AS totalLocations
+        FROM client C
+        JOIN reservation R ON C.idCli = R.idCli
+        JOIN location L ON R.idRes = L.idRes
+        WHERE L.etatLo IN ('Confirmée', 'Terminée') 
+        GROUP BY C.idCli, C.nomCli, C.prenomCli
+        ORDER BY totalLocations DESC LIMIT 1;
+    `;
+
+    try {
+        const topClientResult = await database.query(sqlTopClient);
+        const activeClientResult = await database.query(sqlActiveClient);
+
+        return {
+            topClient: topClientResult[0] || {}, // Retourne le premier résultat
+            activeClient: activeClientResult[0] || {} // Retourne le premier résultat
+        };
+    } catch (error) {
+        throw new Error('Erreur lors de la récupération des métriques de classement: ' + error.message);
+    }
+},
+
+// Suite de ClientService.js (Côté Backend / API logic)
+
+    async getClientHistory(idCli) {
+    // Requête 3: Historique Locations Passées
+    const sqlLocations = `
+        SELECT L.idLo, L.dateCre, L.debLo AS dateDebut, L.finLo AS dateFin, L.tarifTot AS montant, L.typeLo
+        FROM location L
+        JOIN reservation R ON L.idRes = R.idRes
+        WHERE R.idCli = ? -- Utilisation d'un paramètre
+        AND L.etatLo = 'Terminée'
+        ORDER BY L.dateCre DESC;
+    `;
+    
+    // Requête 4: Réservations Actuelles/Futures
+    const sqlReservations = `
+        SELECT R.idRes AS idResa, R.dateCre AS dateResa, R.debRes AS dateDebut, R.finRes AS dateFin, R.typeRes AS type, R.etatRes AS statut
+        FROM reservation R
+        WHERE R.idCli = ? -- Utilisation d'un paramètre
+        AND R.etatRes IN ('En attente', 'Confirmée')
+        ORDER BY R.debRes ASC;
+    `;
+
+    try {
+        const locations = await database.query(sqlLocations, [idCli]);
+        const reservations = await database.query(sqlReservations, [idCli]);
+
+        return {
+            locations,
+            reservations
+        };
+    } catch (error) {
+        throw new Error('Erreur lors de la récupération de l’historique client: ' + error.message);
+    }
+},*/
+
+// export des méthodes (mis à jour)
+
+// NOUVEAU: Appel à l'endpoint de classement
+    async getRankingMetrics() {
+        // L'API backend doit maintenant exposer une route 'GET /api/clients/rankings'
+        return axios.get(`${API_BASE_URL}/rankings`, { 
+            headers: authHeader() 
+        }).then(response => response.data)
+        .catch(error => {
+            console.error("Erreur lors de l'appel /rankings:", error.response?.data || error);
+            throw new Error('Échec de la récupération des métriques de classement via API.');
+        });
+    },
+
+    // NOUVEAU: Appel à l'endpoint d'historique
+    async getClientHistory(idCli) {
+        // L'API backend doit maintenant exposer une route 'GET /api/clients/:idCli/history'
+        return axios.get(`${API_BASE_URL}/${idCli}/history`, { 
+            headers: authHeader() 
+        }).then(response => response.data)
+        .catch(error => {
+            console.error(`Erreur lors de l'appel /${idCli}/history:`, error.response?.data || error);
+            throw new Error('Échec de la récupération de l’historique client via API.');
+        });
+    }
+
+};
+
+
+
+
     /* ====================================== */
     /*         NOUVELLES MÉTHODES DE SERVICE     */
     /* ====================================== */
@@ -142,6 +247,6 @@ const ClientService = {
             headers: authHeader() 
         }).then(response => response.data);
     }*/
-};
+
 
 export default ClientService;

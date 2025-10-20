@@ -703,15 +703,19 @@ const error = ref('');
 
 async function handleLogin() {
     error.value = '';
+   
     try {
         // 1. Réponse du service d'authentification (doit contenir le rôle)
         const userData = await AuthService.login(credentials.value.loginUti, credentials.value.motDePasseUti);
         
         // 2. Vérification de la réussite (présence de token et/ou rôle)
-        if (!userData || !userData.role) {
+        if (!userData || !userData.roleUti) {
              // Si la connexion réussit mais la réponse est mal formée, forcer l'erreur
              throw new Error("Réponse de connexion invalide du serveur.");
         }
+           // CORRECTION MAJEURE: Extrait la propriété 'role' de l'objet 'userData'
+        const role = userData.roleUti.toLowerCase(); // Assurez-vous que le rôle est en minuscules
+
 
       
         switch (role) {

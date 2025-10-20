@@ -29,7 +29,7 @@ module.exports = (sequelize, DataTypes) => {
     allowNull: false
      },
     etatLo: {
-    type: DataTypes.ENUM('En attente', 'Confirmée', 'Annulée', 'Terminée'),
+    type: DataTypes.ENUM('En attente', 'Confirmée', 'Annulée'),
     defaultValue: 'En attente' 
 },
       
@@ -52,7 +52,17 @@ module.exports = (sequelize, DataTypes) => {
             as: 'client' // L'alias pour la relation inverse (non utilisée ici mais bonne pratique)
         });
     };
+
+    Location.associate = (models) => {
+        // 🚨 CORRECTION DE L'ERREUR : Définir l'association manquante
+        // Une Location appartient à une Réservation (via idRes)
+        Location.belongsTo(models.Reservation, { // Assurez-vous que le modèle s'appelle 'Reservation'
+            foreignKey: 'idRes', 
+            as: 'reservation' // Alias utilisé pour les requêtes d'inclusion (include)
+        });
     // 🚨 N'oubliez pas les associations ici si nécessaire (ex: Location.belongsTo(db.client))
     
+ 
+
     return Location;
-};
+}};
