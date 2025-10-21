@@ -10,6 +10,9 @@
 
 <template>
   <div class="container-fluid py-4">
+    <button @click="logout" class="btn btn-sm btn-outline-primary mt-3" >
+          <i class="bi bi-box-arrow-right"></i> Retour à l'acceuil
+        </button>
     <div class="row">
       <div class="col-12">
         <h1 class="h3 mb-4 text-dark">Facturation & Génération Automatique</h1>
@@ -153,6 +156,10 @@ const fetchFacturationData = async () => {
     }
 };
 
+const logout = () => {
+    AuthService.logout();
+    router.push('/dashboardReception');
+};
 // --- Fonctions d'Action ---
 
 /**

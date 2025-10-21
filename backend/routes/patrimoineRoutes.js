@@ -12,6 +12,18 @@ const materielController = require('../controllers/materielController');
 
 // Routes pour le Matériel
 router.get('/', materielController.getAllMateriel);
+
+// Routes CRUD de base
+
+router.post('/', materielController.createMateriel);
+//router.get('/:codeMat', materielController.getMateriel);
+router.put('/:codeMat', materielController.updateMateriel);
+router.delete('/:codeMat', materielController.deleteMateriel);
+
+// Nouvelles routes pour les fonctionnalités avancées
+router.get('/:codeMat/historique', materielController.getHistoriqueEmprunt);
+router.put('/:codeMat/etat', materielController.updateEtatMateriel);
+
 //router.post('/materiel', materielController.createMateriel);
 //router.delete('/materiel/:id', materielController.deleteMateriel);
 // router.put('/materiel/:id', patrimoineCtrl.updateMateriel); // Ajoutez la mise à jour si besoin

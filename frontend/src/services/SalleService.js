@@ -1,72 +1,4 @@
-// frontend/src/services/SalleService.js
-
-/*import axios from 'axios';
-
-// L'URL de base pour l'API des salles sur votre backend Express
-// J'ai utilisé le port 5000 comme indiqué dans votre fichier server.js
-const API_BASE_URL = 'http://localhost:5000/api/salle'; 
-
-const SalleService = {
-    
-    // 1. CREATE (POST)
-    async create(salleData) {
-        try {
-            // salleData doit contenir les champs
-            const response = await axios.post(API_BASE_URL, salleData);
-            return response.data; // Le salle nouvellement créé
-        } catch (error) {
-            console.error("Error creating salle:", error);
-            throw error;
-        }
-    },
-    
-    // 2. READ ALL (GET)
-    async getAll() {
-        try {
-            const response = await axios.get(API_BASE_URL);
-            return response.data; // La liste des salles
-        } catch (error) {
-            console.error("Error fetching salles:", error);
-            throw error;
-        }
-    },
-
-    // 3. READ ONE (GET by ID)
-    async getById(idSalle) {
-        try {
-            const response = await axios.get(`${API_BASE_URL}/${idSalle}`);
-            return response.data; // Le salle spécifique
-        } catch (error) {
-            console.error(`Error fetching salle with id ${idSalle}:`, error);
-            throw error;
-        }
-    },
-    
-    // 4. UPDATE (PUT)
-    async update(idSalle, salleData) {
-        try {
-            // salleData contient les données mises à jour
-            const response = await axios.put(`${API_BASE_URL}/${idSalle}`, salleData);
-            return response.data; // Le message de succès du backend
-        } catch (error) {
-            console.error(`Error updating salle with id ${idSalle}:`, error);
-            throw error;
-        }
-    },
-    
-    // 5. DELETE (DELETE)
-    async delete(idSalle) {
-        try {
-            const response = await axios.delete(`${API_BASE_URL}/${idSalle}`);
-            return response.data; // Le message de succès du backend
-        } catch (error) {
-            console.error(`Error deleting salle with id ${idSalle}:`, error);
-            throw error;
-        }
-    }
-};
-
-export default SalleService;*/
+/*
 
 import axios from 'axios';
 
@@ -93,6 +25,60 @@ class SalleService {
     // Supprimer une salle (DELETE /api/salle/:idSalle)
     deleteSalle(idSalle) {
         return axios.delete(`${API_URL}/${idSalle}`);
+    }
+}
+
+export default new SalleService();*/
+
+import axios from 'axios';
+
+const API_URL = 'http://localhost:5000/api/salle';
+
+class SalleService {
+    // CRUD de base
+    getAllSalles(filters = {}) {
+        const params = new URLSearchParams();
+        Object.keys(filters).forEach(key => {
+            if (filters[key] && filters[key] !== 'tous') {
+                params.append(key, filters[key]);
+            }
+        });
+        
+        const url = params.toString() ? `${API_URL}?${params.toString()}` : API_URL;
+        console.log('🔍 Appel API Salles:', url);
+        return axios.get(url);
+    }
+
+    getSalle(idSalle) {
+        return axios.get(`${API_URL}/${idSalle}`);
+    }
+
+    createSalle(salle) {
+        return axios.post(API_URL, salle);
+    }
+
+    updateSalle(idSalle, salle) {
+        return axios.put(`${API_URL}/${idSalle}`, salle);
+    }
+
+    deleteSalle(idSalle) {
+        return axios.delete(`${API_URL}/${idSalle}`);
+    }
+
+    // Fonctionnalités avancées
+    getReservationsSalle(idSalle) {
+        return axios.get(`${API_URL}/${idSalle}/reservations`);
+    }
+
+    checkDisponibilite(idSalle, dateDebut, dateFin) {
+        return axios.post(`${API_URL}/${idSalle}/check-disponibilite`, {
+            dateDebut,
+            dateFin
+        });
+    }
+
+    getCalendrierSalle(idSalle, mois, annee) {
+        return axios.get(`${API_URL}/${idSalle}/calendrier?mois=${mois}&annee=${annee}`);
     }
 }
 
