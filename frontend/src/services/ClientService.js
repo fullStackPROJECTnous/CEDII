@@ -196,7 +196,7 @@ const ClientService = {
 // export des méthodes (mis à jour)
 
 // NOUVEAU: Appel à l'endpoint de classement
-    async getRankingMetrics() {
+    /*async getRankingMetrics() {
         // L'API backend doit maintenant exposer une route 'GET /api/clients/rankings'
         return axios.get(`${API_BASE_URL}/rankings`, { 
             headers: authHeader() 
@@ -206,20 +206,51 @@ const ClientService = {
             throw new Error('Échec de la récupération des métriques de classement via API.');
         });
     },
+*/
 
+
+// Dans ClientService.js - getRankingMetrics
+async getRankingMetrics() {
+    console.log('📡 Appel API vers /rankings...');
+    
+    return axios.get(`${API_BASE_URL}/rankings`, { 
+        headers: authHeader() 
+    })
+    .then(response => {
+        console.log('✅ Réponse API /rankings:', response.data);
+        return response.data;
+    })
+    .catch(error => {
+        console.error('❌ Erreur API /rankings:', {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+        });
+        throw new Error('Échec de la récupération des métriques de classement via API.');
+    });
+},
     // NOUVEAU: Appel à l'endpoint d'historique
-    async getClientHistory(idCli) {
-        // L'API backend doit maintenant exposer une route 'GET /api/clients/:idCli/history'
-        return axios.get(`${API_BASE_URL}/${idCli}/history`, { 
-            headers: authHeader() 
-        }).then(response => response.data)
-        .catch(error => {
-            console.error(`Erreur lors de l'appel /${idCli}/history:`, error.response?.data || error);
-            throw new Error('Échec de la récupération de l’historique client via API.');
-        });
-    }
-
-};
+   
+// CORRECTION dans ClientService.js - getClientHistory
+async getClientHistory(idCli) {
+    console.log('📡 Appel API historique pour client:', idCli);
+    
+    return axios.get(`${API_BASE_URL}/${idCli}/history`, { 
+        headers: authHeader() 
+    })
+    .then(response => {
+        console.log('✅ Réponse API historique:', response.data);
+        return response.data;
+    })
+    .catch(error => {
+        console.error('❌ Erreur API historique:', {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+        });
+        throw new Error('Échec de la récupération de l\'historique client.');
+    });
+}
 
 
 
@@ -248,5 +279,5 @@ const ClientService = {
         }).then(response => response.data);
     }*/
 
-
+};
 export default ClientService;

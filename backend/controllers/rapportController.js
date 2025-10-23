@@ -135,6 +135,8 @@ exports.getTopRentedMateriel = async (req, res) => {
 
 const db = require('../models'); 
 const { Op } = require('sequelize'); 
+const sequelize = require('../config/db'); // 👈 Doit pointer vers l'instance de Sequelize exportée
+const { QueryTypes } = require('sequelize'); 
 
 // Référencez les modèles locaux (adaptez les noms de propriétés si nécessaire)
 const Client = db.client || db.Client;
@@ -142,7 +144,7 @@ const Reservation = db.reservation || db.Reservation;
 const Location = db.location || db.Location;
 const Salle = db.salle || db.Salle;
 const Materiel = db.materiel || db.Materiel;
-const sequelize = db.sequelize; // Instance Sequelize pour les fonctions d'agrégation
+//const sequelize = db.sequelize; // Instance Sequelize pour les fonctions d'agrégation
 
 
 // Fonction utilitaire pour obtenir la date de début du mois
@@ -226,32 +228,74 @@ exports.getReservationsReport = async (req, res) => {
 
 // --- 3. Rapport sur le Matériel le plus loué (Top 5) ---
 // 💡 CE BLOC EST MAINTENANT AU NIVEAU RACINE DU MODULE
+// 🚨 CORRECTION POUR /api/rapports/top-materiel
+// backend/controllers/rapportController.js
+
 exports.getTopRentedMateriel = async (req, res) => {
     try {
-        // NOTE: Cette requête nécessite l'association Location.belongsTo(Materiel)
-        const topMateriel = await Location.findAll({
-            attributes: [
-                'codeMat',
-                [sequelize.fn('SUM', sequelize.col('qteMat')), 'totalQteLouee']
-            ],
-            where: {
-                typeLo: { [Op.in]: ['Materiel', 'Mixte'] }
-            },
-            include: [{
-                model: Materiel,
-                as: 'Materiel', // L'alias doit être défini dans Location.js
-                attributes: ['designationMat']
-            }],
-            group: ['codeMat', 'Materiel.designationMat'],
-            order: [[sequelize.literal('totalQteLouee'), 'DESC']],
-            limit: 5
+        console.log('Tentative de récupération du top matériel loué...');
+        
+        const sqlQuery = `
+            SELECT 
+                m.codeMat, 
+                m.nomMat, 
+                COUNT(r.codeMat) AS totalLocations 
+            FROM reservation r
+            JOIN materiel m ON r.codeMat = m.codeMat 
+            WHERE r.etatRes = 'Confirmée'
+            AND r.typeRes = 'Materiel'
+            -- Optionnel : s'assurer que le matériel est en état louable
+            AND m.etatMat IN ('Neuf', 'Bon état')
+            GROUP BY m.codeMat, m.nomMat
+            ORDER BY totalLocations DESC
+            LIMIT 5;
+        `;
+        
+        // 🚨 EXECUTION CRITIQUE: Utilisation de sequelize.query
+        const [topMateriel] = await sequelize.query(sqlQuery, {
+            type: QueryTypes.SELECT, 
+            raw: true 
         });
-
-        res.status(200).send(topMateriel);
+        
+        console.log(`Top ${topMateriel.length} matériels trouvés.`);
+        res.json(topMateriel);
+        
     } catch (error) {
-        console.error("Erreur lors de la récupération du top matériel:", error);
-        res.status(500).send({ message: "Erreur lors de la récupération du top matériel.", error: error.message });
+        console.error('Erreur FATALE lors du chargement du top matériel:', error.message);
+        // Renvoyer le message d'erreur détaillé au frontend pour le diagnostic
+        res.status(500).json({ 
+            error: 'Erreur serveur lors du chargement des rapports de matériel',
+            detail: error.message // 👈 Ceci nous donnera la cause exacte
+        });
     }
 };
 
+// backend/controllers/rapportController.js
 
+exports.getRevenueByClientType = async (req, res) => {
+    try {
+        const sqlQuery = `
+            SELECT 
+                c.typeCli, 
+                COALESCE(SUM(p.montantPaie), 0) AS totalRevenu 
+            FROM client c
+            JOIN reservation r ON c.idCli = r.idCli  /* Jointure Client -> Réservation */
+            JOIN location l ON r.idRes = l.idRes      /* Jointure Réservation -> Location */
+            JOIN paiement p ON l.idLo = p.idLo        /* Jointure Location -> Paiement */
+            WHERE p.statutPaie = 'Effectué'
+            GROUP BY c.typeCli
+            ORDER BY totalRevenu DESC;
+        `;
+        
+        // ... (utilisation de sequelize.query)
+        
+    } catch (error) {
+        // 🚨 SI CETTE ERREUR APPARAÎT DANS VOTRE CONSOLE NODE.JS, 
+        // C'EST LA VRAIE CAUSE DU 500
+        console.error('Erreur SQL ou Sequelize:', error.message);
+        res.status(500).json({ 
+            error: 'Erreur serveur lors du chargement du revenu par client',
+            detail: error.message 
+        });
+    }
+};

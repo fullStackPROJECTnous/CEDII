@@ -41,13 +41,8 @@ app.use('/api/salle', salleRoutes);
 const patrimoineRoutes = require('./routes/patrimoineRoutes');
 app.use('/api/patrimoine', patrimoineRoutes); 
 
-const locationRoutes = require('./routes/locationRoutes');
-app.use('/api/locations', locationRoutes);
-app.use('/api/reception', locationRoutes);
 
-const rapportRoutes = require('./routes/rapportRoutes');
-app.use('/api/rapports', rapportRoutes);
-
+//app.use('/api/reception', locationRoutes);
 
 const routesUsers = require('./routes/routeUsers');
 // ... autres imports de routes
@@ -60,7 +55,12 @@ const financeRoute = require('./routes/financeRoute');
 // Définition de la route de base pour la finance
 app.use('/api/finance', financeRoute);
 
+const rapportRoutes = require('./routes/rapportRoutes'); // 👈 CORRECTION
+const locationRoutes = require('./routes/locationRoutes');
 
+// Utilisation des routes - CORRECTION : pas de préfixe en double
+app.use('/api/rapports', rapportRoutes);
+app.use('/api/locations', locationRoutes);
 
 
 

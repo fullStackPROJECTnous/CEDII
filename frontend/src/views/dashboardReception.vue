@@ -264,6 +264,12 @@ onMounted(() => {
           </router-link>
         </li>
 
+          <li class="nav-item mb-2">
+          <router-link :to="{ name: 'Bureau' }" class="nav-link text-white">
+            <i class="bi bi-tools me-2"></i> Matériel de Bureau
+          </router-link>
+        </li>
+
         <li class="nav-item mb-2">
           <router-link :to="{ name: 'ClientManagement' }" class="nav-link text-white">
             <i class="bi bi-people-fill me-2"></i> Fiches Clients

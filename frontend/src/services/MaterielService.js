@@ -58,9 +58,8 @@ class MaterielService {
         return axios.post(API_URL, materiel);
     }
 
-    updateMateriel(codeMat, materiel) {
-        return axios.put(`${API_URL}/${codeMat}`, materiel);
-    }
+   
+
 
     deleteMateriel(codeMat) {
         return axios.delete(`${API_URL}/${codeMat}`);
@@ -71,8 +70,8 @@ class MaterielService {
         return axios.get(`${API_URL}/${codeMat}/historique`);
     }
 
-    updateEtatMateriel(codeMat, data) {
-        return axios.put(`${API_URL}/${codeMat}/etat`, data);
+    updateMateriel(codeMat, data) {
+        return axios.put(`${API_URL}/${codeMat}`, data);
     }
 }
 

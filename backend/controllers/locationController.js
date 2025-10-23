@@ -205,45 +205,50 @@ exports.getPendingReservations = async (req, res) => {
 */
 
 // Fonction corrigée pour récupérer les Réservations en attente (et non les Locations)
+// backend/controllers/locationController.js (VERSION CORRIGÉE)
+
+// Assurez-vous d'importer l'instance de Sequelize
+//const sequelize = require('../config/db'); 
+const { QueryTypes } = require('sequelize');
+//const db = require('../models'); 
+// Nécessaire pour typer la requête
+
+
+
 exports.getPendingReservations = async (req, res) => {
     try {
-        // 🚨 CORRECTION : Utiliser le modèle Reservation
-        const pendingReservations = await Reservation.findAll({ 
-            // Filtrer sur la table Reservation
-            where: { etatRes: 'En attente' }, 
-            order: [['dateCre', 'DESC']],
-            
-            // 🚨 Inclure les données du Client pour le nom
-            include: [{
-                model: Client,
-                as: 'client', // Utiliser l'alias défini dans models/reservation.js
-                attributes: ['nomCli', 'prenomCli'] 
-            }],
-
-            // Ne lister que les attributs pertinents de la Réservation
-             attributes: [
-                 'idRes', 
-                 'debRes', 
-                 'finRes', 
-                 'typeRes', 
-                 'etatRes', 
-                 'dateCre' 
-             ], 
+        console.log('Tentative de chargement des réservations en attente...');
+        
+        // Requête SQL pour récupérer les réservations 'En attente' et 'Confirmée' avec le nom du client
+        const sqlQuery = `
+            SELECT 
+                r.*, 
+                c.nomCli, 
+                c.prenomCli 
+            FROM reservation r 
+            LEFT JOIN client c ON r.idCli = c.idCli 
+            WHERE r.etatRes IN ('En attente', 'Confirmée') 
+            ORDER BY r.debRes ASC;
+        `;
+        
+        // 🚨 Utilisation de sequelize.query, qui est la méthode correcte
+        const [reservations] = await sequelize.query(sqlQuery, {
+            type: QueryTypes.SELECT, // Pour retourner un tableau d'objets JSON
+            raw: true 
         });
-
-        // Envoyer la liste complète
-        res.status(200).json(pendingReservations);
+        
+        console.log(`Réservations trouvées: ${reservations.length}`);
+        res.json(reservations);
         
     } catch (error) {
-        console.error("Erreur lors de la récupération des demandes en attente:", error);
-        res.status(500).send({ 
-            message: "Erreur serveur lors de la récupération des demandes en attente.", 
-            error: error.message 
+        // 🚨 Renvoyer l'erreur exacte pour le diagnostic
+        console.error('Erreur FATALE chargement réservations (500):', error.message);
+        res.status(500).json({ 
+            error: 'Erreur serveur lors du chargement des réservations', 
+            detail: error.message 
         });
     }
 };
-
-
 // Récupère les 5 dernières réservations en attente avec le nom du demandeur (Utilisateur)
 const sqlLatestPendingRequests = `
     SELECT 

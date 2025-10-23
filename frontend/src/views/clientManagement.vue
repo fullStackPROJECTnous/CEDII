@@ -173,7 +173,7 @@
           </li>
         </ul>
 
-      <div v-if="historyTab === 'locations'">
+    <!--  <div v-if="historyTab === 'locations'">
         <h6>Locations Passées</h6>
        <table class="table table-sm table-striped">
           <thead>
@@ -220,6 +220,67 @@
       </tr>
     </tbody>
   </table>
+</div>-->
+
+    <!-- CORRECTION dans le template - section historique -->
+<div v-if="historyTab === 'locations'">
+    <h6>Locations Passées</h6>
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>ID Loc</th>
+                <th>Date Début</th>
+                <th>Date Fin</th>
+                <th>Type</th>
+                <th>Montant</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr v-for="loc in historyClient.locations" :key="loc.idLo">
+                <td>#{{ loc.idLo }}</td>
+                <td>{{ formatDate(loc.dateDebut) }}</td>
+                <td>{{ formatDate(loc.dateFin) }}</td>
+                <td>{{ loc.typeLo }}</td>
+                <td class="fw-bold">{{ formatCurrency(loc.montant) }}</td>
+            </tr>
+            <tr v-if="historyClient.locations.length === 0">
+                <td colspan="5" class="text-center text-muted">Aucune location terminée.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div v-if="historyTab === 'reservations'">
+    <h6>Réservations en Cours/Futures</h6>
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>ID Résa</th>
+                <th>Date Résa</th>
+                <th>Date Début</th>
+                <th>Date Fin</th>
+                <th>Type</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr v-for="resa in historyClient.reservations" :key="resa.idResa">
+                <td>#{{ resa.idResa }}</td>
+                <td>{{ formatDate(resa.dateResa) }}</td>
+                <td>{{ formatDate(resa.dateDebut) }}</td>
+                <td>{{ formatDate(resa.dateFin) }}</td>
+                <td>{{ resa.type }}</td>
+                <td>
+                    <span :class="getStatusBadgeClass(resa.statut)">
+                        {{ resa.statut }}
+                    </span>
+                </td>
+            </tr>
+            <tr v-if="historyClient.reservations.length === 0">
+                <td colspan="6" class="text-center text-muted">Aucune réservation en cours.</td>
+            </tr>
+        </tbody>
+    </table>
 </div>
 
           <div v-if="historyTab === 'activite'">
@@ -369,34 +430,6 @@ const openModal = (mode, clientData = null) => {
     isModalOpen.value = true;
 };
 
-// NOUVEAU: Ouverture de la modale Historique/Suivi
-/*const openHistoryModal = async (client) => {
-    isModalOpen.value = false; // Fermer la modale principale si ouverte
-    // 🚨 IDÉALEMENT, ces données seraient chargées dynamiquement via l'API (ex: client.idCli)
-    // const locations = await LocationService.getHistory(client.idCli);
-    // const reservations = await ReservationService.getCurrent(client.idCli);
-    
-    // Simulation des données de suivi et d'historique
-    historyClient.value = {
-        ...client,
-        locations: [ 
-            { idLoc: 501, dateDebut: '2025-09-01', dateFin: '2025-09-10', vehicule: 'Toyota Hilux #1', montant: 1500 },
-            { idLoc: 450, dateDebut: '2025-07-20', dateFin: '2025-07-25', vehicule: 'Bus Coaster #3', montant: 3000 },
-        ],
-        reservations: [
-            { idResa: 902, dateResa: '2025-10-10', dateDebut: '2025-11-01', vehicule: 'Berline V6 #2', statut: 'Confirmée' },
-        ],
-        activityLogs: [
-            { date: '2025-10-15 14:30', description: 'Connexion réussie.' },
-            { date: '2025-09-15 10:00', description: 'Facture #F-102 payée automatiquement.' },
-        ]
-    };
-    historyTab.value = 'locations';
-    isHistoryModalOpen.value = true;
-};
-
-// --- Utilitaires ---
-*/
 const getStatusBadgeClass = (statut) => {
     switch (statut.toLowerCase()) {
         case 'actif': return 'badge bg-success';
@@ -432,36 +465,54 @@ const topClient = ref({ name: 'N/A', revenue: 0 }); // Remplacer le computed sim
 const activeClient = ref({ name: 'N/A', count: 0 }); // Remplacer le computed simulé
 
 // Nouvelle fonction pour charger les métriques
+
+// CORRECTION dans clientManagement.vue - fetchMetrics
 const fetchMetrics = async () => {
     try {
-        // 🚨 APPEL AU SERVICE BACKEND
-        const metricsData = await ClientService.getRankingMetrics();
+        console.log('🔄 Chargement des métriques de classement...');
         
-       // Mise à jour des refs avec les données réelles du backend
-      const top = metricsData.topClient || {};
+        const metricsData = await ClientService.getRankingMetrics();
+        console.log('📊 Données reçues:', metricsData);
+
+        // 🚨 CORRECTION: Accès direct aux propriétés
+        const top = metricsData.topClient || {};
         const active = metricsData.activeClient || {};
 
+        console.log('Top client:', top);
+        console.log('Active client:', active);
+
+        // Mise à jour avec gestion des données nulles
         topClient.value = {
-            // Si top.nomCli est undefined, utilisez 'N/A'
-            name: `${top.nomCli || 'N/A'} ${top.prenomCli || ''}`,
-            revenue: top.totalRevenue || 0
+            name: top.nomCli && top.prenomCli 
+                ? `${top.nomCli} ${top.prenomCli}`.trim()
+                : (top.nomCli || 'Aucun client'),
+            revenue: parseFloat(top.totalRevenue) || 0
         };
+
         activeClient.value = {
-            name: `${active.nomCli || 'N/A'} ${active.prenomCli || ''}`,
-            count: active.totalLocations || 0
+            name: active.nomCli && active.prenomCli 
+                ? `${active.nomCli} ${active.prenomCli}`.trim()
+                : (active.nomCli || 'Aucun client'),
+            count: parseInt(active.totalLocations) || 0
         };
 
-        // clientManagement.vue (dans la fonction fetchMetrics)
+        console.log('✅ Métriques mises à jour:', {
+            topClient: topClient.value,
+            activeClient: activeClient.value
+        });
 
-// ...
-
-
-// ...
-   } catch (error) {
-        console.error("Erreur de chargement des métriques:", error);
-        // En cas d'erreur complète, réinitialiser à N/A pour éviter les bugs d'affichage
-        topClient.value = { name: 'N/A', revenue: 0 };
-        activeClient.value = { name: 'N/A', count: 0 };
+    } catch (error) {
+        console.error("❌ Erreur de chargement des métriques:", error);
+        
+        // Réinitialisation en cas d'erreur
+        topClient.value = { 
+            name: 'Erreur de chargement', 
+            revenue: 0 
+        };
+        activeClient.value = { 
+            name: 'Erreur de chargement', 
+            count: 0 
+        };
     }
 };
 
@@ -472,31 +523,67 @@ const fetchMetrics = async () => {
 // Mise à jour de la fonction d'ouverture de l'historique
 // clientManagement.vue (Mise à jour de openHistoryModal)
 
+// CORRECTION dans clientManagement.vue - openHistoryModal
 const openHistoryModal = async (client) => {
     isModalOpen.value = false; 
     
     try {
-        const historyData = await ClientService.getClientHistory(client.idCli); 
+        console.log('🔄 Chargement historique pour client:', client.idCli);
+        
+        const historyData = await ClientService.getClientHistory(client.idCli);
+        console.log('📊 Données historiques reçues:', historyData);
 
+        // 🚨 CORRECTION: Vérification et mapping correct des données
         historyClient.value = {
             ...client,
-            locations: historyData.locations || [], 
-            reservations: historyData.reservations || [], 
-            
-            // Simulation des logs d'activité
+            locations: Array.isArray(historyData.locations) 
+                ? historyData.locations.map(loc => ({
+                    idLo: loc.idLo,
+                    dateDebut: loc.dateDebut,
+                    dateFin: loc.dateFin,
+                    typeLo: loc.typeLo,
+                    montant: loc.montant
+                }))
+                : [],
+            reservations: Array.isArray(historyData.reservations) 
+                ? historyData.reservations.map(res => ({
+                    idResa: res.idResa,
+                    dateResa: res.dateResa,
+                    dateDebut: res.dateDebut,
+                    dateFin: res.dateFin,
+                    type: res.type,
+                    statut: res.statut
+                }))
+                : [],
+            // Logs simulés (vous pouvez les récupérer via une autre API si nécessaire)
             activityLogs: [
-                 { date: '2025-10-15 14:30', description: 'Connexion réussie.' },
-                 { date: '2025-09-15 10:00', description: 'Facture #F-102 payée automatiquement.' },
-            ] 
+                { date: '2025-10-15 14:30', description: 'Connexion réussie.' },
+                { date: '2025-09-15 10:00', description: 'Facture payée automatiquement.' },
+            ]
         };
+
+        console.log('✅ Historique préparé:', historyClient.value);
         historyTab.value = 'locations';
         isHistoryModalOpen.value = true;
+
     } catch (error) {
-        console.error("Erreur de chargement de l'historique:", error);
-        alert("Échec du chargement de l'historique client.");
+        console.error("❌ Erreur de chargement de l'historique:", error);
+        
+        // Fallback avec données vides
+        historyClient.value = {
+            ...client,
+            locations: [],
+            reservations: [],
+            activityLogs: []
+        };
+        
+        historyTab.value = 'locations';
+        isHistoryModalOpen.value = true;
+        
+        alert("⚠️ Certaines données d'historique n'ont pas pu être chargées.");
     }
 };
-// ... (fetchClients, saveClient, etc.)
+
 
 // Point d'entrée
 onMounted(() => {

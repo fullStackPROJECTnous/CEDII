@@ -11,12 +11,13 @@ class LocationService {
              // headers: authHeader()
         });
     }
-   
-   
-    // Réservations Actives / En Attente
-   getPendingReservations() {
-    return axios.get(API_URL + '/reservations/pending'); // Résultat: /api/locations/reservations/pending
-}
+
+  getPendingReservations() {
+        // 🚨 CORRECTION DU CHEMIN: Utiliser 'pending' (ou 'en-attente') et s'assurer qu'il n'est pas dupliqué
+        // Backend: router.get('/reservations/pending', locationController.getPendingReservations);
+        return axios.get(`${API_URL}/reservations/pending`); 
+    }
+
 
     // Historique des Locations Terminées
     getLocationHistory() {

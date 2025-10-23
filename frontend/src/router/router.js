@@ -34,6 +34,7 @@ import Facturation from '../views/facturation.vue';
 import Suivi from '../views/suivi.vue';
 import Penalite from '../views/penalite.vue';
 import Synthese from '../views/synthese.vue';
+import MaterielBureauView from '../views/materielBureauView.vue';
 
 
 // ... (Garde de Navigation) ...
@@ -155,6 +156,14 @@ const routes = [
     path: '/synthese',
     name: 'RapportSynth',
     component: Synthese
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
+
+     {
+    path: '/materielBureauView',
+    name: 'Bureau',
+    component: MaterielBureauView
     // Optionnel: ajouter un meta field pour la vérification du login
     // meta: { requiresAuth: true }
   },
