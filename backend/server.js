@@ -63,5 +63,8 @@ app.use('/api/rapports', rapportRoutes);
 app.use('/api/locations', locationRoutes);
 
 
+const materielBureauRoutes = require('./routes/materielBureauRoutes');
+app.use('/api/materiel-bureau',materielBureauRoutes  ); 
+
 
 

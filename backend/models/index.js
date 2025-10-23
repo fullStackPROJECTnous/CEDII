@@ -34,6 +34,7 @@ db.location = require('./location.js')(sequelize, DataTypes);
 db.reservation = require('./reservation.js')(sequelize, DataTypes); 
 db.materiel = require("./materiel.js")(sequelize, DataTypes); 
 db.salle = require("./salle.js")(sequelize, DataTypes); 
+db.materielBureau = require('./materielModel.js')(sequelize, DataTypes) ;
 
 // --- FIN DU CHARGEMENT DES MODÈLES ---
 
