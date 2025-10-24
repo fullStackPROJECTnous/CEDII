@@ -10,6 +10,10 @@ router.get('/rankings',
     // [authJwt.verifyToken, /* autres middlewares */],
       clientController.getRankings);
 
+            router.get('/profile', 
+                  //[authJwt.verifyToken],
+                   clientController.getClientProfileByUtiId);
+
 // NOUVELLE ROUTE : Historique d'un client spécifique
 router.get('/:idCli/history',
    //  [authJwt.verifyToken, /* autres middlewares */],
@@ -24,6 +28,9 @@ router.get('/', clientController.getAllClients);
 router.get('/:id', clientController.findOneClient);       // Read One (GET by ID)
 router.put('/:id', clientController.updateClient);        // Update (PUT)
 router.delete('/:id', clientController.deleteClient);     // Delete (DELETE)
+router.get('/:id',
+      // [authJwt.verifyToken],
+       clientController.getClientProfileByUtiId);
 
 
 // NOUVELLE ROUTE : Classements généraux

@@ -584,3 +584,43 @@ exports.getClientHistory = async (req, res) => {
         });
     }
 };
+
+exports.getClientProfileByUtiId = async (req, res) => {
+    
+    const idUtiFromToken = req.userId || req.utilisateur?.idUti; 
+    const idUtiFallback = idUtiFromToken || req.params.id;
+
+    // Assurer que l'ID est un nombre entier.
+    const idUtiToUse = parseInt(idUtiFallback, 10);
+    
+    console.log(`[VERIF FINALE] Tentative de récupération pour idUti : ${idUtiToUse}`);
+
+    if (!idUtiToUse || isNaN(idUtiToUse)) {
+        return res.status(401).send({ message: "Authentification requise. ID utilisateur non disponible ou invalide." });
+    }
+
+    try {
+        // Utilisation de Client.findOne pour chercher le profil lié à l'idUti
+        const clientProfile = await Client.findOne({
+            where: { idUti: idUtiToUse },
+            attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli', 'adresseCli']
+        });
+        
+        // 3. Traitement des résultats
+        if (clientProfile) {
+            console.log(`[VERIF FINALE] SUCCÈS : Fiche client trouvée (idCli: ${clientProfile.idCli})`);
+            res.status(200).send(clientProfile); 
+        } else {
+            console.warn(`[VERIF FINALE] ÉCHEC 404 : AUCUNE fiche client trouvée pour idUti=${idUtiToUse}.`);
+            res.status(404).send({ 
+                message: `Fiche Client non trouvée pour l'Utilisateur avec idUti=${idUtiToUse}.` 
+            });
+        }
+    } catch (error) {
+        console.error(`Erreur critique lors de la récupération du client par idUti=${idUtiToUse}:`, error);
+        res.status(500).send({ 
+            message: "Erreur serveur lors de la récupération du profil client. Problème de connexion BDD/SQL.", 
+            error: error.message 
+        });
+    }
+};

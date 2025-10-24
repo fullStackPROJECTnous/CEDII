@@ -10,9 +10,11 @@
 
 <template>
   <div class="container-fluid py-4">
-    <button @click="logout" class="btn btn-sm btn-outline-primary mt-3" >
-          <i class="bi bi-box-arrow-right"></i> Retour à l'acceuil
-        </button>
+   <div class="retour">
+    <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary mt-3">
+      Retour à l'Acceuil
+    </router-link>
+  </div>
     <div class="row">
       <div class="col-12">
         <h1 class="h3 mb-4 text-dark">Facturation & Génération Automatique</h1>
@@ -129,6 +131,7 @@ import { ref, onMounted } from 'vue';
 // 🚨 Assurez-vous d'avoir ce service qui communique avec votre backend
 import FinanceService from '../services/FinanceService'; 
 
+
 // --- États des Données ---
 const isLoading = ref(true);
 const isGenerating = ref(false);
@@ -156,10 +159,7 @@ const fetchFacturationData = async () => {
     }
 };
 
-const logout = () => {
-    AuthService.logout();
-    router.push('/dashboardReception');
-};
+
 // --- Fonctions d'Action ---
 
 /**
@@ -237,6 +237,9 @@ onMounted(() => {
     background-color: #28a745;
     border-color: #28a745;
     transition: all 0.3s;
+}
+.retour{
+  float: right;
 }
 .btn-success:hover {
      background-color: #218838;

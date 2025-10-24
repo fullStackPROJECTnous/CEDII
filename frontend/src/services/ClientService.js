@@ -250,9 +250,31 @@ async getClientHistory(idCli) {
         });
         throw new Error('Échec de la récupération de l\'historique client.');
     });
-}
+},
+
+    async getMyProfile() {
+        try {
+            const response = await axios.get(`${API_BASE_URL}/profile`, { headers: authHeader() });
+            return response.data; 
+        } catch (error) {
+            console.error("Erreur lors de la récupération du profil par token:", error.response?.data || error);
+            throw error; // Laisse le composant gérer l'erreur
+        }
+    },
 
 
+
+
+    async getClientProfile(idCli) {
+        try {
+            const response = await axios.get(`${API_BASE_URL}/${idCli}`, { headers: authHeader() });
+            return response.data; 
+        } catch (error) {
+            console.error(`Erreur lors de la récupération du profil client (ID: ${idCli}):`, error.response?.data || error);
+            throw error;
+        }
+    },
+    
 
 
     /* ====================================== */

@@ -1,39 +1,3 @@
-// frontend/src/services/AuthService.js
-
-/*import axios from 'axios';
-
-const API_URL = 'http://localhost:5000/api/auth/'; 
-
-class AuthService {
-  async login(loginUti, motDePasseUti) {
-    // ... (Code existant pour le login) ...
-    const response = await axios
-      .post(API_URL + 'login', {
-        loginUti,
-        motDePasseUti
-      });
-    
-    if (response.data.accessToken) {
-      localStorage.setItem('user', JSON.stringify(response.data));
-    }
-    return response.data;
-  }
-
-  // 🚨 NOUVELLE MÉTHODE POUR L'INSCRIPTION
-  async register(data) {
-    return axios.post(API_URL + 'register', data);
-  }
-
-  logout() {
-    localStorage.removeItem('user');
-  }
-
-  getCurrentUser() {
-    return JSON.parse(localStorage.getItem('user'));
-  }
-}
-
-export default new AuthService();*/
 
 // frontend/src/services/AuthService.js
 

@@ -660,7 +660,7 @@ export default {
 
         <form @submit.prevent="handleLogin">
           <div class="mb-3">
-            <label for="loginUti" class="form-label">Identifiant ou Email</label>
+            <label for="loginUti" class="form-label">Identifiant</label>
             <input type="text" id="loginUti" v-model="credentials.loginUti" class="form-control" required />
           </div>
 

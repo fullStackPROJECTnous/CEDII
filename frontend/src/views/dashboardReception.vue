@@ -315,7 +315,7 @@ onMounted(() => {
                     icon="bi-bell" 
                     title="Locations du Jour" 
                     :value="kpis.todayEvents" 
-                    trend="Départs et arrivées" 
+                    trend="" 
                     color="text-info"
                     linkName="Disponibilites"
                 />

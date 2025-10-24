@@ -10,6 +10,11 @@
 
 <template>
   <div class="container-fluid py-4">
+      <div class="retour">
+    <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary mt-3">
+      Retour à l'Acceuil
+    </router-link>
+  </div>
     <div class="row">
       <div class="col-12">
         <h1 class="h3 mb-4 text-dark">Suivi des Paiements & Rapprochement Bancaire</h1>
@@ -206,5 +211,8 @@ onMounted(() => {
 }
 .border-warning {
     border-color: #ffc107 !important;
+}
+.retour{
+  float: right;
 }
 </style>
