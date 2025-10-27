@@ -64,9 +64,7 @@ const form = ref({
 });
 
 const resources = ref([
-    { id: 45, name: 'Salle Polyvalente A' },
-    { id: 46, name: 'Bureau Privé B' },
-    { id: 47, name: 'Véhicule Utilitaire C' },
+  
 ]);
 
 const submitReservation = async () => {
