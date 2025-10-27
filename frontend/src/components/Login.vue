@@ -656,7 +656,7 @@ export default {
         <h3 class="card-title text-center cedii-text-dark mb-4">
           CEDII Patrimoine Plus
         </h3>
-        <p class="text-center text-muted mb-4">Connexion pour la Gestion Patrimoniale</p>
+        
 
         <form @submit.prevent="handleLogin">
           <div class="mb-3">
@@ -671,8 +671,8 @@ export default {
 
           <div v-if="error" class="alert alert-danger text-center">{{ error }}</div>
 
-          <button type="submit" class="btn cedii-btn-primary w-100"  >
-            Se Connecter
+          <button type="submit" class="btn btn-sm btn-outline-primary w-100"  >
+            Se Connecter        
           </button>
           <div class="text-center mt-3">
     Vous n'avez pas de compte ? 

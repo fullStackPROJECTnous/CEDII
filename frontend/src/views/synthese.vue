@@ -171,6 +171,11 @@ onMounted(() => {
 
 <template>
     <div class="container-fluid">
+        <div class="retour">
+    <router-link to="/dashboardFinance" class="btn btn-sm btn-outline-primary mt-3">
+      Retour à l'Acceuil
+    </router-link>
+  </div>
         <div class="d-sm-flex align-items-center justify-content-between mb-4">
             <h1 class="h3 mb-0 text-gray-800"><i class="bi bi-graph-up me-2"></i> Rapports et Synthèse Financière</h1>
         </div>

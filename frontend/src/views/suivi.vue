@@ -10,8 +10,8 @@
 
 <template>
   <div class="container-fluid py-4">
-      <div class="retour">
-    <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary mt-3">
+   <div class="retour">
+    <router-link to="/dashboardFinance" class="btn btn-sm btn-outline-primary mt-3">
       Retour à l'Acceuil
     </router-link>
   </div>

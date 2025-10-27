@@ -10,6 +10,12 @@
 -->
 
 <template>
+         <div class="retour">
+    <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary mt-3">
+      Retour à l'Acceuil
+    </router-link>
+  </div>
+
     <div class="container-fluid py-4">
         <h2 class="mb-4 text-dark"><i class="bi bi-bell-fill me-3"></i> Demandes de Réservation à Traiter</h2>
         <hr>
@@ -158,5 +164,8 @@ onMounted(() => {
 }
 .spin {
     animation: spin 1s linear infinite;
+}
+.retour{
+    float: right;
 }
 </style>

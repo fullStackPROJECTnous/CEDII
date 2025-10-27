@@ -1,13 +1,18 @@
 <template>
+   
+
     <div class="materiel-bureau-management p-4">
         <!-- En-tête -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1 class="h3 text-primary">
                 <i class="bi bi-laptop me-2"></i>Matériel de Bureau
             </h1>
-            <button class="btn cedii-btn-primary" @click="openModal('add')">
-                <i class="bi bi-plus-circle me-2"></i>Nouveau
-            </button>
+            
+              <div class="retour">
+    <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary mt-3">
+      Retour à l'Acceuil
+    </router-link>
+  </div>
         </div>
 
         <!-- Filtres complets -->
@@ -58,6 +63,9 @@
         <div v-if="message" :class="['alert', isError ? 'alert-danger' : 'alert-success']">
             {{ message }}
         </div>
+        <button class="btn cedii-btn-primary" @click="openModal('add')">
+                <i class="bi bi-plus-circle me-2"></i>Nouveau
+            </button>
 
         <!-- Tableau avec plus d'informations -->
         <div class="card">

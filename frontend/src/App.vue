@@ -14,9 +14,24 @@
 </template>
 
 
- 
+<style> 
+/* Ceci force les éléments racine à prendre 100% de la hauteur de la fenêtre */
+html, body, #app {
+  height: 100%; 
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  /* 🛑 L'astuce principale : masque le défilement général du corps */
+  overflow: hidden; 
+}
 
-
+/* L'élément principal du dashboard gère son propre défilement interne */
+.main-content {
+  flex-grow: 1; 
+  /* Cette classe permet au contenu principal de défiler si nécessaire */
+  overflow-y: auto; 
+}
+</style>
 <style scoped>
 .logo {
   height: 6em;
@@ -35,11 +50,11 @@ router-view {
   height: 100%;
 }
 
-html, body, #app {
+/*html, body, #app {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-}
+}*/
 
 </style>

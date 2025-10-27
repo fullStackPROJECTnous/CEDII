@@ -10,13 +10,16 @@
 -->  
 
 <template>
+     <div class="retour">
+    <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary mt-3">
+      Retour à l'Acceuil
+    </router-link>
+  </div>
     <hr class="my-5">
 
     <div class="card shadow-lg">
          <div class="mt-auto pt-3 border-top">
-        <button @click="logout" class="btn btn-sm btn-danger w-100">
-          <i class="bi bi-box-arrow-right"></i> Retour à l'acceuil
-        </button>
+       
       </div>
     
         <div class="card-header bg-white border-bottom">
