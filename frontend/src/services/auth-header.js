@@ -1,21 +1,7 @@
-// frontend/src/services/auth-header.js
 
-// Fonction pour récupérer le token JWT et le formater pour l'en-tête Authorization
-/*export default function authHeader() {
-    const user = JSON.parse(localStorage.getItem('user'));
-
-    if (user && user.accessToken) {
-        // Retourne l'en-tête : { Authorization: 'Bearer <token>' }
-        return { 
-            Authorization: 'Bearer ' + user.accessToken 
-        };
-    } else {
-        return {};
-    }
-}*/
 
 // services/authHeader.js (Exemple)
-
+/*
 export default function authHeader() {
   const user = JSON.parse(localStorage.getItem('user'));
 
@@ -25,6 +11,23 @@ export default function authHeader() {
     // OU { Authorization: 'Bearer ' + user.accessToken }; 
     // selon la manière dont votre backend l'attend.
   } else {
+    return {};
+  }
+}*/
+
+
+export default function authHeader() {
+  // Récupère l'utilisateur stocké localement, qui doit contenir le token JWT
+  const user = JSON.parse(localStorage.getItem('user'));
+
+  if (user && user.token) {
+    // Si un utilisateur et un token existent, retourne l'en-tête 'Authorization'
+    // Format standard JWT : "Bearer <token>"
+    console.log("Jeton d'authentification trouvé. Envoi de l'en-tête 'Authorization'.");
+    return { Authorization: 'Bearer ' + user.token };
+  } else {
+    // Sinon, retourne un objet vide ou un en-tête pour un accès public
+    console.log("Aucun jeton trouvé. Envoi d'un en-tête vide.");
     return {};
   }
 }

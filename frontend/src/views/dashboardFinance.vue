@@ -292,8 +292,8 @@ onMounted(() => {
 </script>
 <style scoped>
 /* Les styles (couleurs, sidebar, etc.) sont conservés pour la cohérence avec AdminDashboard.vue */
-.cedii-bg-dark { background-color: var(--cedii-dark, #02061E) !important; }
-.cedii-text-primary { color: var(--cedii-primary-light, #5B11EE) !important; }
+.cedii-bg-dark { background-color: var(--cedii-dark, #5E5E5E) !important; }
+.cedii-text-primary { color: var(--cedii-primary-light, white) !important; }
 .cedii-btn-primary { 
     background-color: var(--cedii-primary-light, #5B11EE);
     color: white;
@@ -307,5 +307,16 @@ onMounted(() => {
 .sidebar { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; }
 .sidebar-logo { width: 60px; height: 60px; border-radius: 50%; border: 2px solid white; object-fit: cover; }
 .sidebar .nav-link { transition: background-color 0.3s; border-radius: 5px; }
-.sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: var(--cedii-primary-dark, #0405BF); }
+.sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: var(--cedii-primary-dark, white); }
+
+.sidebar .nav-link { 
+    color: #02061E !important; /* Cette ligne change la couleur du texte en Bleu Nuit */
+    font-weight: 600; 
+}
+
+.sidebar .nav-link.active { 
+    color: purple !important; /* Cette ligne change la couleur du texte en Bleu Nuit */
+    font-weight: 600; 
+}
+
 </style>

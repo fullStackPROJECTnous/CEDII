@@ -42,10 +42,10 @@ const catalogItems = ref([]);
 
 const fetchCatalog = async () => {
     catalogItems.value = [
-        { id: 45, name: 'Salle Polyvalente A', description: 'Grande salle pour événements et réunions, capacité 150 personnes.', category: 'Immobilier', isAvailable: true, image: 'https://via.placeholder.com/400x200?text=Salle+A' },
-        { id: 46, name: 'Bureau Privé B', description: 'Bureau individuel, idéal pour le travail au calme ou les entretiens.', category: 'Immobilier', isAvailable: false, image: 'https://via.placeholder.com/400x200?text=Bureau+B' },
-        { id: 47, name: 'Véhicule Utilitaire C', description: 'Fourgonnette de transport de moyenne taille, faible consommation.', category: 'Matériel', isAvailable: true, image: 'https://via.placeholder.com/400x200?text=Vehicule+C' },
-        { id: 48, name: 'Équipement de Projection', description: 'Projecteur haute définition et écran mobile pour vos présentations.', category: 'Matériel', isAvailable: true, image: 'https://via.placeholder.com/400x200?text=Projecteur' },
+        { id: 45, name: 'Salle de Réunion', description: 'Grande salle pour événements et réunions, capacité 50 personnes.', category: 'Immobilier', isAvailable: true, image: 'https://via.placeholder.com/400x200?text=Salle+A' },
+        { id: 46, name: 'Salle de Documentation', description: 'Salle pour des réunions, idéal pour le travail au calme.', category: 'Immobilier', isAvailable: false, image: 'https://via.placeholder.com/400x200?text=Bureau+B' },
+        { id: 47, name: 'Projécteur', description: 'Projecteur haute définition et écran mobile pour vos présentations.', category: 'Matériel', isAvailable: true, image: 'https://via.placeholder.com/400x200?text=Vehicule+C' },
+        { id: 48, name: 'Chapiteau', description: 'Grand chapiteau pour les événements différents.', category: 'Matériel', isAvailable: true, image: 'https://via.placeholder.com/400x200?text=Projecteur' },
     ];
 };
 

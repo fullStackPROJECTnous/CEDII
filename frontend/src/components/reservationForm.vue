@@ -64,7 +64,10 @@ const form = ref({
 });
 
 const resources = ref([
-  
+    { id: 45, name: 'Salle de Réunion' },
+    { id: 46, name: 'Salle de Documentation' },
+    { id: 47, name: 'Projécteur' },
+    { id: 48, name: 'Chapiteau' },
 ]);
 
 const submitReservation = async () => {

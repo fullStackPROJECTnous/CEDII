@@ -1,14 +1,3 @@
-<!--<template>
-  <div class="p-4">
-    <h1>Espace Réception 🛎️</h1>
-    <p>Vue d'ensemble des réservations et des locations en cours/à venir.</p>
-    </div>
-</template>
-<script setup>
-// Logique Réception
-</script>
-
-
 <template>
   <div class="d-flex vh-100"> 
 
@@ -22,19 +11,31 @@
         
         <li class="nav-item mb-2">
           <router-link :to="{ name: 'ReceptionDashboard'}" class="nav-link text-white active">
-            <i class="bi bi-house-door-fill me-2"></i> Accueil  
+            <i class="bi bi-house-door-fill me-2"></i> Accueil 
           </router-link>
         </li>
 
         <li class="nav-item mb-2">
-          <router-link :to="{ name: 'InventairePatrimoine' }" class="nav-link text-white">
+          <router-link :to="{ name: 'DemandesEnAttente' }" class="nav-link text-white">
             <i class="bi bi-bell-fill me-2"></i> Demandes à Traiter <span class="badge rounded-pill bg-danger ms-auto">{{ pendingRequestsCount }}</span>
           </router-link>
         </li>
         
         <li class="nav-item mb-2">
-          <router-link :to="{ name: 'UserManagement' }" class="nav-link text-white">
+          <router-link :to="{ name: 'CalendrierDisponibilites' }" class="nav-link text-white">
             <i class="bi bi-calendar-day me-2"></i> Calendrier & Disponibilités
+          </router-link>
+        </li>
+
+        <li class="nav-item mb-2">
+          <router-link :to="{ name: 'InventairePatrimoine' }" class="nav-link text-white">
+            <i class="bi bi-tools me-2"></i> Inventaire & Patrimoine
+          </router-link>
+        </li>
+
+        <li class="nav-item mb-2">
+          <router-link :to="{ name: 'Bureau' }" class="nav-link text-white">
+            <i class="bi bi-tools me-2"></i> Matériel de Bureau
           </router-link>
         </li>
 
@@ -43,7 +44,7 @@
             <i class="bi bi-people-fill me-2"></i> Fiches Clients
           </router-link>
         </li>
-       
+        
       </ul>
       
       <div class="mt-auto pt-3 border-top">
@@ -83,7 +84,7 @@
                     icon="bi-bell" 
                     title="Locations du Jour" 
                     :value="kpis.todayEvents" 
-                    trend="Départs et arrivées" 
+                    trend="" 
                     color="text-info"
                     linkName="Disponibilites"
                 />
@@ -119,14 +120,22 @@
                         <tr v-if="lastPendingRequests.length === 0">
                             <td colspan="5" class="text-center text-muted">Aucune demande en attente.</td>
                         </tr>
-                        <tr v-for="req in lastPendingRequests" :key="req.id">
-                            <td>{{ req.id }}</td>
-                            <td>{{ req.demandeur }}</td>
-                            <td>{{ req.ressource }}</td>
-                            <td>{{ formatDate(req.dateDebut) }}</td>
+                        <tr v-for="req in lastPendingRequests" :key="req.idRes"> 
+                            <td>#{{ req.idRes }}</td> 
+                            <td>{{ req.client ? `${req.client.prenomCli} ${req.client.nomCli}` : 'Client Inconnu' }}</td> 
+                            <td>{{ req.typeRes === 'S' ? 'Salle' : 'Matériel' }}</td> 
+                            <td>{{ formatDate(req.debRes) }}</td> 
                             <td>
-                                <button class="btn btn-sm cedii-btn-primary me-2"><i class="bi bi-check-lg"></i> Valider</button>
-                                <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-lg"></i> Refuser</button>
+                                <button 
+                                    class="btn btn-sm cedii-btn-primary me-2"
+                                    @click="router.push({ name: 'ReservationValidation', params: { idRes: req.idRes } })"> 
+                                    <i class="bi bi-search"></i> Examiner
+                                </button>
+                                <button 
+                                    class="btn btn-sm btn-outline-danger"
+                                    @click="handleRequest(req, 'refuse')">
+                                    <i class="bi bi-x-lg"></i> Refuser
+                                </button>
                             </td>
                         </tr>
                     </tbody>
@@ -139,96 +148,8 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import AuthService from '../services/AuthService'; 
-import LocationService from '../services/LocationService'; // Service pour les demandes
-import KpiCard from '../views/KpiCard.vue'; // Assurez-vous que le composant est là
 
-const userRole = ref('');
-const router = useRouter(); 
-const kpis = ref({ pendingRequests: 0, urgentRequests: 0, todayEvents: 0, unavailableResources: 0 });
-const allRequests = ref([]);
-
-// Propriétés calculées
-const pendingRequestsCount = computed(() => kpis.value.pendingRequests);
-
-const lastPendingRequests = computed(() => {
-    // Simuler le filtrage et la prise des 5 derniers pour l'aperçu rapide
-    return allRequests.value
-        .filter(r => r.etat === 'En attente')
-        .sort((a, b) => new Date(b.dateSoumission) - new Date(a.dateSoumission)) // Plus récent d'abord
-        .slice(0, 5); 
-});
-
-// --- Fonctions de chargement ---
-const fetchReceptionData = async () => {
-    try {
-        // 💡 Remplacez par votre endpoint API réel
-        const response = await LocationService.getReceptionDashboardData(); 
-        
-        kpis.value.pendingRequests = response.data.pendingRequests;
-        kpis.value.urgentRequests = response.data.urgentRequests;
-        kpis.value.todayEvents = response.data.todayEvents;
-        kpis.value.unavailableResources = response.data.unavailableResources;
-        allRequests.value = response.data.latestRequests; // Récupère les données brutes pour la table
-        
-    } catch (error) {
-        console.error("Erreur de chargement des données de réception:", error);
-        // Afficher un message d'erreur à l'utilisateur si nécessaire
-    }
-};
-
-const logout = () => {
-    AuthService.logout();
-    router.push('/');
-};
-
-const formatDate = (dateString) => {
-    // Fonction utilitaire pour formater la date
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-};
-
-
-// 🚨 CONSOLIDATION de onMounted
-onMounted(() => {
-    const user = AuthService.getCurrentUser();
-    
-    // Vérification du rôle (utilisez 'roleUti' si c'est ce que votre backend envoie)
-    if (user && user.roleUti && user.roleUti.toLowerCase() === 'reception') {
-        userRole.value = user.roleUti.toUpperCase();
-        fetchReceptionData();
-    } else {
-        // Si l'utilisateur n'est pas Réception, le router guard devrait déjà bloquer, 
-        // mais on peut le rediriger si ce composant est atteint accidentellement.
-        router.push('/'); 
-    }
-});
-
-</script>
-
-<style scoped>
-/* Les styles spécifiques (sidebar, couleurs CEDII, etc.) sont les mêmes que dans AdminDashboard.vue */
-.cedii-bg-dark { background-color: var(--cedii-dark, #02061E) !important; }
-.cedii-text-primary { color: var(--cedii-primary-light, #5B11EE) !important; }
-.cedii-btn-primary { 
-    background-color: var(--cedii-primary-light, #5B11EE);
-    color: white;
-    border-color: var(--cedii-primary-light, #5B11EE);
-}
-.cedii-btn-primary:hover {
-    background-color: var(--cedii-primary-dark, #0405BF);
-    border-color: var(--cedii-primary-dark, #0405BF);
-}
-
-.sidebar { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; }
-.sidebar-logo { width: 60px; height: 60px; border-radius: 50%; border: 2px solid white; object-fit: cover; }
-.sidebar .nav-link { transition: background-color 0.3s; border-radius: 5px; }
-.sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: var(--cedii-primary-dark, #0405BF); }
-</style>-->
-
+<!--
 <template>
   <div class="d-flex vh-100"> 
 
@@ -378,6 +299,7 @@ onMounted(() => {
     </main>
   </div>
 </template>
+-->
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
@@ -395,11 +317,11 @@ const allRequests = ref([]);
 // Propriétés calculées
 const pendingRequestsCount = computed(() => kpis.value.pendingRequests);
 
-const lastPendingRequests = computed(() => {
+/*const lastPendingRequests = computed(() => {
    /* return allRequests.value
         .filter(r => r.etat === 'En attente') // Filtrage basé sur l'état renvoyé par le backend
         .sort((a, b) => new Date(b.dateSoumission) - new Date(a.dateSoumission)) 
-        .slice(0, 5); */
+        .slice(0, 5); 
 
         return allRequests.value
         .filter(r => r.etat === 'En attente')
@@ -410,7 +332,7 @@ const lastPendingRequests = computed(() => {
             return dateB - dateA;
         }) 
         .slice(0, 5);
-});
+});*/
 
 // --- Fonctions de chargement et d'action ---
 
@@ -437,7 +359,7 @@ const lastPendingRequests = computed(() => {
 
 
 // 🚨 NOUVEAU: Fonction pour valider ou refuser une demande
-const handleRequest = async (request, action) => {
+/*const handleRequest = async (request, action) => {
     // 🚨 N'oubliez pas que vous devez également utiliser la bonne casse pour les valeurs que vous ENVOYEZ au backend
     // 'Confirmée' et 'Refusée' correspondent aux ENUM de la DB (doivent être corrects)
     const newStatus = action === 'validate' ? 'Confirmée' : 'Refusée';
@@ -466,7 +388,7 @@ const handleRequest = async (request, action) => {
     }
 
   };
-
+*/
 
 
 const fetchReceptionData = async () => {
@@ -498,6 +420,30 @@ const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString(undefined, options);
 };
 
+const lastPendingRequests = computed(() => {
+    // 💡 Le backend doit renvoyer toutes les réservations 'En attente'
+    // Nous supposons que le backend a déjà filtré/trié, mais ici, on filtre juste au cas où.
+    return allRequests.value
+        .filter(r => r.etatRes === 'En attente' || r.etatRes === 'En attente de paiement') // Utilisez les vrais statuts de votre DB
+        .sort((a, b) => new Date(b.dateCre) - new Date(a.dateCre)) // Tri par date de création (dateCre)
+        .slice(0, 5);
+});
+
+// 🚨 NOUVEAU: Fonction pour valider ou refuser une demande
+const handleRequest = async (request, action) => {
+    // ... (logique inchangée pour l'action et le message)
+    if (confirm(message)) {
+        try {
+            // 🚨 Utiliser l'ID réel de la réservation (idRes)
+            await LocationService.updateReservationStatus(request.idRes, newStatus); 
+            // ... (suite de la logique)
+            await fetchReceptionData(); 
+        } catch (error) {
+             console.error(`Erreur de traitement de la demande #${request.id}:`, error.response?.data || error);
+        }
+    }
+};
+
 
 // 🚨 CONSOLIDATION de onMounted
 onMounted(() => {
@@ -515,51 +461,29 @@ onMounted(() => {
 
 <style scoped>
 /* Styles existants */
-.cedii-bg-dark { background-color: var(--cedii-dark, #02061E) !important; }
-.cedii-text-primary { color: var(--cedii-primary-light, #5B11EE) !important; }
+.cedii-bg-dark { background-color: var(--cedii-dark, #5E5E5E) !important; }
+.cedii-text-primary { color: var(--cedii-primary-light, white) !important; }
 .cedii-btn-primary { 
     background-color: var(--cedii-primary-light, #5B11EE);
-    color: white;
+    color: #02061E;
     border-color: var(--cedii-primary-light, #5B11EE);
 }
 .cedii-btn-primary:hover {
-    background-color: var(--cedii-primary-dark, #0405BF);
-    border-color: var(--cedii-primary-dark, #0405BF);
+    background-color: var(--cedii-primary-dark, #0671b6);
+    border-color: var(--cedii-primary-dark, #0671b6);
 }
 
 .sidebar { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; }
 .sidebar-logo { width: 60px; height: 60px; border-radius: 50%; border: 2px solid white; object-fit: cover; }
 .sidebar .nav-link { transition: background-color 0.3s; border-radius: 5px; }
-.sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: var(--cedii-primary-dark, #0405BF); }
-</style>
-
----
-
-## 2. Logique Service et Backend (À Implémenter)
-
-Ces fichiers ne sont pas fournis, mais sont essentiels pour que le frontend fonctionne.
-
-### 2.1. Mise à jour du Service (`LocationService.js` - Extrait)
-
-Vous devez ajouter la méthode de récupération du tableau de bord et la méthode d'action.
-
-```javascript
-// LocationService.js (Extrait)
-
-const API_BASE_URL = '/api/reception'; // Assurez-vous que c'est la bonne route
-
-// ...
-
-// Méthode pour récupérer les KPI et la liste des demandes
-getReceptionDashboardData() {
-    return axios.get(`${API_BASE_URL}/dashboard`, { 
-        headers: authHeader() 
-    });
-},
-
-// Méthode pour confirmer/refuser une demande
-updateReservationStatus(idRes, newStatus) {
-    return axios.put(`${API_BASE_URL}/reservations/${idRes}/status`, { newStatus }, {
-        headers: authHeader() 
-    });
+.sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: var(--cedii-primary-dark, white); }
+.sidebar .nav-link { 
+    color: #02061E !important; /* Cette ligne change la couleur du texte en Bleu Nuit */
+    font-weight: 600; 
 }
+
+.sidebar .nav-link.active { 
+    color: purple !important; /* Cette ligne change la couleur du texte en Bleu Nuit */
+    font-weight: 600; 
+}
+</style>

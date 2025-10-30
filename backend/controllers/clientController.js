@@ -585,24 +585,31 @@ exports.getClientHistory = async (req, res) => {
     }
 };
 
+
 exports.getClientProfileByUtiId = async (req, res) => {
     
-    const idUtiFromToken = req.userId || req.utilisateur?.idUti; 
-    const idUtiFallback = idUtiFromToken || req.params.id;
-
-    // Assurer que l'ID est un nombre entier.
-    const idUtiToUse = parseInt(idUtiFallback, 10);
+    // 1. Récupérer l'ID de l'utilisateur. 
+    //    Priorité 1: L'ID attaché par le middleware JWT (req.userId). C'est la source pour /profile.
+    //    Priorité 2: L'ID passé dans l'URL (req.params.id). C'est la source pour /clients/:id.
+    const idUtiFromSources = req.userId || req.params.id; 
     
-    console.log(`[VERIF FINALE] Tentative de récupération pour idUti : ${idUtiToUse}`);
+    // Assurer que l'ID est un nombre entier.
+    // La variable de travail est maintenant nommée 'idUti' pour correspondre au champ BDD.
+    const idUti = parseInt(idUtiFromSources, 10);
+    
+    console.log(`[VERIF FINALE] Tentative de récupération pour idUti : ${idUti}`);
 
-    if (!idUtiToUse || isNaN(idUtiToUse)) {
+    // Si le middleware 'verifyToken' n'a pas pu attacher l'ID ou si aucun paramètre n'est passé.
+    if (!idUti || isNaN(idUti)) {
+        console.error("[VERIF FINALE] ÉCHEC 401 : ID utilisateur manquant ou invalide.");
         return res.status(401).send({ message: "Authentification requise. ID utilisateur non disponible ou invalide." });
     }
 
     try {
         // Utilisation de Client.findOne pour chercher le profil lié à l'idUti
         const clientProfile = await Client.findOne({
-            where: { idUti: idUtiToUse },
+            // ✅ UTILISATION DU NOM DE CHAMP BDD DIRECTEMENT DANS LE WHERE
+            where: { idUti: idUti }, 
             attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli', 'adresseCli']
         });
         
@@ -611,16 +618,64 @@ exports.getClientProfileByUtiId = async (req, res) => {
             console.log(`[VERIF FINALE] SUCCÈS : Fiche client trouvée (idCli: ${clientProfile.idCli})`);
             res.status(200).send(clientProfile); 
         } else {
-            console.warn(`[VERIF FINALE] ÉCHEC 404 : AUCUNE fiche client trouvée pour idUti=${idUtiToUse}.`);
+            console.warn(`[VERIF FINALE] ÉCHEC 404 : AUCUNE fiche client trouvée pour idUti=${idUti}.`);
             res.status(404).send({ 
-                message: `Fiche Client non trouvée pour l'Utilisateur avec idUti=${idUtiToUse}.` 
+                message: `Fiche Client non trouvée pour l'Utilisateur avec idUti=${idUti}.` 
             });
         }
     } catch (error) {
-        console.error(`Erreur critique lors de la récupération du client par idUti=${idUtiToUse}:`, error);
+        console.error(`Erreur critique lors de la récupération du client par idUti=${idUti}:`, error);
         res.status(500).send({ 
             message: "Erreur serveur lors de la récupération du profil client. Problème de connexion BDD/SQL.", 
             error: error.message 
         });
+    }
+};
+
+// Supposons que db est votre objet de connexion à la base de données
+
+exports.getMyProfile = async (req, res) => {
+    // 🚀 Récupère l'ID de l'utilisateur de la requête (injecté par verifyToken)
+    const idUtilisateur = req.idUti; 
+
+    // Vérification de sécurité (ne devrait pas être undefined si le 401 a été évité)
+    if (!idUtilisateur) {
+        return res.status(400).send({ message: "ID utilisateur non disponible. Problème d'authentification interne." });
+    }
+
+    try {
+        // Requête pour joindre les tables utilisateur et client pour obtenir toutes les infos
+        const sql = `
+            SELECT 
+                C.idCli, 
+                C.nomCli, 
+                C.prenomCli, 
+                C.emailCli, 
+                C.telephoneCli, 
+                C.addresseCli, 
+                C.typeCli, 
+                C.statutCli,
+                U.loginUti,
+                U.roleUti
+            FROM client C
+            JOIN utilisateur U ON C.idUti = U.idUti
+            WHERE C.idUti = ?; 
+        `;
+        
+        // Exécutez la requête avec l'idUtilisateur
+        // 🚨 Remplacez 'db.query' par la méthode utilisée dans votre projet (ex: pool.execute, Model.findOne)
+        const [clientData] = await db.query(sql, [idUtilisateur]); 
+
+        if (clientData.length === 0) {
+            // Le token est valide, mais aucun enregistrement client ne correspond à cet idUti
+            return res.status(404).send({ message: "Profil client non trouvé. L'utilisateur n'est pas lié à un client." });
+        }
+
+        // Succès
+        res.status(200).send(clientData[0]); 
+
+    } catch (error) {
+        console.error("Erreur serveur lors de la récupération du profil:", error);
+        res.status(500).send({ message: "Erreur serveur lors de la récupération du profil." });
     }
 };

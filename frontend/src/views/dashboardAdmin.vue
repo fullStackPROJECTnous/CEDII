@@ -393,11 +393,11 @@ function logout() {
 }
 
 .cedii-bg-dark {
-  background-color: var(--cedii-dark, #02061E) !important;
+  background-color: var(--cedii-dark, #5E5E5E) !important;
 }
 
 .cedii-text-primary {
-  color: var(--cedii-primary-light, #5B11EE) !important;
+  color: var(--cedii-primary-light, white) !important;
 }
 
 .sidebar {
@@ -421,11 +421,20 @@ function logout() {
 }
 
 .sidebar .nav-link:hover, .sidebar .nav-link.active {
-  background-color: var(--cedii-primary-dark, #0405BF);
+  background-color: var(--cedii-primary-dark, white);
 }
 
 .main-content {
   flex-grow: 1; 
+}
+.sidebar .nav-link.active { 
+    color: purple !important; /* Cette ligne change la couleur du texte en Bleu Nuit */
+    font-weight: 600; 
+}
+
+.sidebar .nav-link { 
+    color: #02061E !important; /* Cette ligne change la couleur du texte en Bleu Nuit */
+    font-weight: 600; 
 }
 </style>
 <!--

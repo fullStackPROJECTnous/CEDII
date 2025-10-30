@@ -3,6 +3,27 @@ import axios from 'axios';
 const API_URL = 'http://localhost:5000/api/locations'; 
 
 class LocationService {
+
+    // NOUVEAU: Récupérer les détails complets pour la page de validation
+    getReservationDetails(idRes) {
+        return axios.get(`${API_URL}/reservations/${idRes}/details`);
+    }
+
+    // NOUVEAU: Validation (transfert vers Location et gestion du stock)
+    validateReservation(idRes, signatureData) {
+        // Mapped to POST /api/locations/reservations/:idRes/validate
+        return axios.post(`${API_URL}/reservations/${idRes}/validate`, { signatureData });
+    }
+
+    // NOUVEAU: État des Lieux, Départs, Retours, Facturation dégradations, Remise en stock
+    submitEtatLieux(idLo, mode, payload) {
+        // payload contient materielCode, qteMat, estEndommage, coutReparation, descriptionDegradation
+        // Mapped to POST /api/locations/locations/:idLo/etat-lieux
+        return axios.post(`${API_URL}/locations/${idLo}/etat-lieux`, {
+             ...payload,
+             mode: mode
+        });
+    }
    getReceptionDashboardData() {
         // Nous allons chercher les données via un endpoint dédié au dashboard de réception
         // Route attendue côté backend : /api/locations/reception/dashboard

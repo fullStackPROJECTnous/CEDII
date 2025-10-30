@@ -659,15 +659,19 @@ export default {
         
 
         <form @submit.prevent="handleLogin">
-          <div class="mb-3">
-            <label for="loginUti" class="form-label">Identifiant</label>
-            <input type="text" id="loginUti" v-model="credentials.loginUti" class="form-control" required />
-          </div>
+          <div class="mb-3 row align-items-center">
+  <label for="loginUti" class="col-sm-3 col-form-label">Login</label>
+  <div class="col-sm-9">
+    <input type="text" id="loginUti" v-model="credentials.loginUti" class="form-control" required />
+  </div>
+</div>
 
-          <div class="mb-4">
-            <label for="motDePasseUti" class="form-label">Mot de passe</label>
-            <input type="motDePasseUti" id="motDePasseUti" v-model="credentials.motDePasseUti" class="form-control" required />
-          </div>
+          <div class="mb-4 row align-items-center">
+  <label for="motDePasseUti" class="col-sm-3 col-form-label">Pwd</label>
+  <div class="col-sm-9">
+    <input type="password" id="motDePasseUti" v-model="credentials.motDePasseUti" class="form-control" required />
+  </div>
+</div>
 
           <div v-if="error" class="alert alert-danger text-center">{{ error }}</div>
 

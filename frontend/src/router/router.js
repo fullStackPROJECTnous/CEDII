@@ -35,6 +35,8 @@ import Suivi from '../views/suivi.vue';
 import Penalite from '../views/penalite.vue';
 import Synthese from '../views/synthese.vue';
 import MaterielBureauView from '../views/materielBureauView.vue';
+import EtatLieu from '../views/etatLieu.vue';
+import ReservationValidation from '../views/reservationValidation.vue';
 
 
 // ... (Garde de Navigation) ...
@@ -164,6 +166,23 @@ const routes = [
     path: '/materielBureauView',
     name: 'Bureau',
     component: MaterielBureauView
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
+
+  
+     {
+    path: '/etatLieu',
+    name: 'EtatLieux',
+    component: EtatLieu
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
+  
+     {
+    path: '/reservationValidation',
+    name: 'ReservationValid',
+    component: ReservationValidation
     // Optionnel: ajouter un meta field pour la vérification du login
     // meta: { requiresAuth: true }
   },

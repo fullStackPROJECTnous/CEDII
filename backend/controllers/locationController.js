@@ -401,7 +401,7 @@ exports.getConfirmedEvents = async (req, res) => {
 };
 
 
-exports.checkAvailability = async (req, res) => {
+/*exports.checkAvailability = async (req, res) => {
     // Récupération des paramètres de la requête GET (via req.query)
     const { type, start, end } = req.query;
 
@@ -521,3 +521,285 @@ exports.checkAvailability = async (req, res) => {
         });
     }
 };
+*/
+// A AJOUTER OU REMPLACER dans backend/controllers/locationController.js
+
+exports.checkAvailability = async (req, res) => {
+    // Le Frontend doit fournir: type ('Materiel' ou 'Salle'), codeId (codeMat ou idSalle), debRes, finRes, quantite (qteMat ou nbPerso)
+    const { type, codeId, debRes, finRes, quantite } = req.query; 
+    const qte = parseInt(quantite);
+
+    if (!type || !codeId || !debRes || !finRes || isNaN(qte) || qte <= 0) {
+        return res.status(400).send({ message: "Paramètres de disponibilité manquants ou invalides." });
+    }
+    
+    // Condition d'overlap (réservations CONFIRMÉES qui chevauchent la période)
+    const overlapCondition = {
+        debRes: { [Op.lt]: new Date(finRes) }, // La date de début de l'événement précédent est avant la fin de celui-ci
+        finRes: { [Op.gt]: new Date(debRes) },  // La date de fin de l'événement précédent est après le début de celui-ci
+        etatRes: 'Confirmée' 
+    };
+
+    try {
+        let isAvailable = false;
+
+        if (type === 'Materiel') {
+            // 1. Trouver le stock total actuel (qteActuelStock)
+            const materiel = await Materiel.findByPk(codeId, { attributes: ['qteActuelStock'] });
+            if (!materiel) return res.status(404).json({ message: "Matériel non trouvé." });
+            const totalStock = materiel.qteActuelStock;
+
+            // 2. Calculer la quantité déjà réservée sur cette période (SUM(qteMat))
+            const occupied = await Reservation.findAll({
+                attributes: [
+                    [db.sequelize.fn('SUM', db.sequelize.col('qteMat')), 'total_occupied']
+                ],
+                where: { codeMat: codeId, ...overlapCondition },
+                raw: true
+            });
+
+            const occupiedQty = parseInt(occupied[0]?.total_occupied || 0);
+            const remaining = totalStock - occupiedQty;
+
+            isAvailable = remaining >= qte;
+
+        } else if (type === 'Salle') {
+            // Pour une salle, la logique la plus simple est : si une réservation CONFIRMÉE existe, la salle est prise.
+            const occupiedCount = await Reservation.count({
+                where: { idSalle: codeId, ...overlapCondition }
+            });
+
+            // Si aucune réservation confirmée ne chevauche ET que la capacité est suffisante
+            isAvailable = (occupiedCount === 0) && (qte <= (await Salle.findByPk(codeId, { attributes: ['capaciteSalle'] })).capaciteSalle);
+            
+        } else {
+            return res.status(400).send({ message: "Type de ressource non valide." });
+        }
+
+        res.json({ available: isAvailable });
+
+    } catch (error) {
+        console.error("Erreur de vérification de disponibilité:", error);
+        res.status(500).send({ message: "Erreur serveur lors de la vérification de disponibilité.", error: error.message });
+    }
+};
+
+// A AJOUTER dans backend/controllers/locationController.js
+
+exports.validateReservation = async (req, res) => {
+    const { idRes } = req.params;
+    const { signatureData } = req.body; // Simule la réception de la signature
+
+    const transaction = await db.sequelize.transaction();
+    
+    try {
+        const reservation = await Reservation.findByPk(idRes, { transaction });
+        
+        if (!reservation || reservation.etatRes !== 'En attente') {
+            await transaction.rollback();
+            return res.status(404).send({ message: "Réservation introuvable ou déjà traitée." });
+        }
+
+        // 1. Génération Contrat (SIMULATION de l'étape de Service de PDF)
+        // La présence de la signatureData prouve que le client a signé.
+        console.log(`[CONTRAT] Génération et archivage de Contrat-RES-${idRes}.pdf suite à signature.`);
+        
+        // 2. Créer l'entrée dans la table 'location'
+        const locationData = {
+            idRes: reservation.idRes,
+            idCatalogue: reservation.idCatalogue,
+            dateCre: new Date(), 
+            qteMat: reservation.qteMat,
+            typeLo: reservation.typeRes, // typeLo = typeRes
+            nbPersp: reservation.nbPerso, // nbPersp = nbPerso
+            debLo: reservation.debRes,
+            finLo: reservation.finRes,
+            tarifTot: reservation.tarifTot,
+            etatLo: 'Confirmée' // La location est active et en attente de départ
+        };
+        const newLocation = await Location.create(locationData, { transaction });
+
+        // 3. Mettre à jour le statut de la réservation
+        await Reservation.update({ etatRes: 'Confirmée' }, { where: { idRes: idRes }, transaction });
+
+        // 4. Mettre à jour le stock (si Matériel)
+        if (reservation.codeMat) {
+            await Materiel.update({ 
+                qteActuelStock: db.sequelize.literal(`qteActuelStock - ${reservation.qteMat}`), 
+                qteEnLocation: db.sequelize.literal(`qteEnLocation + ${reservation.qteMat}`)
+            }, { where: { codeMat: reservation.codeMat }, transaction });
+        }
+        
+        await transaction.commit();
+        res.status(200).send({ 
+            message: "Validation réussie : Réservation Confirmée, Location #"+newLocation.idLo+" créée et Stock mis à jour.", 
+            idLocation: newLocation.idLo 
+        });
+
+    } catch (error) {
+        await transaction.rollback();
+        console.error("Erreur lors de la validation/transfert:", error);
+        res.status(500).send({ message: "Échec de la validation de la réservation.", error: error.message });
+    }
+};
+
+// A AJOUTER dans backend/controllers/locationController.js
+
+exports.submitEtatLieux = async (req, res) => {
+    const { idLo } = req.params;
+    const { mode, materielCode, qteMat, estEndommage, coutReparation, descriptionDegradation } = req.body;
+    
+    if (!idLo || !mode) return res.status(400).send({ message: "ID Location et mode requis." });
+    
+    const transaction = await db.sequelize.transaction();
+
+    try {
+        const location = await Location.findByPk(idLo, { transaction });
+        if (!location) { await transaction.rollback(); return res.status(404).send({ message: "Location non trouvée." }); }
+        
+        if (mode === 'depart') {
+            // L'état de location passe de 'Confirmée' à 'En cours' (si vous avez cet état, sinon il reste 'Confirmée')
+            // Ici, nous supposons qu'un ÉtatLieux de départ a simplement pour effet d'archiver la vérification
+            
+        } else if (mode === 'retour') {
+            
+            // 1. Mettre à jour la Location comme 'Terminée'
+            await Location.update({ etatLo: 'Terminée' }, { where: { idLo: idLo }, transaction });
+
+            // 2. Remise en stock automatique (si Matériel)
+            if (materielCode && qteMat) { 
+                await Materiel.update({ 
+                    qteActuelStock: db.sequelize.literal(`qteActuelStock + ${qteMat}`), 
+                    qteEnLocation: db.sequelize.literal(`qteEnLocation - ${qteMat}`)
+                }, { where: { codeMat: materielCode }, transaction });
+            }
+
+            // 3. Facturation des dégradations éventuelles (Insertion dans la table Paiement)
+            if (estEndommage && coutReparation > 0) {
+                await db.Paiement.create({ // Assurez-vous que le modèle Paiement est bien db.Paiement
+                    idLo: idLo,
+                    dateCre: new Date(),
+                    montantPaie: coutReparation,
+                    statutPaie: 'En attente', 
+                    // Ajoutez ici un libellé ou type de paiement si la table Paiement l'exige
+                }, { transaction });
+            }
+        } else {
+            await transaction.rollback();
+            return res.status(400).send({ message: "Mode d'état des lieux non valide." });
+        }
+        
+        await transaction.commit();
+        res.status(200).send({ message: `Opération d'état des lieux '${mode}' enregistrée avec succès.` });
+
+    } catch (error) {
+        await transaction.rollback();
+        console.error("Erreur lors de l'enregistrement de l'état des lieux:", error);
+        res.status(500).send({ message: "Échec de l'enregistrement de l'état des lieux.", error: error.message });
+    }
+};
+
+// ... (Vos autres fonctions exports.getPendingReservations, exports.checkAvailability, etc.)
+
+// --- Fonction manquante ou mal exportée ---
+// 3. Créer une nouvelle réservation (Utilisé par la route router.post('/reservations'))
+exports.createReservation = async (req, res) => {
+    // 🚨 Assurez-vous que db.Reservation est bien importé en tant que Reservation
+    const { 
+        idCli, 
+        idSalle, 
+        codeMat, 
+        dateCre, 
+        qteMat, 
+        typeRes, 
+        nbPerso, 
+        debRes, 
+        finRes, 
+        tarifTot 
+    } = req.body;
+
+    // Petite validation rapide
+    if (!idCli || !qteMat || !typeRes || !debRes || !finRes || !tarifTot) {
+        return res.status(400).send({ message: "Champs requis manquants pour la réservation." });
+    }
+
+    try {
+        const nouvelleReservation = await Reservation.create({
+            idCli, 
+            idSalle: idSalle || null, // Peut être null si c'est du matériel
+            codeMat: codeMat || null, // Peut être null si c'est une salle
+            dateCre: dateCre || new Date(),
+            qteMat, 
+            typeRes, 
+            nbPerso, 
+            debRes, 
+            finRes, 
+            tarifTot,
+            etatRes: 'En attente' // Statut initial par défaut
+        });
+        
+        // 💡 Logique de notification : Envoyer un email de confirmation de demande au client.
+
+        res.status(201).send({
+            message: "Demande de réservation créée avec succès. En attente de validation.",
+            reservation: nouvelleReservation
+        });
+    } catch (error) {
+        console.error("Erreur de création de la réservation:", error);
+        // Renvoyer l'erreur détaillée pour aider au débogage du client
+        res.status(500).send({ 
+            message: "Erreur serveur lors de la création de la réservation.", 
+            error: error.message 
+        });
+    }
+};
+
+// ... (Vos autres fonctions exports.createReservation, exports.getPendingReservations, etc.)
+
+// --- Ajout de la fonction getReservationDetails ---
+// 4. Récupérer les détails complets d'une réservation (pour la page de validation)
+exports.getReservationDetails = async (req, res) => {
+    const { idRes } = req.params;
+
+    try {
+        // Option d'inclusion pour récupérer les infos du Client et du Matériel/Salle
+        const reservation = await Reservation.findByPk(idRes, {
+            // Inclure le Client
+            include: [{
+                model: Client,
+                as: 'client', // Alias défini dans models/reservation.js
+                attributes: ['nomCli', 'prenomCli', 'emailCli', 'telephoneCli']
+            }, 
+            // 💡 OPTIONNEL : Inclure le Matériel ou la Salle si nécessaire (doit être configuré dans les associations)
+            /*
+            {
+                model: Materiel,
+                as: 'materiel'
+            },
+            {
+                model: Salle,
+                as: 'salle'
+            }
+            */
+            ],
+            where: {
+                etatRes: 'En attente' // Seules les réservations en attente peuvent être validées
+            }
+        });
+
+        if (!reservation) {
+            return res.status(404).send({ message: "Réservation en attente non trouvée." });
+        }
+
+        res.status(200).json(reservation);
+
+    } catch (error) {
+        console.error(`Erreur lors du chargement des détails de la réservation #${idRes}:`, error);
+        res.status(500).send({ 
+            message: "Erreur serveur lors de la récupération des détails.", 
+            error: error.message 
+        });
+    }
+};
+
+// ... (Le reste de votre fichier locationController.js)
