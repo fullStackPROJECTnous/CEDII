@@ -28,13 +28,23 @@ db.sequelize = sequelize;
 // Assurez-vous que tous les fichiers de modèles (.js) acceptent ces deux arguments.
 
 db.Client = require('./client.js')(sequelize, DataTypes); 
-db.user = require('./user')(sequelize, DataTypes); 
+db.User = require('./user')(sequelize, DataTypes); 
 db.utilisateur = require('./utilisateur.js')(sequelize, DataTypes); 
-db.location = require('./location.js')(sequelize, DataTypes);
-db.reservation = require('./reservation.js')(sequelize, DataTypes); 
-db.materiel = require("./materiel.js")(sequelize, DataTypes); 
-db.salle = require("./salle.js")(sequelize, DataTypes); 
-db.materielBureau = require('./materielModel.js')(sequelize, DataTypes) ;
+db.Location = require('./location.js')(sequelize, DataTypes);
+db.Reservation = require('./reservation.js')(sequelize, DataTypes); 
+db.Materiel = require("./materiel.js")(sequelize, DataTypes); 
+db.Salle = require("./salle.js")(sequelize, DataTypes); 
+db.MaterielBureau = require('./materielModel.js')(sequelize, DataTypes) ;
+
+Object.keys(db).forEach(modelName => {
+  // 💡 Vérifie si l'élément existe ET qu'il a une fonction associate
+  if (db[modelName] && db[modelName].associate) { 
+    // Exclure les clés internes de Sequelize
+    if (modelName !== 'Sequelize' && modelName !== 'sequelize') {
+      db[modelName].associate(db);
+    }
+  }
+});
 
 // --- FIN DU CHARGEMENT DES MODÈLES ---
 

@@ -12,6 +12,10 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
             allowNull: false
         },
+        idCli: { // Si la location est aussi liée directement au client
+            type: DataTypes.INTEGER,
+            allowNull: true // Supposition
+        },
          debLo: {
             // Le type est DATETIME dans votre base de données
             type: DataTypes.DATE, 
@@ -45,24 +49,22 @@ module.exports = (sequelize, DataTypes) => {
     });
 
 
-     Location.associate = (models) => {
-        // Une location appartient à un client.
-        Location.belongsTo(models.client, {
-            foreignKey: 'idCli', 
-            as: 'client' // L'alias pour la relation inverse (non utilisée ici mais bonne pratique)
-        });
-    };
+    
+        
 
-    Location.associate = (models) => {
-        // 🚨 CORRECTION DE L'ERREUR : Définir l'association manquante
-        // Une Location appartient à une Réservation (via idRes)
-        Location.belongsTo(models.Reservation, { // Assurez-vous que le modèle s'appelle 'Reservation'
+  Location.associate = (models) => {
+        // Association 1 : La Location appartient à une Réservation (idRes)
+        Location.belongsTo(models.Reservation, {
             foreignKey: 'idRes', 
-            as: 'reservation' // Alias utilisé pour les requêtes d'inclusion (include)
+            as: 'reservation' // Alias utilisé pour l'inclusion dans le contrôleur
         });
     // 🚨 N'oubliez pas les associations ici si nécessaire (ex: Location.belongsTo(db.client))
-    
- 
+        // Une location appartient à un client.
+        Location.belongsTo(models.Client, {
+            foreignKey: 'idCli', 
+            as: 'client' 
+        });
+   } 
 
     return Location;
-}};
+};

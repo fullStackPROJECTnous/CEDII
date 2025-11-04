@@ -61,13 +61,19 @@ module.exports = (sequelize, DataTypes) => {
 
    // Définition des associations
 Reservation.associate = (models) => {
-    // 🚨 CORRECTION MAJEURE : Une Réservation appartient à un Client (via idCli)
-    Reservation.belongsTo(models.Client, { 
-        foreignKey: 'idCli', 
-        as: 'client' // Utilisation de l'alias 'client' pour l'inclusion
-    });
-    // Reservation.hasOne(models.Location, { foreignKey: 'idRes' }); // 1:1 avec Location
-};
+        // La réservation appartient à un Client (c'est l'association que vous essayez d'inclure)
+        Reservation.belongsTo(models.Client, {
+            foreignKey: 'idCli', // ⬅️ Clé étrangère dans la table 'reservation'
+            as: 'client'         // ⬅️ DOIT CORRESPONDRE à l'alias utilisé dans locationController.js
+        });
+        
+        // Ajoutez vos autres associations ici (ex: Salle, Materiel, si non déjà fait)
+        Reservation.belongsTo(models.Salle, {
+            foreignKey: 'idSalle',
+            as: 'salle'
+        });
+    };
+
 
     return Reservation;
 };

@@ -3,7 +3,7 @@ const { Op } = require('sequelize');
 
 // Fonction utilitaire pour obtenir le modèle
 function getModel() {
-  const model = db.materielBureau;
+  const model = db.MaterielBureau;
   if (!model) {
     console.error('❌ Modèle materielBureau non disponible');
     throw new Error('Modèle non disponible');

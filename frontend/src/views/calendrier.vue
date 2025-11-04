@@ -37,7 +37,7 @@
                     Données prêtes pour le calendrier. Total: {{ confirmedEvents.length }} événements.
                     <details>
                         <summary>Voir le format des données</summary>
-                        <pre style="font-size: 0.75rem;">{{ formattedCalendarEvents.slice(0, 1).toString() }}</pre>
+                        <pre style="font-size: 0.75rem;">{{ JSON.stringify(formattedCalendarEvents[0], null, 2) }}</pre>
                     </details>
                 </div>
                 </div>

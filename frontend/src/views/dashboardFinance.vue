@@ -267,11 +267,25 @@ const fetchFinanceData = async () => {
     }
 };
 
-const logout = () => {
-    AuthService.logout();
-    router.push('/');
-};
+function logout() {
+    // 1. Afficher la boîte de dialogue de confirmation native du navigateur.
+    // confirm() retourne true si l'utilisateur clique sur "OK" ou "Oui", et false si "Annuler" ou "Non".
+    const isConfirmed = window.confirm("Êtes-vous sûr de vouloir vous déconnecter ?");
 
+    // 2. Vérifier la réponse de l'utilisateur.
+    if (isConfirmed) {
+        console.log("Déconnexion confirmée. Exécution de la déconnexion...");
+        
+        // 3. Exécuter l'action de déconnexion
+        AuthService.logout();
+        
+        // 4. Rediriger l'utilisateur vers la page de connexion
+        router.push('/');
+    } else {
+        console.log("Déconnexion annulée.");
+        // Optionnel : ne rien faire, l'utilisateur reste sur la page actuelle.
+    }
+}
 const formatCurrency = (value) => {
     // Le 'fr-FR' assure que le séparateur décimal est une virgule et que l'espacement est correct.
     // La devise est changée en 'MGA'.

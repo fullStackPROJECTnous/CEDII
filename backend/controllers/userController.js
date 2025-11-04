@@ -1,65 +1,8 @@
-/*const db = require('../models');
-const user = db.User;
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-
-// ⚠️ Assurez-vous d'avoir une clé secrète dans votre .env
-const JWT_SECRET = process.env.JWT_SECRET || 'clé_secrète_par_défaut'; 
-
-
-// 2. Fonction de Connexion (LOGIN)
-exports.login = async (req, res) => {
-    const { loginUti, motDePasseUti } = req.body;
-
-    try {
-        // 1. Trouver l'utilisateur
-        const user = await utilisateur.findOne({ where: { loginUti } });
-
-        if (!user) {
-            return res.status(404).send({ message: "Utilisateur ou mot de passe incorrect." });
-        }
-
-    // 2. Vérifier le mot de passe haché
-        const passwordIsValid = bcrypt.compareSync(motDePasseUti, user.motDePasseUti);
-
-        if (!passwordIsValid) {
-            return res.status(401).send({ 
-                accessToken: null, 
-                message: "Utilisateur ou mot de passe incorrect." 
-            });
-        }
-
-        // 3. Générer le Token JWT
-        const token = jwt.sign(
-            { id: user.idUti, role: user.roleUti }, 
-            JWT_SECRET, 
-            { expiresIn: '24h' } // Token valable 24 heures
-        );
-
-        // 4. Réponse de succès
-        res.status(200).send({
-            id: user.idUti,
-            login: user.loginUti,
-            role: user.roleUti,
-            accessToken: token
-        });
-
-    } catch (error) {
-        res.status(500).send({ message: error.message || "Erreur interne du serveur." });
-    }
-};
-// backend/controllers/authController.js
-
-// ... imports et autres fonctions (register, login) ...
-
-// 🚨 NOUVELLE FONCTION POUR LE TEST DE ROUTE
-
-// ...*/
 
 // backend/controllers/userController.js (CORRIGÉ)
 
 const db = require('../models');
-const User = db.user; // 💡 On utilise 'User' (avec une majuscule) pour le modèle importé
+const User = db.User; // 💡 On utilise 'User' (avec une majuscule) pour le modèle importé
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Utilisateur = db.utilisateur;
@@ -193,3 +136,50 @@ exports.deleteUser = async (req, res) => {
         res.status(500).send({ message: "Erreur interne lors de la suppression." });
     }
 };
+/*
+ // backend/controllers/userController.js
+ exports.getAllClientUsers = async (req, res) => {
+    try {
+        // 1. Trouver tous les idUti qui sont déjà associés à un client
+        // 🚨 CORRECTION : On attend la résolution de la promesse avant d'appeler .map()
+        const associatedClients = await Client.findAll({
+            attributes: ['idUti'], 
+            raw: true,
+        });
+        
+        // Maintenant, on appelle .map() sur le tableau de résultats
+        const associatedUserIds = associatedClients.map(client => client.idUti); 
+
+        // 2. Trouver les utilisateurs ayant le rôle 'client' et QUI NE SONT PAS dans la liste
+        const unassociatedClientUsers = await Utilisateur.findAll({
+            where: { 
+                roleUti: 'client',
+                // LOGIQUE CRITIQUE : Exclure les IDs déjà trouvés 
+                idUti: {
+                    [Op.notIn]: associatedUserIds
+                }
+            },
+            // PAS DE CLAUSE 'INCLUDE' (pour éviter le conflit)
+            attributes: ['idUti', 'loginUti'], 
+        });
+
+ // 3. FORMATAGE POUR LE FRONTEND
+        const formattedUsers = unassociatedClientUsers
+            .map(user => ({
+                idUti: user.idUti,
+                // Utiliser le login pour l'affichage, car le nom/prénom n'est pas encore saisi
+                nom: user.loginUti, 
+                prenom: "(Nouvel Utilisateur)", 
+                login: user.loginUti 
+            }));
+
+        res.status(200).send(formattedUsers);
+        
+    } catch (error) {
+        // Afficher l'erreur complète dans le terminal pour le débogage
+        console.error("Erreur de récupération des utilisateurs non associés (pour la liste déroulante):", error);
+        res.status(500).send({ 
+            message: "Erreur interne lors de la récupération des utilisateurs clients." 
+        });
+    }    
+};*/

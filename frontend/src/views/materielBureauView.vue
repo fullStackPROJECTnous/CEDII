@@ -116,12 +116,7 @@
                                                 title="Modifier">
                                             <i class="bi bi-pencil"></i>
                                         </button>
-                                        <button class="btn btn-outline-warning me-1" 
-                                                @click="openAssignModal(m)"
-                                                :disabled="m.statut !== 'En stock' && m.statut !== 'En panne'"
-                                                title="Assigner">
-                                            <i class="bi bi-person"></i>
-                                        </button>
+                                        
                                         <button class="btn btn-outline-danger" @click="deleteItem(m.id)"
                                                 title="Supprimer">
                                             <i class="bi bi-trash"></i>

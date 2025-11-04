@@ -118,7 +118,9 @@ module.exports = (sequelize) => {
         },
         typeCli: {
             type: DataTypes.STRING(31),
-            allowNull: false,
+
+
+            allowNull: true,
             field: 'typeCli'
         },
         statutCli: {
@@ -140,6 +142,8 @@ module.exports = (sequelize) => {
         timestamps: false, 
         freezeTableName: true 
     });
+    
+ 
 
      Client.associate = (models) => {
         // Un client peut avoir plusieurs locations.
@@ -150,6 +154,13 @@ module.exports = (sequelize) => {
             as: 'locations' 
         });
     }
+    Client.associate = (models) => {
+        // Un client peut avoir plusieurs réservations
+        Client.hasMany(models.Reservation, {
+            foreignKey: 'idCli', // ⬅️ Clé étrangère dans la table 'reservation'
+            as: 'reservations'
+        });
+    };
     
     return Client;
 };

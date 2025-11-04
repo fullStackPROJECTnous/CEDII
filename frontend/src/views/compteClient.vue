@@ -11,6 +11,7 @@
         <p class="text-muted mb-0">Bienvenue, {{ clientName }} !</p>
       </header>
       
+       
       <div class="mt-4">
 
         <div class="alert alert-info shadow-sm border-0 mb-5" role="alert">
@@ -125,6 +126,7 @@ const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
 };
+
 
 onMounted(() => {
     fetchClientData();

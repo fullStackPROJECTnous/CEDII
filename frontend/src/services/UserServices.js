@@ -19,23 +19,28 @@ class UserServices {
     }
     return response.data;
   }
-}
+};
+
+
+/*
+// 🚨 AJOUT : Fonction pour récupérer la liste des utilisateurs clients
+  getAllClientUsers() 
+        // La requête complète sera : http://localhost:5000/api/users/clients/list
+        return axios.get(API_URL + '/clients/list') 
+            .then(response => {
+                return response.data;
+            })
+            .catch(error => {
+                // IMPORTANT : Log l'erreur pour le débogage et renvoie un tableau vide
+                console.error("Erreur de chargement des utilisateurs clients:", error.response || error);
+                return []; 
+            });
+    
+          
+        
+          ;
+
   export default new UserServices();
 
-
-  // 🚨 NOUVELLE MÉTHODE POUR L'INSCRIPTION
-  /*async register(data) {
-    return axios.post(API_URL + 'register', data);
-  }
-
-  logout() {
-    localStorage.removeItem('user');
-  }
-
-  getCurrentUser() {
-    return JSON.parse(localStorage.getItem('user'));
-  }
-}
-
-export default new UserServices();
-*/
+        */
+         

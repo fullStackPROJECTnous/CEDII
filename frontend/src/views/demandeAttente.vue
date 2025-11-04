@@ -1,15 +1,8 @@
-<!--<template>
-  <div class="p-4">
-    <h1>Demande en attente 🛎️</h1>
-    <p>Vue d'ensemble</p>
-    </div>
-</template>
-<script setup>
-// Logique Réception
-</script>
--->
+
 
 <template>
+
+    
          <div class="retour">
     <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary mt-3">
       Retour à l'Acceuil
@@ -99,10 +92,19 @@ const formatDate = (dateString) => {
     }
 };
 
-// Fonction pour déterminer le type de ressource (à adapter si nécessaire)
+// Fonction pour déterminer le type de ressource (corrigée)
 const getRessourceType = (request) => {
-    // Dans votre modèle Location/Reservation, vous avez typeRes ou typeLo.
-    return request.typeRes || request.typeLo || 'Non spécifié'; 
+    // typeRes est une chaîne de caractères ('Salle', 'Materiel', 'Mixte')
+    if (request.typeRes === 'Salle') {
+        return 'Salle';
+    }
+    if (request.typeRes === 'Materiel') {
+        return 'Matériel';
+    }
+    if (request.typeRes === 'Mixte') {
+        return 'Salle & Matériel';
+    }
+    return 'Non spécifié';
 };
 
 // --- Fonctions API ---
@@ -126,21 +128,19 @@ const fetchPendingRequests = async () => {
 
 
 const handleRequest = async (request, newStatus) => {
-    const action = newStatus === 'Confirmée' ? 'Valider' : 'Refuser';
+    // 🚨 Correction : Le statut 'Refusée' doit être 'Annulée' selon votre ENUM
+    const statusToSend = (newStatus === 'Refusée' || newStatus === 'Annulée') ? 'Annulée' : 'Confirmée';
+    const action = statusToSend === 'Confirmée' ? 'Valider' : 'Refuser';
     const message = `Êtes-vous sûr de vouloir ${action.toLowerCase()} la demande #${request.idRes}?`;
 
     if (confirm(message)) {
         try {
-            // L'API attend l'idRes et le nouveau statut
-            await LocationService.updateReservationStatus(request.idRes, newStatus); 
+            // Utiliser statusToSend
+            await LocationService.updateReservationStatus(request.idRes, statusToSend); 
             
-            alert(`Demande #${request.idRes} mise à jour à '${newStatus}' avec succès.`);
+            alert(`Demande #${request.idRes} mise à jour à '${statusToSend}' avec succès.`);
             
-            // Recharger la liste pour la mettre à jour immédiatement
             await fetchPendingRequests(); 
-
-            // Optionnel : Rediriger ou rafraîchir le badge du menu si le composant du menu est dans un autre layout
-            // router.push({ name: 'ReceptionDashboard' }); 
 
         } catch (error) {
             console.error(`Erreur de traitement de la demande #${request.idRes}:`, error.response?.data || error);

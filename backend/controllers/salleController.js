@@ -1,39 +1,8 @@
-/*
+
 
 const db = require('../models');
-// 🚨 Assurez-vous que le modèle est Salle (avec la première lettre en majuscule pour la convention) 
-// et qu'il est bien assigné à db.salle (en minuscule pour la clé d'export de l'index).
-const Salle = db.salle; 
-
-// 🚨 Assurez-vous que cette fonction est bien nommée 'getAllSalles' et exportée avec 'exports.'
-exports.getAllSalles = async (req, res) => {
-    try {
-        // Le code ici peut planter si db.salle est undefined, mais l'erreur TypeError 
-        // signifie que nous n'arrivons même pas à ce point.
-        const salles = await Salle.findAll(); 
-        
-        res.status(200).json(salles);
-
-    } catch (error) {
-        console.error("Erreur Sequelize lors de la récupération des salles:", error); 
-        res.status(500).json({ 
-            message: "Error retrieving salles", 
-            error: error.message 
-        });
-    }
-};
-
-// Si vous avez d'autres routes dans salleRoutes.js (comme POST, PUT, DELETE),
-// ajoutez des stubs (fonctions vides) pour elles ici, sinon le serveur plantera à nouveau :
-
-exports.createSalle = (req, res) => {
-    res.status(501).send({ message: "Not Implemented" });
-};
-*/
-
-const db = require('../models');
-const Salle = db.salle;
-const Reservation = db.reservation;
+const Salle = db.Salle;
+const Reservation = db.Reservation;
 const { Op } = require('sequelize');
 
 // Récupérer toutes les salles avec filtres
