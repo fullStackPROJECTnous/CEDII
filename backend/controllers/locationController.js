@@ -190,50 +190,46 @@ exports.updateReservationStatus = async (req, res) => {
 
 
 // Test rapide (à remplacer)
+// ...
 exports.getConfirmedEvents = async (req, res) => {
-    try {
-        const confirmedEvents = await Location.findAll({
-            // Filtrer explicitement les événements Confirmés sur la table Location.
-            // Si 'etatLo' est le champ qui indique la confirmation d'un événement,
-            // ce filtre est correct.
-            where: { 
-                etatLo: 'Confirmée' 
-            },
-            
-            // CRITIQUE : INCLUSIONS IMBRIQUÉES
-            include: [{
-                // 1. Inclure la Réservation (associée à la Location)
-                model: Reservation, 
-                as: 'reservation', 
-                
-                // ✅ AJOUT : Garantit qu'une Reservation existe pour chaque Location (JOIN INNER)
-                // Ceci peut être utile si certaines Locations n'ont pas de Reservation.
-                required: true, 
-                
-                // 2. Inclure le Client (associé à la Réservation)
-                include: [{
-                    model: Client,
-                    as: 'client', 
-                    attributes: ['nomCli', 'prenomCli'],
-                    // ✅ AJOUT : Optionnel, mais sécurise la jointure
-                    required: true, 
-                }]
-            }],
+    try {
+        const confirmedEvents = await Location.findAll({
+            where: { 
+                etatLo: 'Confirmée' 
+            },
+            include: [{
+                model: Reservation, 
+                as: 'reservation', 
+                required: true, 
+                include: [{
+                    model: Client,
+                    as: 'client', 
+                    attributes: ['nomCli', 'prenomCli'],
+                    required: true, 
+                }]
+            }],
 
-            order: [['debLo', 'ASC']],
-            // Liste des attributs pour la performance
-            attributes: ['idLo', 'debLo', 'finLo', 'typeLo', 'etatLo', 'idRes']
-        });
-        
-        res.status(200).json(confirmedEvents);
+            order: [['debLo', 'ASC']],
+            attributes: ['idLo', 'debLo', 'finLo', 'typeLo', 'etatLo', 'idRes'],
+            raw: true, // 🚨 Ajout de raw: true pour obtenir des objets JavaScript simples
+            nest: true // 🚨 Ajout de nest: true pour conserver la structure imbriquée (important)
+        });
+        
+        // 🚨 MAPPING CRITIQUE : Aplatir l'objet pour le Frontend
+        const mappedEvents = confirmedEvents.map(event => ({
+            ...event,
+            // Le client est dans event.reservation.client, nous le déplaçons dans event.client
+            client: event.reservation.client 
+        }));
+        
+        res.status(200).json(mappedEvents); // 🚨 Renvoyer les objets mappés
 
-    } catch (error) {
-        // 🚨 POINT CRITIQUE : Affiche l'erreur complète dans la console du backend.
-        // Cela vous aidera à identifier si l'erreur vient d'un alias ou d'une colonne manquante.
-        console.error("Erreur critique lors de la récupération des événements confirmés (vérifiez l'alias!):", error.message, error.sql); 
-        res.status(500).json({ message: "Échec de la récupération des événements confirmés." });
-    }
+    } catch (error) {
+        console.error("Erreur critique lors de la récupération des événements confirmés (vérifiez l'alias!):", error.message, error.sql); 
+        res.status(500).json({ message: "Échec de la récupération des événements confirmés." });
+    }
 };
+
 exports.checkAvailability = async (req, res) => {
     // Le Frontend doit fournir: type ('Materiel' ou 'Salle'), codeId (codeMat ou idSalle), debRes, finRes, quantite (qteMat ou nbPerso)
     const { type, codeId, debRes, finRes, quantite } = req.query; 
@@ -356,60 +352,160 @@ exports.validateReservation = async (req, res) => {
 // A AJOUTER dans backend/controllers/locationController.js
 
 exports.submitEtatLieux = async (req, res) => {
+    const { idLo } = req.params;
+    // 🚀 CORRECTION 1 : Destructurer 'details' au lieu de 'payload'
+    const { mode, details } = req.body; 
+
+    if (!idLo || !mode) return res.status(400).send({ message: "ID Location et mode requis." });
+    
+    // 🚀 CORRECTION 2 : Utiliser 'details' pour la validation
+    if (!details || !Array.isArray(details)) return res.status(400).send({ message: "Les données de matériel (details) sont requises." });
+
+    // Normaliser le mode pour la logique
+    const normalizedMode = mode.toLowerCase();
+    
+    const transaction = await db.sequelize.transaction();
+
+    try {
+        const location = await Location.findByPk(idLo, { transaction });
+        if (!location) { await transaction.rollback(); return res.status(404).send({ message: "Location non trouvée." }); }
+
+        // --- Logique principale de l'État des Lieux ---
+
+        if (normalizedMode === 'depart') {
+            // L'état passe de 'Confirmée' à 'En cours' (le matériel a été remis)
+            // Vous pouvez ajouter une vérification d'état ici si nécessaire
+            await Location.update({ etatLo: 'En cours' }, { where: { idLo: idLo }, transaction });
+            
+        } else if (normalizedMode === 'retour') {
+            
+            // 1. Mettre à jour la Location comme 'Terminée'
+            await Location.update({ etatLo: 'Terminée' }, { where: { idLo: idLo }, transaction });
+            
+            // 2. Traiter chaque article dans le tableau
+            for (const item of details) { // 🚀 CORRECTION 3 : Utiliser 'details'
+                
+                // Remise en stock automatique (si Matériel - idMat est l'ID/code du matériel)
+                if (item.idMat && item.qteMat) { 
+                    await db.Materiel.update({ 
+                        // Assurez-vous d'utiliser 'db.Materiel' si vous accédez aux modèles via l'objet db
+                        qteActuelStock: db.sequelize.literal(`qteActuelStock + ${item.qteMat}`), 
+                        qteEnLocation: db.sequelize.literal(`qteEnLocation - ${item.qteMat}`)
+                    }, { where: { codeMat: item.idMat }, transaction });
+                }
+                // 💡 NOTE: Si 'idSalle' est utilisé pour les salles, elles n'ont pas de stock, donc pas de mise à jour ici.
+
+                // 3. Facturation des dégradations éventuelles
+                if (item.estEndommage && item.coutReparation > 0) {
+                    // ASSUMPTION: db.Paiement et db.Reservation existent
+                    const reservation = await db.Reservation.findOne({ where: { idRes: location.idRes }, transaction });
+
+                    if (db.Paiement && reservation) { 
+                         await db.Paiement.create({ 
+                            idLo: idLo,
+                            idCli: reservation.idCli, // Récupération de l'ID client via la Réservation
+                            dateCre: new Date(),
+                            montantPaie: item.coutReparation,
+                            statutPaie: 'En attente', 
+                            libellePaie: `Frais de réparation pour ${item.materielCode} (État des lieux Retour)`
+                        }, { transaction });
+                    }
+                }
+            }
+
+        } else {
+            await transaction.rollback();
+            return res.status(400).send({ message: "Mode d'état des lieux non valide." });
+        }
+        
+        await transaction.commit();
+        res.status(200).send({ message: `Opération d'état des lieux ${mode} enregistrée avec succès.` });
+
+    } catch (error) {
+        await transaction.rollback();
+        console.error("Erreur lors de l'enregistrement de l'état des lieux:", error);
+        res.status(500).send({ message: "Échec de l'enregistrement de l'état des lieux.", error: error.message });
+    }
+};
+
+// A AJOUTER dans backend/controllers/locationController.js
+
+exports.getLocationDetails = async (req, res) => {
     const { idLo } = req.params;
-    const { mode, materielCode, qteMat, estEndommage, coutReparation, descriptionDegradation } = req.body;
-    
-    if (!idLo || !mode) return res.status(400).send({ message: "ID Location et mode requis." });
-    
-    const transaction = await db.sequelize.transaction();
 
     try {
-        const location = await Location.findByPk(idLo, { transaction });
-        if (!location) { await transaction.rollback(); return res.status(404).send({ message: "Location non trouvée." }); }
-        
-        if (mode === 'depart') {
-            // L'état de location passe de 'Confirmée' à 'En cours' (si vous avez cet état, sinon il reste 'Confirmée')
-            // Ici, nous supposons qu'un ÉtatLieux de départ a simplement pour effet d'archiver la vérification
-            
-        } else if (mode === 'retour') {
-            
-            // 1. Mettre à jour la Location comme 'Terminée'
-            await Location.update({ etatLo: 'Terminée' }, { where: { idLo: idLo }, transaction });
+        // Récupérer la Location et joindre la Réservation/Client
+        const location = await Location.findByPk(idLo, {
+            include: [{
+                model: Reservation,
+                as: 'reservation', 
+                required: true,
+                include: [{
+                    model: Client,
+                    as: 'client',
+                    attributes: ['nomCli', 'prenomCli']
+                }]
+            }],
+        });
 
-            // 2. Remise en stock automatique (si Matériel)
-            if (materielCode && qteMat) { 
-                await Materiel.update({ 
-                    qteActuelStock: db.sequelize.literal(`qteActuelStock + ${qteMat}`), 
-                    qteEnLocation: db.sequelize.literal(`qteEnLocation - ${qteMat}`)
-                }, { where: { codeMat: materielCode }, transaction });
-            }
-
-            // 3. Facturation des dégradations éventuelles (Insertion dans la table Paiement)
-            if (estEndommage && coutReparation > 0) {
-                await db.Paiement.create({ // Assurez-vous que le modèle Paiement est bien db.Paiement
-                    idLo: idLo,
-                    dateCre: new Date(),
-                    montantPaie: coutReparation,
-                    statutPaie: 'En attente', 
-                    // Ajoutez ici un libellé ou type de paiement si la table Paiement l'exige
-                }, { transaction });
-            }
-        } else {
-            await transaction.rollback();
-            return res.status(400).send({ message: "Mode d'état des lieux non valide." });
+        if (!location) {
+            return res.status(404).send({ message: "Location introuvable." });
         }
         
-        await transaction.commit();
-        res.status(200).send({ message: `Opération d'état des lieux '${mode}' enregistrée avec succès.` });
+        const responseData = {
+            idLo: location.idLo,
+            client: location.reservation.client,
+            debLo: location.debLo,
+            finLo: location.finLo,
+            details: []
+        };
+        
+        // 1. Traitement du Matériel (si codeMat existe)
+        if (location.reservation.codeMat) {
+            // Si c'est du Matériel
+            const materiel = await Materiel.findByPk(location.reservation.codeMat, {
+                // 🚨 CORRECTION ICI : Utiliser 'designationMat' au lieu de 'nomMat'
+                attributes: ['codeMat', 'designationMat'] 
+            });
+
+            if (materiel) {
+                 responseData.details.push({
+                     idMat: materiel.codeMat, 
+                     // 🚨 CORRECTION ICI : Utiliser designationMat
+                     materiel: { nomMat: materiel.designationMat }, 
+                     qteMat: location.qteMat 
+                 });
+            }
+        } 
+        
+        // 2. Traitement de la Salle (si idSalle existe)
+        // Changement de 'else if' à 'if' pour gérer les locations 'Mixte' 
+        if (location.reservation.idSalle) {
+            // Si c'est une Salle
+            const salle = await Salle.findByPk(location.reservation.idSalle, {
+                attributes: ['idSalle', 'nomSalle']
+            });
+            
+            if (salle) {
+                 responseData.details.push({
+                     idSalle: salle.idSalle, 
+                     materiel: { nomMat: salle.nomSalle }, // On réutilise le format nomMat
+                     qteMat: location.nbPersp 
+                 });
+            }
+        }
+
+        res.status(200).json(responseData);
 
     } catch (error) {
-        await transaction.rollback();
-        console.error("Erreur lors de l'enregistrement de l'état des lieux:", error);
-        res.status(500).send({ message: "Échec de l'enregistrement de l'état des lieux.", error: error.message });
+        console.error(`Erreur critique lors du chargement des détails de la location #${idLo}:`, error);
+        res.status(500).send({ 
+            message: "Erreur serveur interne lors de la récupération des détails de la location. Vérifiez les relations Sequelize.", 
+            error: error.message 
+        });
     }
 };
 
-// ... (Vos autres fonctions exports.getPendingReservations, exports.checkAvailability, etc.)
 
 // --- Fonction manquante ou mal exportée ---
 // 3. Créer une nouvelle réservation (Utilisé par la route router.post('/reservations'))
@@ -454,16 +550,23 @@ exports.createReservation = async (req, res) => {
             message: "Demande de réservation créée avec succès. En attente de validation.",
             reservation: nouvelleReservation
         });
+   
     } catch (error) {
-        console.error("Erreur de création de la réservation:", error);
-        // Renvoyer l'erreur détaillée pour aider au débogage du client
-        res.status(500).send({ 
-            message: "Erreur serveur lors de la création de la réservation.", 
-            error: error.message 
-        });
+        if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeForeignKeyConstraintError') {
+            // Cela affichera l'erreur précise (ex: "qteMat cannot be null") dans votre console Node.js
+            console.error("Erreur de Validation Sequelize:", error.errors.map(e => e.message));
+            
+            return res.status(400).json({ 
+                message: "Données de réservation invalides ou incomplètes.",
+                errors: error.errors.map(e => e.message)
+            });
+        }
+        
+        console.error("Erreur Inattendue lors de la création de la réservation:", error);
+        return res.status(500).json({ message: "Erreur interne du serveur." });
     }
 };
-
+// ...
 // ... (Vos autres fonctions exports.createReservation, exports.getPendingReservations, etc.)
 
 // --- Ajout de la fonction getReservationDetails ---
@@ -530,5 +633,58 @@ exports.getReservationStatistics = async (req, res) => {
     } catch (error) {
         console.error("Erreur lors de la récupération des statistiques:", error);
         res.status(500).json({ message: "Échec de la récupération des statistiques." });
+    }
+};
+// 1. Fonction pour les Clients
+exports.getClients = async (req, res) => {
+    try {
+        // Logique pour interroger la table `client`
+        const clients = await db.Client.findAll({ 
+            attributes: ['idCli', 'nomCli', 'prenomCli'],
+            where: { statutCli: 'actif' } 
+        });
+        res.status(200).json(clients);
+    } catch (error) {
+        console.error('Erreur SQL Clients:', error);
+        res.status(500).json({ message: "Erreur serveur lors du chargement des clients." });
+    }
+};
+
+// 2. Fonction pour les Salles
+exports.getSalles = async (req, res) => {
+    try {
+        // Logique pour interroger la table `salle`
+        const salles = await db.Salle.findAll({
+            attributes: ['idSalle', 'nomSalle', 'tarifHeure', 'tarifDemiJournee', 'tarifJour'],
+            where: { disponibiliteSalle: 'Disponible' }
+        });
+        res.status(200).json(salles);
+    } catch (error) {
+        console.error('Erreur SQL Salles:', error);
+        res.status(500).json({ message: "Erreur serveur lors du chargement des salles." });
+    }
+};
+
+// 3. Fonction pour le Matériel
+// FIN DE VOTRE FICHIER locationController.js (CORRIGÉE)
+
+// 3. Fonction pour le Matériel
+exports.getMateriels = async (req, res) => {
+    try {
+        const materiels = await db.Materiel.findAll({
+            attributes: [
+                'codeMat', 
+                'designationMat', 
+                'tarifHeure', 
+                'tarifDemiJournee', 
+                'tarifJour'
+            ],
+            // 🚨 CONSERVEZ CETTE LIGNE COMMENTÉE POUR DEBUGGER
+            // where: { etatMat: 'Disponible' } 
+        });
+        return res.status(200).json(materiels);
+    } catch (error) {
+        console.error('Erreur SQL Matériels:', error);
+        return res.status(500).json({ message: "Erreur serveur lors du chargement du matériel." });
     }
 };

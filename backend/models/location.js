@@ -12,10 +12,10 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.INTEGER,
             allowNull: false
         },
-        idCli: { // Si la location est aussi liée directement au client
+       /* idCli: { // Si la location est aussi liée directement au client
             type: DataTypes.INTEGER,
             allowNull: true // Supposition
-        },
+        },*/
          debLo: {
             // Le type est DATETIME dans votre base de données
             type: DataTypes.DATE, 
@@ -60,10 +60,10 @@ module.exports = (sequelize, DataTypes) => {
         });
     // 🚨 N'oubliez pas les associations ici si nécessaire (ex: Location.belongsTo(db.client))
         // Une location appartient à un client.
-        Location.belongsTo(models.Client, {
+       /* Location.belongsTo(models.Client, {
             foreignKey: 'idCli', 
             as: 'client' 
-        });
+        });*/
    } 
 
     return Location;

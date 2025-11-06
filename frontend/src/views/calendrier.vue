@@ -15,6 +15,11 @@
       Retour à l'Acceuil
     </router-link>
   </div>
+  <li class="nav-item">
+    <router-link :to="{ name: 'EtatLieux' }" class="nav-link">
+        <i class="bi bi-truck-flatbed"></i> Gestion Départs/Retours
+    </router-link>
+</li>
     <hr class="my-5">
 
     <div class="card shadow-lg">

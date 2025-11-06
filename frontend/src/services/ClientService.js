@@ -79,7 +79,7 @@ async getClientHistory(idCli) {
     });
 },
 
-async getMyProfile() {
+async getProfile() {
     try {
         const response = await axios.get(`${API_BASE_URL}/profile`, { 
             headers: authHeader() // 🚨 CRITIQUE : Envoie l'en-tête 'Authorization'

@@ -46,18 +46,19 @@
                                 <td>{{ getRessourceType(request) }}</td>
                                 <td>{{ formatDate(request.debRes) }}</td>
                                 <td>{{ formatDate(request.dateCre) }}</td>
-                                <td>
-                                    <button 
-                                        class="btn btn-sm btn-success me-2"
-                                        @click="handleRequest(request, 'Confirmée')">
-                                        <i class="bi bi-check-lg"></i> Valider
-                                    </button>
-                                    <button 
-                                        class="btn btn-sm btn-danger"
-                                        @click="handleRequest(request, 'Refusée')">
-                                        <i class="bi bi-x-lg"></i> Refuser
-                                    </button>
-                                </td>
+                               <td>
+    <router-link 
+        :to="{ name: 'ReservationValid', params: { idRes: request.idRes } }"
+        class="btn btn-sm btn-primary me-2">
+        <i class="bi bi-eye"></i> Gérer/Valider
+    </router-link>
+
+    <button 
+        class="btn btn-sm btn-danger"
+        @click="handleRefuse(request)"> 
+        <i class="bi bi-x-lg"></i> Refuser
+    </button>
+</td>
                             </tr>
                         </tbody>
                     </table>
@@ -127,7 +128,7 @@ const fetchPendingRequests = async () => {
 };
 
 
-const handleRequest = async (request, newStatus) => {
+/*const handleRequest = async (request, newStatus) => {
     // 🚨 Correction : Le statut 'Refusée' doit être 'Annulée' selon votre ENUM
     const statusToSend = (newStatus === 'Refusée' || newStatus === 'Annulée') ? 'Annulée' : 'Confirmée';
     const action = statusToSend === 'Confirmée' ? 'Valider' : 'Refuser';
@@ -145,6 +146,26 @@ const handleRequest = async (request, newStatus) => {
         } catch (error) {
             console.error(`Erreur de traitement de la demande #${request.idRes}:`, error.response?.data || error);
             alert(`Échec du traitement de la demande : ${error.response?.data?.message || error.message}`);
+        }
+    }
+};
+*/
+
+// ...
+
+const handleRefuse = async (request) => {
+    const message = `Êtes-vous sûr de vouloir REFUSER la demande #${request.idRes}?`;
+
+    if (confirm(message)) {
+        try {
+            // Utilisation de 'Refusée'
+            await LocationService.updateReservationStatus(request.idRes, 'Refusée'); 
+            
+            alert(`Demande #${request.idRes} refusée avec succès.`);
+            await fetchPendingRequests(); 
+        } catch (error) {
+            console.error(`Erreur de refus de la demande #${request.idRes}:`, error.response?.data || error);
+            alert(`Échec du refus : ${error.response?.data?.message || error.message}`);
         }
     }
 };

@@ -1,13 +1,4 @@
-<!--<template>
-  <div class="p-4">
-    <h1>Espace Finance 💰</h1>
-    <p>Synthèse des transactions, factures et rapports financiers.</p>
-    </div>
-</template>
-<script setup>
-// Logique Finance
-</script>
--->
+
 
 
 <template>
@@ -180,7 +171,7 @@
                         </ul>
                     </div>
                     <div class="card-footer bg-white text-end">
-                         <router-link :to="{ name: 'ClientManagement' }" class="btn btn-sm btn-outline-secondary">Voir tout</router-link>
+                         <router-link :to="{ name: 'SuiviPaie' }" class="btn btn-sm btn-outline-secondary">Voir tout</router-link>
                     </div>
                 </div>
             </div>

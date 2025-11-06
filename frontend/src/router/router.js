@@ -37,6 +37,8 @@ import Synthese from '../views/synthese.vue';
 import MaterielBureauView from '../views/materielBureauView.vue';
 import EtatLieu from '../views/etatLieu.vue';
 import ReservationValidation from '../views/reservationValidation.vue';
+import FormEtatLieu from '../views/formEtatLieu.vue';
+import ReservationLocationForm from '../views/reservationLocationForm.vue';
 
 
 // ... (Garde de Navigation) ...
@@ -178,11 +180,29 @@ const routes = [
     // Optionnel: ajouter un meta field pour la vérification du login
     // meta: { requiresAuth: true }
   },
+
+   {
+    path: '/reservationLocationForm',
+    name: 'NouvelleReservation',
+    component: ReservationLocationForm
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
   
      {
-    path: '/reservationValidation',
+    path: '/reservations/:idRes/validate',
     name: 'ReservationValid',
-    component: ReservationValidation
+    component: ReservationValidation,
+    props: true
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
+
+   {
+    path: '/locations/:idLo/etat-lieux/:mode',
+    name: 'FormEtatLieu',
+    component: FormEtatLieu,
+    props: true
     // Optionnel: ajouter un meta field pour la vérification du login
     // meta: { requiresAuth: true }
   },

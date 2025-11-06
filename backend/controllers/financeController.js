@@ -5,151 +5,6 @@ const Location = db.Location;
 const Client = db.Client;
 const Reservation = db.Reservation; 
 const sequelize = db.sequelize;
-// Nécessaire pour lier Location -> Client
-
-// backend/controllers/financeController.js (Exemple de logique)
-
-// ... imports (db, sequelize)
-/*
-exports.getFinanceDashboardData = async (req, res) => {
-    try {
-        const sqlPendingPayments = `
-            SELECT 
-                COUNT(idPaie) AS pendingPaymentsCount,
-                SUM(montantPaie) AS pendingAmount
-            FROM 
-                paiement
-            WHERE 
-                statutPaie = 'En attente';
-        `;
-
-        const [paymentData] = await db.sequelize.query(sqlPendingPayments, { 
-            type: db.sequelize.QueryTypes.SELECT 
-        });
-
-        const pendingPaymentsCount = parseInt(paymentData.pendingPaymentsCount) || 0;
-        // Si aucun paiement en attente, le SUM peut être NULL, on s'assure qu'il est 0.
-        const pendingAmount = parseFloat(paymentData.pendingAmount) || 0; 
-        
-        // ... (Autres calculs pour les autres KPIs)
-
-        const sqlInvoicesToSend = `
-            SELECT
-                f.idFact AS id,
-                CONCAT(c.nomCli, ' ', c.prenomCli) AS client,
-                f.montantFact AS amount
-            FROM 
-                facture f
-            JOIN 
-                client c ON f.idCli = c.idCli
-            WHERE 
-                f.statutFact = 'Générée' 
-                AND f.dateEnvoiFact IS NULL;
-        `;
-        
-        const invoicesToSend = await sequelize.query(sqlInvoicesToSend, { 
-            type: sequelize.QueryTypes.SELECT 
-        });
-
-        // 4. Liste des Pénalités (Simulation/Requête réelle)
-        // ... (Ajouter votre requête pour les pénalités ici)
-        const pendingPenalties = [
-             // ... (Remplir avec les données réelles de la BDD)
-        ];
-
-        // Renvoi des données au frontend
-        res.status(200).send({
-            // ... autres KPIs
-            invoicesToSend, // <-- Cette liste sera utilisée pour le badge et le tableau
-            pendingPenalties,
-             pendingPaymentsCount, // <-- Compte
-            pendingAmount, 
-        });
-
-   
-
-    } catch (error) {
-        // Gestion de l'erreur
-        // ...
-    }
-};
-
-// 🚨 NOUVELLE FONCTION (Minimale requise pour démarrer)
-exports.getFacturationData = async (req, res) => {
-    try {
-        // --- TODO: REMPLACER CECI PAR VOTRE LOGIQUE SQL RÉELLE ---
-        
-        // Simuler les données pour éviter les erreurs 500
-        const locationsToInvoice = [];
-        const invoicesReadyToSend = [];
-
-        // --------------------------------------------------------
-
-        res.status(200).send({
-            locationsToInvoice: locationsToInvoice,
-            invoicesReadyToSend: invoicesReadyToSend,
-            message: "Données de facturation récupérées."
-        });
-
-    } catch (error) {
-        console.error("Erreur lors de la récupération des données de facturation:", error);
-        res.status(500).send({
-            message: "Erreur serveur lors de la récupération des données de facturation."
-        });
-    }
-};
-
-exports.generateInvoices = async (req, res) => {
-    // Logique de génération de facture (SQL INSERT / UPDATE)
-    res.status(200).send({ message: "Génération automatique des factures terminée." });
-};
-
-exports.sendInvoice = async (req, res) => {
-    const invoiceId = req.params.id;
-    // Logique d'envoi d'email et mise à jour du statut dans la BDD
-    res.status(200).send({ message: `Facture ${invoiceId} envoyée.` });
-};
-
-
-exports.getPaymentData = async (req, res) => {
-    try {
-        // --- TODO: Requête SQL pour obtenir les paiements en attente et validés
-        // Utiliser la table 'paiement'
-        
-        // Simuler les données pour éviter les erreurs 500
-        const pendingPayments = [
-            // Données réelles de la BDD pour statutPaie = 'En attente'
-            { id: 2008, client: 'Eve Leclerc', date: '2025-10-15', method: 'Virement', amount: 800 },
-        ];
-        
-        const validatedPayments = [
-            // Données réelles de la BDD pour statutPaie = 'Validé'
-        ];
-
-        res.status(200).send({
-            pendingPayments,
-            validatedPayments
-        });
-
-    } catch (error) {
-        console.error("Erreur lors de la récupération des données de paiement:", error);
-        res.status(500).send({ message: "Erreur serveur." });
-    }
-};
-
-exports.validatePayment = async (req, res) => {
-    const paymentId = req.params.id;
-    // --- TODO: Logique SQL pour UPDATE paiement SET statutPaie = 'Validé'
-    res.status(200).send({ message: `Paiement ${paymentId} validé.` });
-};
-
-exports.sendPaymentReminder = async (req, res) => {
-    const paymentId = req.params.id;
-    // --- TODO: Logique d'envoi d'email de relance
-    res.status(200).send({ message: `Relance envoyée pour le paiement ${paymentId}.` });
-};
-
-*/
 
 
 exports.getFinanceDashboardData = async (req, res) => {
@@ -354,36 +209,17 @@ exports.sendInvoice = async (req, res) => {
     }
 };
 
+// ... (autres exports) ...
+
 exports.getPaymentData = async (req, res) => {
     try {
-        // --- 1. Requête pour les Paiements EN ATTENTE ---
-        // Jointures: paiement -> location -> reservation -> client
-        const sqlPendingPaymentsDetails = `
-            SELECT 
-                p.idPaie AS id,
-                CONCAT(c.nomCli, ' ', c.prenomCli) AS client,
-                p.dateCre AS date,
-                p.modePaie AS method,
-                p.montantPaie AS amount
-            FROM 
-                paiement p
-            JOIN 
-                location l ON p.idLo = l.idLo
-            JOIN
-                reservation r ON l.idRes = r.idRes
-            JOIN
-                client c ON r.idCli = c.idCli
-            WHERE 
-                p.statutPaie = 'En attente'
-            ORDER BY 
-                p.dateCre DESC;
-        `;
+        // ... (Requête pour les Paiements EN ATTENTE) ...
+        const sqlPendingPaymentsDetails = `... WHERE p.statutPaie = 'En attente' ...`;
         const pendingPayments = await sequelize.query(sqlPendingPaymentsDetails, { 
-            type: sequelize.QueryTypes.SELECT 
+             type: sequelize.QueryTypes.SELECT 
         });
 
         // --- 2. Requête pour les Paiements VALIDÉS (Historique) ---
-        // statutPaie = 'Effectué' d'après votre schéma de BDD
         const sqlValidatedPaymentsDetails = `
             SELECT 
                 p.idPaie AS id,
@@ -395,24 +231,21 @@ exports.getPaymentData = async (req, res) => {
                 paiement p
             JOIN 
                 location l ON p.idLo = l.idLo
-            JOIN
-                reservation r ON l.idRes = r.idRes
-            JOIN
-                client c ON r.idCli = c.idCli
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
             WHERE 
                 p.statutPaie = 'Effectué'
             ORDER BY 
-                p.dateCre DESC
-            LIMIT 50; -- Limiter pour éviter les chargements trop lourds
+                p.dateCre DESC;
         `;
         const validatedPayments = await sequelize.query(sqlValidatedPaymentsDetails, { 
-            type: sequelize.QueryTypes.SELECT 
+             type: sequelize.QueryTypes.SELECT 
         });
 
         // Envoi des deux listes au frontend
         res.status(200).send({
             pendingPayments,
-            validatedPayments
+            validatedPayments // 👈 C'est cette liste qui est l'historique complet
         });
 
     } catch (error) {
@@ -421,6 +254,7 @@ exports.getPaymentData = async (req, res) => {
     }
 };
 
+// ... (autres exports) ...
 exports.validatePayment = async (req, res) => {
     const paymentId = req.params.id; // Récupère l'ID du paiement de la route
     
@@ -747,33 +581,3 @@ exports.getMonthlyRevenueTrend = async (req, res) => {
     }
 };
 
-// backend/controllers/financeController.js (Extrait)
-
-// ... (vos imports const db = require('../models'); const sequelize = db.sequelize; ) ...
-// ... (vos autres exports) ...
-
-/**
- * Récupère le nombre de cas considérés comme "litiges" ou "pénalités à notifier".
- * Basé sur les locations terminées sans paiement effectué.
- */
-/*const sendInvoiceEmail = async (locationId) => {
-    if (!confirm(`Confirmez-vous l'envoi de la facture #${locationId} par email au client ?`)) {
-        return;
-    }
-    
-    try {
-        // 💡 APPEL AU BACKEND : POST /api/finance/send-invoice/:id
-        const response = await FinanceService.sendInvoice(locationId);
-        
-        alert(response.data.message);
-        
-        // 🚨 IMPORTANT : Rafraîchir les données pour retirer la facture envoyée de la liste
-        await fetchDashboardData(); 
-
-    } catch (error) {
-        const errorMessage = error.response?.data?.message || "Erreur serveur lors de l'envoi.";
-        alert(`Échec de l'envoi de la facture: ${errorMessage}`);
-        console.error(error);
-    }
-};
-*/

@@ -1,44 +1,111 @@
-<script setup>
-// ... (script setup du plan précédent)
-// Le code est similaire à celui fourni précédemment mais adapté pour utiliser le LocationService
-</script>
-
 <template>
-    <div class="card p-3 shadow-sm border-info">
-        <h5 class="card-title text-center">{{ props.mode === 'depart' ? 'État des Lieux au Départ' : 'Vérification et Retour' }}</h5>
-        <p class="text-muted text-center">Matériel: **{{ props.materielCode }}** (Qté: {{ props.qteMat }})</p>
+    <div class="container py-4">
+        <h2 class="mb-4 text-dark"><i class="bi bi-truck-flatbed me-2"></i> Gestion des Départs & Retours (État des Lieux)</h2>
+        <hr>
+
+        <div v-if="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
         
-        <form @submit.prevent="submitEtatLieux">
-            
-            <div class="mb-3">
-                <label for="etatInitial" class="form-label">Description de l'état actuel</label>
-                <textarea v-model="etatInitial" class="form-control" id="etatInitial" rows="2" required></textarea>
-            </div>
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">Événements Confirmés Aujourd'hui</div>
+            <div class="card-body">
 
-            <div v-if="props.mode === 'retour'">
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" v-model="estEndommage" id="estEndommage">
-                    <label class="form-check-label" for="estEndommage">
-                        Dégradation(s) constatée(s) ? (Nécessite Facturation)
-                    </label>
+                <div v-if="loading" class="text-center p-5">
+                    <i class="bi bi-arrow-clockwise spin fs-3 text-primary"></i>
+                    <p class="mt-2">Chargement des événements...</p>
                 </div>
 
-                <div v-if="estEndommage" class="alert alert-warning p-3">
-                    <div class="mb-3">
-                        <label for="descriptionDegradation" class="form-label">Description de la Dégradation</label>
-                        <textarea v-model="descriptionDegradation" class="form-control" id="descriptionDegradation" rows="2" required></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="coutReparation" class="form-label">Coût de la Facturation (AR)</label>
-                        <input type="number" v-model.number="coutReparation" class="form-control" id="coutReparation" min="0" required>
-                        <div class="form-text">Ce montant sera inséré dans la table `paiement`.</div>
+                <div v-else-if="confirmedEvents.length === 0" class="alert alert-info text-center">
+                    Aucun départ ou retour de matériel planifié pour aujourd'hui.
+                </div>
+
+                <div v-else class="list-group">
+                    <div 
+                        v-for="event in confirmedEvents" 
+                        :key="event.idLo" 
+                        class="list-group-item d-flex justify-content-between align-items-center mb-2 shadow-sm rounded">
+                        
+                        <div>
+                            <h5 class="mb-1 text-primary">Location #{{ event.idLo }}</h5>
+                            <small class="text-muted">Client : {{ event.client.nomCli }} {{ event.client.prenomCli }}</small>
+                            <p class="mb-1">
+                                Période : Du **{{ formatDate(event.debLoc) }}** au **{{ formatDate(event.finLoc) }}**
+                            </p>
+                        </div>
+
+                        <div class="btn-group">
+                            <router-link 
+                                :to="{ name: 'FormEtatLieu', params: { idLo: event.idLo, mode: 'depart' } }" 
+                                class="btn btn-success btn-sm me-2"
+                                title="Enregistrer l'état du matériel au départ">
+                                <i class="bi bi-box-arrow-right"></i> Départ (État des Lieux)
+                            </router-link>
+
+                            <router-link 
+                                v-if="isPastEvent(event.finLoc)"
+                                :to="{ name: 'FormEtatLieu', params: { idLo: event.idLo, mode: 'retour' } }" 
+                                class="btn btn-warning btn-sm"
+                                title="Enregistrer l'état du matériel au retour">
+                                <i class="bi bi-box-arrow-left"></i> Retour
+                            </router-link>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <button type="submit" class="btn btn-primary w-100 mt-3">
-                Enregistrer & {{ props.mode === 'retour' ? 'Finaliser' : 'Confirmer le Départ' }}
-            </button>
-        </form>
+        </div>
     </div>
 </template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import LocationService from '../services/LocationService'; // Votre service
+
+const confirmedEvents = ref([]);
+const loading = ref(true);
+const errorMessage = ref(null);
+
+// --- Fonctions d'Utilité ---
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    try {
+        return new Date(dateString).toLocaleDateString('fr-FR', options);
+    } catch {
+        return dateString.substring(0, 16);
+    }
+};
+
+const isPastEvent = (dateString) => {
+    return new Date(dateString) < new Date();
+};
+
+// --- Fonctions API ---
+
+const fetchConfirmedEvents = async () => {
+    loading.value = true;
+    errorMessage.value = null;
+    try {
+        // Appel GET /api/locations/events/confirmed
+        const response = await LocationService.getConfirmedEvents(); 
+        confirmedEvents.value = response.data;
+    } catch (error) {
+        console.error("Erreur lors de la récupération des événements:", error);
+        errorMessage.value = `Impossible de charger les événements : ${error.response?.data?.message || error.message}`;
+    } finally {
+        loading.value = false;
+    }
+};
+
+onMounted(() => {
+    fetchConfirmedEvents();
+});
+</script>
+
+<style scoped>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.spin {
+    animation: spin 1s linear infinite;
+}
+</style>

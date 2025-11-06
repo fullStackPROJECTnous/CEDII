@@ -329,48 +329,46 @@ exports.getClientProfileByUtiId = async (req, res) => {
 
 // Supposons que db est votre objet de connexion à la base de données
 
-exports.getMyProfile = async (req, res) => {
-    // 🚀 Récupère l'ID de l'utilisateur de la requête (injecté par verifyToken)
-    const idUtilisateur = req.idUti; 
+exports.getProfile = async (req, res) => {
+    // 🚨 VÉRIFIEZ QUE VOUS UTILISEZ BIEN 'req.idUti'
+    const idUti = req.idUti; 
 
-    // Vérification de sécurité (ne devrait pas être undefined si le 401 a été évité)
-    if (!idUtilisateur) {
-        return res.status(400).send({ message: "ID utilisateur non disponible. Problème d'authentification interne." });
-    }
-
-    try {
-        // Requête pour joindre les tables utilisateur et client pour obtenir toutes les infos
-        const sql = `
-            SELECT 
-                C.idCli, 
-                C.nomCli, 
-                C.prenomCli, 
-                C.emailCli, 
-                C.telephoneCli, 
-                C.addresseCli, 
-                C.typeCli, 
-                C.statutCli,
-                U.loginUti,
-                U.roleUti
-            FROM client C
-            JOIN utilisateur U ON C.idUti = U.idUti
-            WHERE C.idUti = ?; 
-        `;
+    // Vérification de sécurité supplémentaire (élimine le NaN au cas où)
+    if (!idUti || isNaN(idUti)) {
+        // Cette erreur est capturée par le logger [VERIF FINALE]
+        console.log(`[VERIF FINALE] Tentative de récupération pour idUti : ${idUti}`);
+        console.log("[VERIF FINALE] ÉCHEC 401 : ID utilisateur manquant ou invalide.");
         
-        // Exécutez la requête avec l'idUtilisateur
-        // 🚨 Remplacez 'db.query' par la méthode utilisée dans votre projet (ex: pool.execute, Model.findOne)
-        const [clientData] = await db.query(sql, [idUtilisateur]); 
+        return res.status(401).send({ 
+            message: 'Authentification requise. ID utilisateur non disponible ou invalide.' 
+        });
+    }
+    
+    // Si nous arrivons ici, idUti est garanti d'être un nombre valide
+    
+    try {
+        // Sequelize peut maintenant utiliser l'ID en toute sécurité
+        const client = await Client.findOne({
+            where: { idUti: idUti }, // idUti est un nombre entier (INT)
+            include: [{ 
+                model: Utilisateur, 
+                attributes: ['loginUti', 'roleUti'] 
+            }], 
+            attributes: { exclude: ['idUti'] }
+        });
 
-        if (clientData.length === 0) {
-            // Le token est valide, mais aucun enregistrement client ne correspond à cet idUti
-            return res.status(404).send({ message: "Profil client non trouvé. L'utilisateur n'est pas lié à un client." });
+        if (!client) {
+            return res.status(404).send({ 
+                message: "Profil client introuvable pour cet utilisateur." 
+            });
         }
 
-        // Succès
-        res.status(200).send(clientData[0]); 
-
+        res.status(200).send(client);
     } catch (error) {
         console.error("Erreur serveur lors de la récupération du profil:", error);
-        res.status(500).send({ message: "Erreur serveur lors de la récupération du profil." });
+        res.status(500).send({ 
+            message: "Erreur serveur lors de la récupération du profil.", 
+            details: error.message 
+        });
     }
 };

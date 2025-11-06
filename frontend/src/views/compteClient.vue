@@ -105,7 +105,7 @@ const pastReservations = ref([]);
 const fetchClientData = async () => {
     try {
         // 🚀 CORRECTION MAJEURE : Utilisez getMyProfile() qui lit l'ID dans le token JWT
-        const response = await ClientService.getMyProfile(); 
+        const response = await ClientService.getProfile(); 
         
         clientData.value = response.data; // Assurez-vous d'accéder à .data si le service retourne la promesse axios complète
         

@@ -15,6 +15,11 @@ router.get(
     financeController.getFacturationData
 );
 
+/*router.post(
+    '/notify-penalty/:id', 
+    financeController.sendPenaltyNotification
+)*/
+
 // Route pour déclencher le processus de génération automatique des factures
 router.post(
     '/generate-invoices', 

@@ -6,6 +6,15 @@ const locationController = require('../controllers/locationController');
 
 // --- Gestion des Locations et Réservations ---
 
+// 1. Route pour les clients
+router.get('/clients', locationController.getClients); // <-- C'est cette route qui répond au 404
+
+// 2. Route pour les salles
+router.get('/salles', locationController.getSalles); // <-- C'est cette route qui répond au 404
+
+// 3. Route pour le matériel
+router.get('/materiels', locationController.getMateriels); // <-- C'est cette route qui répond au 404
+
 // 1. Consultation du catalogue & Vérification de disponibilité en temps réel
 router.get('/availability', locationController.checkAvailability);
 
@@ -28,7 +37,14 @@ router.put('/reservations/:idRes/status', locationController.updateReservationSt
 router.get('/events/confirmed', locationController.getConfirmedEvents);
 
 // 6. État de lieux de départ/Vérification de l’état au retour/Facturation des dégradations/Remise en stock
-router.post('/locations/:idLo/etat-lieux', locationController.submitEtatLieux);
+
+router.post('/:idLo/etat-lieux', locationController.submitEtatLieux);
+// routes/locationRoutes.js (vérifiez que cette ligne existe)
+router.get('/:idLo/details', locationController.getLocationDetails);
+// ...
+router.get("/locations/:idLo/details", locationController.getLocationDetails); 
+
+// ...
 
 // --- Routes Générales ---
 
