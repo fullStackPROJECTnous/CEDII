@@ -1,4 +1,10 @@
 <template>
+       
+         <div class="retour">
+    <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary mt-3">
+      Retour à l'Acceuil
+    </router-link>
+  </div>
   <div class="reservation-form-container p-4 border rounded shadow-sm bg-white">
     <form @submit.prevent="submitForm">
       
@@ -6,12 +12,12 @@
         <label class="form-label fw-bold">Type de Demande <span class="text-danger">*</span></label>
         <div class="d-flex btn-group w-100" role="group">
           <input type="radio" class="btn-check" id="type-salle" value="Salle" v-model="form.typeRes" required>
-          <label class="btn btn-outline-primary" for="type-salle">
+          <label class="btn btn-outline-primary" for="type-salle" :class="{ 'active': form.typeRes === 'Salle' }">
             <i class="bi bi-house-door me-1"></i> Réservation de Salle
           </label>
           
           <input type="radio" class="btn-check" id="type-materiel" value="Materiel" v-model="form.typeRes" required>
-          <label class="btn btn-outline-primary" for="type-materiel">
+          <label class="btn btn-outline-primary" for="type-materiel" :class="{ 'active': form.typeRes === 'Materiel' }">
             <i class="bi bi-tools me-1"></i> Location de Matériel
           </label>
         </div>
@@ -34,7 +40,7 @@
                             <option disabled value="">Veuillez choisir une ressource</option>
                             <option v-if="loading.catalogue" disabled>Chargement...</option>
                             <option v-for="item in filteredCatalogue" :key="item.id" :value="item.id">
-                              {{ item.nom }} (Tarif Jour: {{ item.tarifJour ? item.tarifJour.toFixed(2) : 'N/A' }} XOF)
+                              {{ item.nom }} (Tarif Jour: {{ item.tarifJour ? item.tarifJour.toFixed(2) : 'N/A' }} MGA)
                             </option>
                         </select>
                     </div>
@@ -102,19 +108,19 @@
             <div class="row g-2">
                 <div class="col-6 col-md-3">
                     <input type="radio" class="btn-check" id="duree-heure" value="heure" v-model="form.typeDuree" required>
-                    <label class="btn btn-outline-secondary w-100" for="duree-heure">Par Heure</label>
+                    <label class="btn btn-outline-secondary w-100" for="duree-heure" :class="{ 'active': form.typeDuree === 'heure' }">Par Heure</label>
                 </div>
                 <div class="col-6 col-md-3">
                     <input type="radio" class="btn-check" id="duree-demijournee" value="demi-journee" v-model="form.typeDuree" required>
-                    <label class="btn btn-outline-secondary w-100" for="duree-demijournee">Demi-Journée</label>
+                    <label class="btn btn-outline-secondary w-100" for="duree-demijournee" :class="{ 'active': form.typeDuree === 'demi-journee' }">Demi-Journée</label>
                 </div>
                 <div class="col-6 col-md-3">
                     <input type="radio" class="btn-check" id="duree-journee" value="Jour" v-model="form.typeDuree" required>
-                    <label class="btn btn-outline-secondary w-100" for="duree-journee">Journée Complète</label>
+                    <label class="btn btn-outline-secondary w-100" for="duree-journee" :class="{ 'active': form.typeDuree === 'Jour' }">Journée Complète</label>
                 </div>
                 <div class="col-6 col-md-3">
                     <input type="radio" class="btn-check" id="duree-parjour" value="plus-jours" v-model="form.typeDuree" required>
-                    <label class="btn btn-outline-secondary w-100" for="duree-parjour">Plusieurs Jours</label>
+                    <label class="btn btn-outline-secondary w-100" for="duree-parjour" :class="{ 'active': form.typeDuree === 'plus-jours' }">Plusieurs Jours</label>
                 </div>
             </div>
         </div>
@@ -182,8 +188,9 @@ const loading = reactive({
 const catalogueData = ref([]); 
 const clients = ref([]); 
 
+// 🚨 MODIFICATION: "Salle" sélectionné par défaut
 const initialFormState = {
-  typeRes: null, 
+  typeRes: 'Salle', // 🚨 Changé de 'null' à 'Salle'
   idCli: '', 
   idCatalogue: '', 
   dateCre: new Date().toISOString().split('T')[0], 
@@ -245,7 +252,7 @@ const formattedTarif = computed(() => {
     }
 
     form.tarifTot = parseFloat(tarif.toFixed(2));
-    return form.tarifTot.toFixed(2) + ' XOF';
+    return form.tarifTot.toFixed(2) + ' MGA'; // 🚨 Changé XOF en MGA
 });
 
 // ------------------------------------
@@ -341,7 +348,8 @@ const submitForm = async () => {
         message.value = `✅ Demande #${resId} (${form.typeRes}) enregistrée avec succès !`;
         isSuccess.value = true;
 
-        Object.assign(form, { ...initialFormState, typeRes: null });
+        // 🚨 MODIFICATION: Réinitialiser mais garder "Salle" par défaut
+        Object.assign(form, { ...initialFormState, typeRes: 'Salle' });
         
         } catch (error) {
         console.error("Erreur lors de l'enregistrement:", error);
@@ -373,8 +381,19 @@ onMounted(() => {
     color: var(--cedii-primary-light, #5B11EE);
     border-color: var(--cedii-primary-light, #5B11EE);
 }
-.btn-check:checked + .btn-outline-primary {
+.btn-check:checked + .btn-outline-primary,
+.btn-outline-primary.active {
     background-color: var(--cedii-primary-light, #5B11EE);
     color: white;
+}
+.retour{
+    float: right;
+}
+
+/* 🚨 AJOUT: Style pour les boutons de durée */
+.btn-outline-secondary.active {
+    background-color: var(--cedii-primary-light, #5B11EE);
+    color: white;
+    border-color: var(--cedii-primary-light, #5B11EE);
 }
 </style>

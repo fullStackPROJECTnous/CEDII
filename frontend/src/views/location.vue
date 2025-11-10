@@ -33,9 +33,12 @@
     <div class="tab-content">
       <div v-if="activeTab === 'reservations'" class="tab-pane fade show active">
         <div class="d-flex justify-content-end mb-3">
-          <button class="btn btn-sm cedii-btn-primary" @click="openCreateModal">
-            <i class="bi bi-plus-lg me-1"></i> Nouvelle Réservation
+          <button class="btn btn-sm cedii-btn-primary" >
+             <router-link :to="{ name: 'NouvelleReservation' }" class="nav-link text-white">
+              <i class="bi bi-plus-lg me-1"></i> Nouvelle Reservation
+             </router-link>
           </button>
+         
         </div>
         
         <div class="table-responsive">
@@ -203,10 +206,6 @@ const deleteReservation = async (idRes) => {
     }
 };
 
-const openCreateModal = () => {
-    // Développez ici la logique pour ouvrir un formulaire modal ou naviguer vers une nouvelle route
-    alert("Fonctionnalité 'Nouvelle Réservation' à implémenter (formulaire).");
-};
 
 const viewDetails = (id) => {
     alert(`Afficher les détails du ID: #${id}`);

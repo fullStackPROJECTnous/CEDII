@@ -5,6 +5,7 @@ const Salle = db.Salle;
 const Reservation = db.Reservation;
 const { Op } = require('sequelize');
 
+
 // Récupérer toutes les salles avec filtres
 exports.getAllSalles = async (req, res) => {
     try {
@@ -297,3 +298,8 @@ exports.getCalendrierSalle = async (req, res) => {
         });
     }
 };
+
+// ------------------------------------
+// FONCTION POUR CALCULER LE TARIF SALLE
+// ------------------------------------
+// salleController.js

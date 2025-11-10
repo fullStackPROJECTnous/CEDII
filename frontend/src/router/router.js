@@ -39,6 +39,7 @@ import EtatLieu from '../views/etatLieu.vue';
 import ReservationValidation from '../views/reservationValidation.vue';
 import FormEtatLieu from '../views/formEtatLieu.vue';
 import ReservationLocationForm from '../views/reservationLocationForm.vue';
+import DashboardEnfant from '../views/dashboardEnfant.vue';
 
 
 // ... (Garde de Navigation) ...
@@ -261,9 +262,40 @@ const routes = [
     component: UserManagement, // Assurez-vous du chemin
     meta: { requiresAuth: true, roles: ['admin'] } // SEUL l'admin y accède
   },
- /* {
-     path: '/patrimoine',
-      name: 'InventairePatrimoine',
+
+   // NOUVELLE STRUCTURE POUR LE DASHBOARD RECEPTION
+/*  {
+    path: '/dashboardReception',
+    name: 'ReceptionDashboard',
+    component: DashboardReception,
+    meta: { roles: ['admin', 'reception'] },
+    // Redirection vers la section accueil par défaut
+    redirect: { name: 'ReceptionDashboardenfant' },
+    children: [
+      {
+        path: 'acceuil',
+        name: 'ReceptionDashboardenfant',
+        component: DashboardEnfant
+      },
+      {
+       path: '/reservationLocationForm',
+       name: 'NouvelleReservation',
+       component: ReservationLocationForm
+      },
+      {
+        path: '/demandeAttente',
+        name: 'DemandesEnAttente',
+        component: DemandeAttente
+      },
+      {
+        path: '/calendrier',
+    name: 'CalendrierDisponibilites',
+    component: Calendrier
+      },
+      
+     {
+    path: '/patrimoine',
+    name: 'InventairePatrimoine',
     component: InventairePatrimoine, // 🚨 Nouveau composant Parent
     redirect: '/patrimoine/materiel', // Redirige par défaut vers le Matériel
      
@@ -274,8 +306,28 @@ const routes = [
         name: 'PatrimoineMateriel',
         component: Materiel // Utilise le composant Materiel.vue existant
       },
+      {
+        path: 'salle', // Chemin complet: /patrimoine/salle
+        name: 'PatrimoineSalle',
+        component: Salle // Utilise le composant Salle.vue existant
+      }
     ]
-  }*/
+  },
+      {
+        path: '/materielBureauView',
+    name: 'Bureau',
+    component: MaterielBureauView
+      },
+      {
+       path: '/clientManagement',
+    name: 'ClientManagement',
+    component: ClientManagement,
+    meta: { requiresAuth: true }
+      }
+    ]
+  },
+*/
+
 
 ]
     

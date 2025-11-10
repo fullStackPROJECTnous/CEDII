@@ -20,6 +20,12 @@ const ClientService = {
         }).then(response => response.data);
     },
 
+  getRevenueByClientType() {
+    return axios.get(`${API_BASE_URL}/revenue-by-client-type`, {
+      headers: authHeader()
+    });
+  },
+
     // 3. READ ONE (GET by ID)
     async getById(idCli) {
         return axios.get(`${API_BASE_URL}/${idCli}`, { headers: authHeader() });
@@ -31,9 +37,23 @@ const ClientService = {
     },
     
     // 5. DELETE (DELETE)
-    async deleteClient(idCli) {
-        return axios.delete(`${API_BASE_URL}/${idCli}`,{ headers: authHeader() } );
-    },
+// services/ClientService.js
+deleteClient(id) {
+    console.log('🗑️ Suppression client ID:', id);
+    
+    // 🚨 CORRECTION : Vérifier l'URL
+    return axios.delete(`http://localhost:5000/api/clients/${id}`, {
+        headers: authHeader()
+    })
+    .then(response => {
+        console.log('✅ Client supprimé avec succès');
+        return response.data;
+    })
+    .catch(error => {
+        console.error('❌ Erreur suppression client:', error);
+        throw error;
+    });
+},
 
 
 // Dans ClientService.js - getRankingMetrics
@@ -90,10 +110,6 @@ async getProfile() {
         throw error.response.data;
     }
 },
-
-
-
-
     async getClientProfile(idCli) {
         try {
             const response = await axios.get(`${API_BASE_URL}/${idCli}`, { headers: authHeader() });
@@ -104,6 +120,29 @@ async getProfile() {
         }
     },
     
+     async getMyProfile() {
+    try {
+      console.log("🔍 ClientService - appel profile");
+      const response = await axios.get(`${API_BASE_URL}/profile`);
+      return response.data;
+    } catch (error) {
+      console.error("Erreur lors de la récupération du profil:", error.response?.data || error);
+      throw error.response?.data || error; 
+    }
+  }
+,
+  async getClientReservations(idCli) {
+    try {
+      console.log("🔍 ClientService - appel réservations pour client:", idCli);
+      const response = await axios.get(`${API_BASE_URL}/${idCli}/reservations`);
+      return response.data;
+    } catch (error) {
+      console.error("Erreur lors de la récupération des réservations:", error);
+      throw error;
+    }
+  }
+}
 
-};
+
+;
 export default ClientService;

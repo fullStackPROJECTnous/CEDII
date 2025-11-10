@@ -79,6 +79,13 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: false,     
         freezeTableName: true 
     });
+
+    Salle.associate = (models) => {
+        Salle.hasMany(models.Reservation, {
+            foreignKey: 'idSalle',
+            as: 'reservations'
+        });
+    };
     
     return Salle;
 };

@@ -44,6 +44,7 @@ const patrimoineRoutes = require('./routes/patrimoineRoutes');
 app.use('/api/patrimoine', patrimoineRoutes); 
 
 
+
 //app.use('/api/reception', locationRoutes);
 
 const routesUsers = require('./routes/routeUsers');
@@ -63,10 +64,16 @@ const locationRoutes = require('./routes/locationRoutes');
 // Utilisation des routes - CORRECTION : pas de préfixe en double
 app.use('/api/rapports', rapportRoutes);
 app.use('/api/locations', locationRoutes);
+app.use('/api/locations/reservations', require('./routes/reservationRoute'));
+
 
 
 const materielBureauRoutes = require('./routes/materielBureauRoutes');
 app.use('/api/materiel-bureau',materielBureauRoutes  ); 
+
+// Ajouter cette ligne dans votre app.js
+const reservationRoutes = require('./routes/reservationRoute');
+app.use('/reservations', reservationRoutes);
 
 
 

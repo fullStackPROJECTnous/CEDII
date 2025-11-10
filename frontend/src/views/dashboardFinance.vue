@@ -177,17 +177,65 @@
             </div>
         </div>
         
-        <div class="card shadow-sm mt-4">
-            <div class="card-header bg-white border-bottom">
-                <h5 class="card-title mb-0 text-dark">Synthèse du Cashflow (Rapports)</h5>
+       <div class="card shadow-sm mt-4">
+    <div class="card-header bg-white border-bottom">
+        <h5 class="card-title mb-0 text-dark">Synthèse du Cashflow (Rapports)</h5>
+    </div>
+    <div class="card-body">
+        <!-- Indicateurs clés -->
+        <div class="row mb-4" v-if="cashflowData.kpis">
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Revenus Totaux</h6>
+                        <h4 class="text-success">{{ formatCurrency(cashflowData.kpis.totalRevenus) }}</h4>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="text-center text-muted p-5 border rounded">
-                    [Zone de Graphique de Revenus/Dépenses]
-                    <p class="mt-2">Ce graphique montre l'impact des **calculs automatiques des montants** sur les revenus totaux.</p>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Dépenses Totales</h6>
+                        <h4 class="text-danger">{{ formatCurrency(cashflowData.kpis.totalDepenses) }}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Solde Net</h6>
+                        <h4 :class="cashflowData.kpis.soldeNet >= 0 ? 'text-primary' : 'text-danger'">
+                            {{ formatCurrency(cashflowData.kpis.soldeNet) }}
+                        </h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Taux d'Épargne</h6>
+                        <h4 class="text-info">{{ cashflowData.kpis.tauxEpargne }}</h4>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Message de chargement/erreur -->
+        <div v-if="loadingCashflow" class="text-center p-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Chargement...</span>
+            </div>
+            <p class="mt-2 text-muted">Calcul des indicateurs financiers...</p>
+        </div>
+
+        <div v-else-if="!cashflowData" class="text-center text-muted p-5 border rounded">
+            <p>Les données de synthèse cashflow seront affichées ici après calcul automatique.</p>
+            <button @click="loadCashflowData" class="btn btn-primary mt-2">
+                <i class="bi bi-arrow-clockwise"></i> Actualiser les calculs
+            </button>
+        </div>
+    </div>
+</div>
 
       </div>
     </main>
@@ -223,6 +271,18 @@ const pendingPenalties = ref([]);
 const invoicesToProcess = computed(() => invoicesToSend.value.length);
 // ❌ SUPPRESSION : L'ancienne propriété calculée `pendingPaymentsCount`
 const litigeCount = computed(() => pendingPenalties.value.length);
+// NOUVELLES VARIABLES POUR LA SYNTHÈSE
+const loadingCashflow = ref(false);
+
+const cashflowData = ref({
+    kpis: {
+        totalRevenus: 0,
+        totalDepenses: 0,
+        soldeNet: 0,
+        tauxEpargne: '0%'
+    }
+}); // Structure par défaut pour éviter les erreurs
+
 
 
 defineProps({
@@ -258,6 +318,49 @@ const fetchFinanceData = async () => {
     }
 };
 
+const loadCashflowData = async () => {
+    loadingCashflow.value = true;
+    console.log('🟡 Début du chargement cashflow...');
+    
+    try {
+        const response = await FinanceService.getCashflowSynthese();
+        console.log('🟢 Réponse API reçue:', response);
+        
+        if (response.data && response.data.kpis) {
+            cashflowData.value = response.data;
+            console.log('✅ Données cashflow chargées avec succès');
+        } else {
+            console.warn('⚠️ Structure de réponse invalide');
+            // Données par défaut
+            cashflowData.value = {
+                kpis: {
+                    totalRevenus: 0,
+                    totalDepenses: 0,
+                    soldeNet: 0,
+                    tauxEpargne: '0%',
+                    message: "Données temporairement indisponibles"
+                }
+            };
+        }
+    } catch (error) {
+        console.error('🔴 Erreur API cashflow:', error);
+        
+        // Afficher les détails de l'erreur
+        if (error.response) {
+            console.error('Status:', error.response.status);
+            console.error('Data:', error.response.data);
+            console.error('Headers:', error.response.headers);
+        }
+        
+        // Données de secours
+       
+        
+    } finally {
+        loadingCashflow.value = false;
+        console.log('🟣 Chargement cashflow terminé');
+    }
+};
+
 function logout() {
     // 1. Afficher la boîte de dialogue de confirmation native du navigateur.
     // confirm() retourne true si l'utilisateur clique sur "OK" ou "Oui", et false si "Annuler" ou "Non".
@@ -290,6 +393,10 @@ onMounted(() => {
     if (user && user.roleUti && (user.roleUti.toLowerCase() === 'finance' || user.roleUti.toLowerCase() === 'administrateur')) {
         userRole.value = user.roleUti.toUpperCase();
         fetchFinanceData();
+  setTimeout(() => {
+            loadCashflowData();
+        }, 1000);
+
     } else {
         router.push('/'); 
     }

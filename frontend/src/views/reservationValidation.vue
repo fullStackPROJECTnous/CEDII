@@ -37,7 +37,7 @@
                                 <li>**Type :** <span class="badge bg-info text-dark">{{ reservation.typeRes }}</span></li>
                                 <li>**Période :** Du {{ formatDate(reservation.debRes) }} au {{ formatDate(reservation.finRes) }}</li>
                                 <li>**Quantité :** {{ reservation.qteMat || reservation.nbPerso }}</li>
-                                <li>**Tarif Total :** **{{ reservation.tarifTot }} €**</li>
+                                <li>**Tarif Total :** **{{ reservation.tarifTot }} MGA</li>
                             </ul>
                         </div>
                     </div>

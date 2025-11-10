@@ -7,13 +7,28 @@ const userController = require('../controllers/userController');
 //const { authJwt } = require('../middlewares'); // Middleware pour la vérification du token et du rôle
 
 // --- Routes d'administration pour la gestion des utilisateurs ---
+router.get('/:id/history', 
+    // [authJwt.verifyToken], // Peut-être accessible par l'utilisateur lui-même et l'admin
+    userController.getUserHistory
+);
+// --- Routes d'administration pour la gestion des utilisateurs ---
+router.get('/users/clients/list', 
+    // [authJwt.verifyToken], // Peut-être accessible par l'utilisateur lui-même et l'admin
+    userController.getAllClientUsers
+);
 
-// [GET] /api/users
+// [GET] /api/users/:id/last-activity - Récupère la dernière activité d'un utilisateur
+router.get('/:id/last-activity', 
+    // [authJwt.verifyToken], 
+    userController.getLastActivity
+);
 // Récupère TOUS les utilisateurs. Nécessite d'être connecté (verifyToken) et d'être Admin (isAdmin).
 router.get('/users', 
   //  [authJwt.verifyToken, authJwt.isAdmin], 
     userController.getAllUsers
 );
+
+
 
 // [POST] /api/users
 // Crée un nouvel utilisateur. Nécessite d'être connecté et d'être Admin.

@@ -126,6 +126,22 @@ async getClients() {
         return axios.post(`${API_URL}/reservations/${idRes}/validate`, { signatureData });
     }
 
+
+      async getCurrentClient() {
+        try {
+            console.log("📍 Appel à /clients/me");
+            const response = await axios.get('/clients/me');
+            console.log("✅ Réponse getCurrentClient:", response.data);
+            return response.data;
+        } catch (error) {
+            console.error("❌ Erreur getCurrentClient:", {
+                status: error.response?.status,
+                message: error.response?.data?.message,
+                error: error.message
+            });
+            throw error;
+        }
+    }
   // ...
     submitEtatLieux(idLo, mode, payload) {
         // Mapped to POST /api/locations/:idLo/etat-lieux
@@ -163,6 +179,8 @@ async getClients() {
     createReservation(data) {
         return axios.post(API_URL + '/reservations', data);
     }
+   
+  
     
     // Mettre à jour le statut
     updateReservationStatus(idRes, newStatus) {
@@ -174,6 +192,15 @@ async getClients() {
         return axios.delete(`${API_URL}/reservations/${idRes}`);
     }
 
+   async getCurrentClient() {
+        try {
+            const response = await axios.get('/clients/me');
+            return response.data;
+        } catch (error) {
+            console.error("Erreur getCurrentClient:", error);
+            throw error;
+        }
+    }
     checkAvailability(params) {
     // Envoie les paramètres de recherche (type, start, end)
     return axios.get(`${API_URL}/availability`, { params }); 
@@ -183,6 +210,11 @@ async getClients() {
         // Nouvelle route attendue : /api/locations/events/confirmed
         return axios.get(API_URL + '/events/confirmed'); 
     }
+
+    static async calculateTarifSalle(idSalle, data) {
+    const response = await api.post(`/salles/${idSalle}/calculate-tarif`, data);
+    return response.data;
+}
 }
 
 export default new LocationService();

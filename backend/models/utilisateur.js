@@ -26,5 +26,12 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: false //Pas de colonnes 'createdAt' ou 'updatedAt'
     });
 
+
+       Utilisateur.associate = (models) => {
+        Utilisateur.hasOne(models.Client, {
+            foreignKey: 'idUti',
+            as: 'client'
+        });
+    };
     return Utilisateur;
 };

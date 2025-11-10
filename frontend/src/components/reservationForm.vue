@@ -9,39 +9,164 @@
       </header>
       
       <div class="row mt-4 justify-content-center">
-        <div class="col-lg-8">
+        <div class="col-lg-10">
             <div class="card shadow p-4">
-                <form @submit.prevent="submitReservation">
-          
-                    <div class="mb-3">
-                        <label for="resource" class="form-label">Ressource Demandée</label>
-                        <select id="resource" class="form-select" v-model="form.resourceId" required>
-                        <option value="" disabled>Sélectionnez un bien...</option>
-                        <option v-for="res in resources" :key="res.id" :value="res.id">{{ res.name }}</option>
-                        </select>
-                        <div class="form-text">Consultez le catalogue pour la description complète.</div>
+                <form @submit.prevent="submitForm">
+      
+                  <div class="mb-4">
+                    <label class="form-label fw-bold">Type de Demande <span class="text-danger">*</span></label>
+                    <div class="d-flex btn-group w-100" role="group">
+                      <input type="radio" class="btn-check" id="type-salle" value="Salle" v-model="form.typeRes" required>
+                      <label class="btn btn-outline-primary" for="type-salle" :class="{ 'active': form.typeRes === 'Salle' }">
+                        <i class="bi bi-house-door me-1"></i> Réservation de Salle
+                      </label>
+                      
+                      <input type="radio" class="btn-check" id="type-materiel" value="Materiel" v-model="form.typeRes" required>
+                      <label class="btn btn-outline-primary" for="type-materiel" :class="{ 'active': form.typeRes === 'Materiel' }">
+                        <i class="bi bi-tools me-1"></i> Location de Matériel
+                      </label>
+                    </div>
+                  </div>
+
+                  <div v-if="form.typeRes">
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="row align-items-center">
+                                <label for="catalogueId" class="col-md-4 col-form-label fw-bold">{{ form.typeRes === 'Salle' ? 'Salle' : 'Matériel' }} <span class="text-danger">*</span></label>
+                                <div class="col-md-8">
+                                    <select 
+                                        id="catalogueId" 
+                                        v-model="form.idCatalogue" 
+                                        class="form-select" 
+                                        required
+                                        :disabled="loading.catalogue"
+                                    >
+                                        <option disabled value="">Veuillez choisir une ressource</option>
+                                        <option v-if="loading.catalogue" disabled>Chargement...</option>
+                                        <option v-for="item in filteredCatalogue" :key="item.id" :value="item.id">
+                                          {{ item.nom }} (Tarif Jour: {{ item.tarifJour ? item.tarifJour.toFixed(2) : 'N/A' }} MGA)
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="row align-items-center">
+                                <label for="clientId" class="col-md-4 col-form-label fw-bold">Client <span class="text-danger">*</span></label>
+                                <div class="col-md-8">
+                                    <select 
+                                        id="clientId" 
+                                        v-model.number="form.idCli" 
+                                        class="form-select" 
+                                        required
+                                        :disabled="loading.clients"
+                                    >
+                                        <option disabled value="">Sélectionner le client</option>
+                                        <option v-if="loading.clients" disabled>Chargement...</option>
+                                        <option v-for="client in clients" :key="client.idCli" :value="client.idCli">
+                                          {{ client.nomCli }} {{ client.prenomCli }} (ID: {{ client.idCli }})
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                        <label for="startDate" class="form-label">Date de Début</label>
-                        <input type="date" id="startDate" class="form-control" v-model="form.startDate" required>
+                    <div class="row mb-4">
+                      <div class="col-md-6" v-if="form.typeRes === 'Materiel'">
+                        <div class="row align-items-center">
+                            <label for="qteMat" class="col-md-4 col-form-label fw-bold">Quantité <span class="text-danger">*</span></label>
+                            <div class="col-md-8">
+                                <input 
+                                  type="number" 
+                                  id="qteMat" 
+                                  v-model.number="form.qteMat" 
+                                  class="form-control" 
+                                  min="1" 
+                                  required
+                                >
+                            </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                        <label for="endDate" class="form-label">Date de Fin</label>
-                        <input type="date" id="endDate" class="form-control" v-model="form.endDate" required>
+                      </div>
+                      
+                      <div class="col-md-6" v-if="form.typeRes === 'Salle'">
+                        <div class="row align-items-center">
+                            <label for="nbPerso" class="col-md-4 col-form-label fw-bold">Nb. Personnes <span class="text-danger">*</span></label>
+                            <div class="col-md-8">
+                                <input 
+                                  type="number" 
+                                  id="nbPerso" 
+                                  v-model.number="form.nbPerso" 
+                                  class="form-control" 
+                                  min="1" 
+                                  required
+                                >
+                            </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Durée de la Location/Réservation <span class="text-danger">*</span></label>
+                        <div class="row g-2">
+                            <div class="col-6 col-md-3">
+                                <input type="radio" class="btn-check" id="duree-heure" value="heure" v-model="form.typeDuree" required>
+                                <label class="btn btn-outline-secondary w-100" for="duree-heure" :class="{ 'active': form.typeDuree === 'heure' }">Par Heure</label>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <input type="radio" class="btn-check" id="duree-demijournee" value="demi-journee" v-model="form.typeDuree" required>
+                                <label class="btn btn-outline-secondary w-100" for="duree-demijournee" :class="{ 'active': form.typeDuree === 'demi-journee' }">Demi-Journée</label>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <input type="radio" class="btn-check" id="duree-journee" value="Jour" v-model="form.typeDuree" required>
+                                <label class="btn btn-outline-secondary w-100" for="duree-journee" :class="{ 'active': form.typeDuree === 'Jour' }">Journée Complète</label>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <input type="radio" class="btn-check" id="duree-parjour" value="plus-jours" v-model="form.typeDuree" required>
+                                <label class="btn btn-outline-secondary w-100" for="duree-parjour" :class="{ 'active': form.typeDuree === 'plus-jours' }">Plusieurs Jours</label>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="details" class="form-label">Détails de l'Utilisation / Justification</label>
-                        <textarea id="details" class="form-control" rows="3" v-model="form.details"></textarea>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="row align-items-center">
+                                <label for="debRes" class="col-md-4 col-form-label fw-bold">Début <span class="text-danger">*</span></label>
+                                <div class="col-md-8">
+                                    <input type="datetime-local" id="debRes" v-model="form.debRes" class="form-control" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="row align-items-center">
+                                <label for="finRes" class="col-md-4 col-form-label fw-bold">Fin/Retour <span class="text-danger">*</span></label>
+                                <div class="col-md-8">
+                                    <input type="datetime-local" id="finRes" v-model="form.finRes" class="form-control" required>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
-                    <button type="submit" class="btn cedii-btn-primary w-100 mt-4" :disabled="isSubmitting">
-                        <span v-if="isSubmitting" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        <span v-else><i class="bi bi-send-fill me-2"></i> Envoyer la Demande</span>
-                    </button>
+                    <div class="mb-4 p-3 border rounded text-end bg-light">
+                        <h5 class="mb-0 text-dark">Tarif Total Estimé : <span class="cedii-text-primary fs-3 fw-bold">{{ formattedTarif }}</span></h5>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">État de la Demande</label>
+                        <input type="text" :value="form.etatRes" class="form-control" disabled>
+                        <small class="form-text text-muted">La demande sera créée en état **{{ form.etatRes }}** (En attente de validation).</small>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" :disabled="isSubmitting" class="btn cedii-btn-primary fw-bold text-white">
+                            <i :class="isSubmitting ? 'spinner-border spinner-border-sm' : 'bi bi-check-circle-fill'"></i>
+                            {{ isSubmitting ? 'Envoi en cours...' : 'Enregistrer la Réservation/Location' }}
+                        </button>
+                    </div>
+                  </div>
                 </form>
             </div>
         </div>
@@ -51,48 +176,219 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted } from 'vue';
 import ClientNavbar from '../components/clientNavbar.vue';
+import LocationService from '../services/LocationService'; 
 
+// ------------------------------------
+// ÉTATS LOCAUX
+// ------------------------------------
 const isSubmitting = ref(false);
-
-const form = ref({
-  resourceId: '',
-  startDate: '',
-  endDate: '',
-  details: '',
+const loading = reactive({
+    catalogue: true,
+    clients: true
 });
 
-const resources = ref([
-    { id: 45, name: 'Salle de Réunion' },
-    { id: 46, name: 'Salle de Documentation' },
-    { id: 47, name: 'Projécteur' },
-    { id: 48, name: 'Chapiteau' },
-]);
+const catalogueData = ref([]); 
+const clients = ref([]); 
 
-const submitReservation = async () => {
-  isSubmitting.value = true;
-  console.log("Soumission:", form.value);
-  // Simuler appel API
-  await new Promise(resolve => setTimeout(resolve, 1500)); 
-  isSubmitting.value = false;
+// 🚨 MODIFICATION: "Salle" sélectionné par défaut
+const initialFormState = {
+  typeRes: 'Salle', // 🚨 Changé de 'null' à 'Salle'
+  idCli: '', 
+  idCatalogue: '', 
+  dateCre: new Date().toISOString().split('T')[0], 
+  qteMat: 1, 
+  typeDuree: 'Jour', 
+  nbPerso: 1, 
+  debRes: '', 
+  finRes: '',
+  tarifTot: 0, 
+  etatRes: 'En attente', 
+};
+
+const form = reactive({ ...initialFormState });
+
+// ------------------------------------
+// PROPRIÉTÉS CALCULÉES
+// ------------------------------------
+
+const filteredCatalogue = computed(() => {
+    return catalogueData.value.filter(item => item.type === form.typeRes);
+});
+
+const selectedResource = computed(() => {
+    return filteredCatalogue.value.find(item => item.id === form.idCatalogue);
+});
+
+const formattedTarif = computed(() => {
+    let tarif = 0;
+    const resource = selectedResource.value;
+    
+    if (resource && form.typeDuree) {
+        let baseTarif = 0;
+
+        if (form.typeDuree === 'heure') {
+            baseTarif = resource.tarifHeure || 0;
+        } else if (form.typeDuree === 'demi-journee') {
+            baseTarif = resource.tarifDemiJournee || 0;
+        } else if (form.typeDuree === 'Jour' || form.typeDuree === 'plus-jours') {
+            baseTarif = resource.tarifJour || 0;
+            
+            if (form.typeDuree === 'plus-jours' && form.debRes && form.finRes) {
+                const start = new Date(form.debRes);
+                const end = new Date(form.finRes);
+                
+                const diffTime = Math.abs(end - start);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays > 0) {
+                     baseTarif = (resource.tarifJour || 0) * diffDays;
+                }
+            }
+        }
+        
+        if (form.typeRes === 'Materiel') {
+            tarif = baseTarif * (form.qteMat || 1);
+        } else {
+            tarif = baseTarif;
+        }
+    }
+
+    form.tarifTot = parseFloat(tarif.toFixed(2));
+    return form.tarifTot.toFixed(2) + ' MGA';
+});
+
+// ------------------------------------
+// LOGIQUE DE RÉCUPÉRATION DE DONNÉES
+// ------------------------------------
+
+const fetchInitialData = async () => {
+    loading.catalogue = true;
+    loading.clients = true;
+    try {
+        
+        // 1. Récupération des Clients
+        const clientData = await LocationService.getClients(); 
+        clients.value = clientData.map(c => ({ idCli: c.idCli, nomCli: c.nomCli, prenomCli: c.prenomCli }));
+
+        // 2. Récupération des Salles et Matériels
+        const sallesData = await LocationService.getSalles();
+        const materielsData = await LocationService.getMateriels();
+
+        // 3. Mapping et Fusion
+        const mappedSalles = sallesData.map(s => ({
+            id: s.idSalle,
+            nom: s.nomSalle,
+            type: 'Salle',
+           tarifHeure: parseFloat(s.tarifHeure) || 0,
+            tarifDemiJournee: parseFloat(s.tarifDemiJournee) || 0,
+            tarifJour: parseFloat(s.tarifJour) || 0,
+        }));
+        
+        const mappedMateriels = materielsData.map(m => ({
+            id: m.codeMat,
+            nom: m.designationMat,
+            type: 'Materiel',
+            tarifHeure: parseFloat(m.tarifHeure) || 0,
+            tarifDemiJournee: parseFloat(m.tarifDemiJournee) || 0,
+            tarifJour: parseFloat(m.tarifJour) || 0,
+        }));
+        
+        catalogueData.value = [...mappedSalles, ...mappedMateriels];
+        
+    } catch (error) {
+        console.error("Erreur de chargement des données initiales:", error);
+    } finally {
+        loading.catalogue = false;
+        loading.clients = false;
+    }
+};
+
+// ------------------------------------
+// LOGIQUE D'ENVOI DE DONNÉES
+// ------------------------------------
+
+watch(() => form.typeRes, () => {
+    form.idCatalogue = '';
+    form.nbPerso = 1;
+    form.qteMat = 1;
+});
+
+const submitForm = async () => {
+    isSubmitting.value = true;
+    
+    if (new Date(form.debRes) >= new Date(form.finRes)) {
+         alert("La Date de Fin/Retour doit être strictement postérieure à la Date de Début.");
+         isSubmitting.value = false;
+         return;
+    }
+    
+    const payload = {
+        idCli: form.idCli,
+        idCatalogue: form.idCatalogue, 
+        dateCre: form.dateCre, 
+        // 🚨 CORRECTION: Envoyer 0 au lieu de null pour les champs numériques non utilisés
+        qteMat: form.typeRes === 'Materiel' ? form.qteMat : 0, 
+        typeRes: form.typeRes, 
+        // 🚨 CORRECTION: Envoyer 0 au lieu de null pour les champs numériques non utilisés
+        nbPerso: form.typeRes === 'Salle' ? form.nbPerso : 0, 
+        debRes: form.debRes, 
+        finRes: form.finRes,
+        tarifTot: form.tarifTot,
+        etatRes: form.etatRes,
+    };
+
+    console.log("Données envoyées:", payload);
+    
+    try {
+        const response = await LocationService.createReservation(payload);
+        
+        const resId = response.id || Math.floor(Math.random() * 1000);
+        alert(`✅ Demande #${resId} (${form.typeRes}) enregistrée avec succès !`);
+        
+        // Réinitialiser le formulaire (mais garder "Salle" par défaut)
+        Object.assign(form, { ...initialFormState, typeRes: 'Salle' });
+        
+        } catch (error) {
+        console.error("Erreur lors de l'enregistrement:", error);
+        alert(`❌ Échec de l'enregistrement. Détails: ${error.message || 'Problème de connexion/validation.'}`);
+    } finally {
+        isSubmitting.value = false;
+    }
 };
 
 onMounted(() => {
-    // Charger les ressources disponibles
+    fetchInitialData();
 });
 </script>
 
 <style scoped>
-/* COHÉRENCE AVEC LES STYLES */
 .cedii-text-primary { color: var(--cedii-primary-light, #5B11EE) !important; }
+
 .cedii-btn-primary { 
     background-color: var(--cedii-primary-light, #5B11EE);
-    color: white;
+    color: white !important; 
     border-color: var(--cedii-primary-light, #5B11EE);
 }
 .cedii-btn-primary:hover {
-    background-color: var(--cedii-primary-dark, #0405BF);
-    border-color: var(--cedii-primary-dark, #0405BF);
+    background-color: var(--cedii-primary-dark, #0671b6);
+    border-color: var(--cedii-primary-dark, #0671b6);
+}
+.btn-outline-primary {
+    color: var(--cedii-primary-light, #5B11EE);
+    border-color: var(--cedii-primary-light, #5B11EE);
+}
+.btn-check:checked + .btn-outline-primary,
+.btn-outline-primary.active {
+    background-color: var(--cedii-primary-light, #5B11EE);
+    color: white;
+}
+
+/* 🚨 AJOUT: Style pour les boutons de durée */
+.btn-outline-secondary.active {
+    background-color: var(--cedii-primary-light, #5B11EE);
+    color: white;
+    border-color: var(--cedii-primary-light, #5B11EE);
 }
 </style>

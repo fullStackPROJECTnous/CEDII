@@ -688,3 +688,58 @@ exports.getMateriels = async (req, res) => {
         return res.status(500).json({ message: "Erreur serveur lors du chargement du matériel." });
     }
 };
+
+
+// 🆕 Fonction pour récupérer l'historique des locations adapté à votre tableau
+exports.getLocationHistory = async (req, res) => {
+  try {
+    const { Location, Reservation, Client } = require('../models');
+    
+    // Récupération des locations avec leurs réservations
+    const locationsHistory = await Location.findAll({
+      include: [
+        {
+          model: Reservation,
+          attributes: ['idRes', 'dateCre', 'typeRes', 'tarifTot'],
+          include: [
+            {
+              model: Client,
+              attributes: ['nomCli', 'prenomCli']
+            }
+          ]
+        }
+      ],
+      where: {
+        etatLo: ['Terminée', 'Annulée'] // ou selon vos statuts d'historique
+      },
+      order: [['dateCre', 'DESC']],
+      limit: 50
+    });
+
+    // Formatage spécifique pour votre tableau
+    const formattedHistory = locationsHistory.map(location => ({
+      idLo: location.idLo,
+      idRes: location.idRes,
+      dateCre: location.dateCre,
+      typeLo: location.typeLo,
+      tarifTot: location.tarifTot,
+      // Informations supplémentaires si besoin
+      client: location.Reservation?.Client ? 
+        `${location.Reservation.Client.prenomCli || ''} ${location.Reservation.Client.nomCli}`.trim() : 'N/A'
+    }));
+
+    res.json({
+      success: true,
+      data: formattedHistory,
+      count: formattedHistory.length
+    });
+
+  } catch (error) {
+    console.error('Erreur récupération historique locations:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération de l\'historique des locations',
+      error: error.message
+    });
+  }
+};

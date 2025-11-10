@@ -30,5 +30,6 @@ router.delete('/:idSalle', salleController.deleteSalle);
 router.get('/:idSalle/reservations', salleController.getReservationsSalle);
 router.post('/:idSalle/check-disponibilite', salleController.checkDisponibilite);
 router.get('/:idSalle/calendrier', salleController.getCalendrierSalle);
+//router.post('/:idSalle/calculate-tarif', salleController.calculateTarifSalle);
 
 module.exports = router;

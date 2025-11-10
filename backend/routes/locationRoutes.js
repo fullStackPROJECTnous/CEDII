@@ -36,6 +36,7 @@ router.put('/reservations/:idRes/status', locationController.updateReservationSt
 // Récupération des Locations Confirmées (pour les départs/retours à venir)
 router.get('/events/confirmed', locationController.getConfirmedEvents);
 
+
 // 6. État de lieux de départ/Vérification de l’état au retour/Facturation des dégradations/Remise en stock
 
 router.post('/:idLo/etat-lieux', locationController.submitEtatLieux);
@@ -43,6 +44,7 @@ router.post('/:idLo/etat-lieux', locationController.submitEtatLieux);
 router.get('/:idLo/details', locationController.getLocationDetails);
 // ...
 router.get("/locations/:idLo/details", locationController.getLocationDetails); 
+router.get('/history', locationController.getLocationHistory);
 
 // ...
 

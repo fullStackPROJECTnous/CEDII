@@ -35,6 +35,10 @@ db.Reservation = require('./reservation.js')(sequelize, DataTypes);
 db.Materiel = require("./materiel.js")(sequelize, DataTypes); 
 db.Salle = require("./salle.js")(sequelize, DataTypes); 
 db.MaterielBureau = require('./materielModel.js')(sequelize, DataTypes) ;
+db.paiement = require("./paiement.js")(sequelize, DataTypes); 
+
+
+
 
 Object.keys(db).forEach(modelName => {
   // 💡 Vérifie si l'élément existe ET qu'il a une fonction associate

@@ -72,6 +72,10 @@ Reservation.associate = (models) => {
             foreignKey: 'idSalle',
             as: 'salle'
         });
+          Reservation.belongsTo(models.Materiel, {
+            foreignKey: 'codeMat',
+            as: 'materiel'
+        });
     };
 
 

@@ -7,6 +7,9 @@ class FinanceService {
     // frontend/services/FinanceService.js
 
 
+      getCashflowSynthese() {
+        return axios.get(API_URL + '/cashflow-synthese');
+    }
      
     getFinanceDashboardData() {
         return axios.get(API_URL + '/dashboard', { 

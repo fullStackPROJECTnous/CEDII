@@ -1,136 +1,5 @@
 
 
-// ⚠️ ASSUREZ-VOUS QUE CES IMPORTS SONT CORRECTS SELON VOTRE STRUCTURE DE FICHIERS ⚠️
-
-// 1. Importez les modèles et Sequelize Op
-/*const db = require('../models'); // Assurez-vous que ce chemin est correct
-const { Op } = require('sequelize'); 
-
-// 2. Référencez les modèles locaux pour plus de clarté
-const Client = db.Client;
-const Reservation = db.reservation;
-const Location = db.location;
-const Salle = db.salle;
-const Materiel = db.materiel;
-
-// 3. Importez la fonction utilitaire (exemple de fonction simple pour le début du mois)
-// ⚠️ Si cette fonction se trouve ailleurs, changez le chemin d'accès.
-function getMonthStart() {
-    const now = new Date();
-    // Retourne le premier jour du mois actuel (ex: 2025-10-01 00:00:00)
-    return new Date(now.getFullYear(), now.getMonth(), 1); 
-}
-
-exports.getKPIs = async (req, res) => {
-    try {
-        const debutMois = getMonthStart();
-        
-        // 1. Total Clients Actifs
-        const totalClients = await Client.count();
-
-        // 2. Locations Confirmées ce mois-ci
-        const locationsMois = await Reservation.count({
-            where: {
-                etatRes: 'Confirmée',
-                debRes: { [Op.gte]: debutMois }
-            }
-        });
-        
-        // 3. Revenu Total estimé (Locations Terminées)
-        // 🚨 ATTENTION: 'tarifTot' doit exister dans le modèle Location et la DB.
-        // Si vous avez eu un problème avec 'montantTotal' avant, vérifiez bien ce nom.
-        const revenuTotal = await Location.sum('tarifTot', {
-            where: {
-                etatLo: 'Terminée'
-            }
-        });
-        
-        // 4. Taux d'occupation des Salles (Simplifié: Nb de Salles Occupées / Total Salles)
-        const totalSalles = await Salle.count();
-        const sallesOccupees = await Salle.count({
-            where: {
-                disponibiliteSalle: 'Occupée'
-            }
-        });
-        // Correction de la variable dans le calcul
-        const tauxOccupationSalle = totalSalles > 0 ? ((sallesOccupees / totalSalles) * 100).toFixed(2) : 0;
-
-
-        res.status(200).send({
-            totalClients,
-            locationsMois,
-            revenuTotal: revenuTotal || 0, // Si aucun revenu, retourne 0
-            tauxOccupationSalle, // Ici c'est le taux d'occupation des Salles
-            // Ajoutez un KPI factice pour les matériels en attendant le vrai calcul
-            tauxOccupationMateriels: "N/A" 
-        });
-        
-    } catch (error) {
-        // 💡 L'erreur complète sera affichée ici si l'importation est réussie.
-        console.error("Erreur critique détaillée lors de la récupération des KPIs:", error);
-        
-        // Renvoie une erreur 500 au client
-        res.status(500).send({
-            message: "Erreur serveur lors du calcul des KPIs.",
-            detail: error.message 
-        });
-    }
-
-    exports.getReservationsReport = async (req, res) => {
-    try {
-        // Logique pour agréger le nombre de réservations par état sur une période (ex: les 6 derniers mois)
-        // Ceci nécessiterait des requêtes plus complexes (Sequelize.fn, GROUP BY).
-        // Simplification: Retourne le décompte total par état.
-        
-        const reservationsParEtat = await Reservation.findAll({
-            attributes: [
-                'etatRes',
-                [db.sequelize.fn('COUNT', db.sequelize.col('etatRes')), 'count']
-            ],
-            group: ['etatRes']
-        });
-
-        res.status(200).send(reservationsParEtat);
-    } catch (error) {
-        res.status(500).send({ message: "Erreur lors de la récupération du rapport de réservations.", error: error.message });
-    }
-};
-
-// --- 3. Rapport sur le Matériel le plus loué (Top 5) ---
-exports.getTopRentedMateriel = async (req, res) => {
-    try {
-        // Jointure avec la table de matériel pour avoir le nom, groupé par codeMat
-        const topMateriel = await Location.findAll({
-            attributes: [
-                'codeMat',
-                [db.sequelize.fn('SUM', db.sequelize.col('qteMat')), 'totalQteLouee']
-            ],
-            where: {
-                typeLo: { [Op.in]: ['Materiel', 'Mixte'] }
-            },
-            include: [{
-                model: Materiel,
-                as: 'Materiel',
-                attributes: ['designationMat']
-            }],
-            group: ['codeMat', 'Materiel.designationMat'],
-            order: [[db.sequelize.literal('totalQteLouee'), 'DESC']],
-            limit: 5
-        });
-
-        // Remarque: L'inclusion du modèle Materiel nécessite la configuration de l'association 
-        // dans Location.js et Materiel.js, ce qui n'a pas été fait précédemment.
-        // Si la requête échoue, utilisez une requête SQL pure (db.sequelize.query) ou retirez l'inclusion.
-
-        res.status(200).send(topMateriel);
-    } catch (error) {
-        res.status(500).send({ message: "Erreur lors de la récupération du top matériel.", error: error.message });
-    }
-}
-};
-
-*/
-
 // ⚠️ Correction de la structure du fichier de contrôleur. Tous les exports doivent être au niveau racine du module.
 
 const db = require('../models'); 
@@ -144,6 +13,7 @@ const Reservation = db.reservation || db.Reservation;
 const Location = db.location || db.Location;
 const Salle = db.salle || db.Salle;
 const Materiel = db.materiel || db.Materiel;
+const paiement = db.paiement
 //const sequelize = db.sequelize; // Instance Sequelize pour les fonctions d'agrégation
 
 
@@ -154,8 +24,98 @@ const getMonthStart = () => {
     return new Date(now.getFullYear(), now.getMonth(), 1); 
 };
 
-// --- 1. Indicateurs Clés de Performance (KPIs) ---
 exports.getKPIs = async (req, res) => {
+    try {
+        console.log('=== DÉBUT CALCUL KPIs ===');
+        const debutMois = getMonthStart();
+        
+        // 1. Total Clients Actifs
+        const totalClients = await Client.count();
+        console.log('✅ Clients actifs:', totalClients);
+
+        // 2. Locations Confirmées ce mois-ci
+        const locationsMois = await Reservation.count({
+            where: {
+                etatRes: 'Confirmée',
+                debRes: { [Op.gte]: debutMois }
+            }
+        });
+        console.log('✅ Locations ce mois:', locationsMois);
+        
+        // 3. Revenu Total estimé
+        const revenuTotal = await Location.sum('tarifTot', {
+            where: { etatLo: 'Terminée' }
+        });
+        console.log('✅ Revenu total:', revenuTotal);
+        
+        // 4. Taux d'occupation des Salles
+        const totalSalles = await Salle.count();
+        const sallesOccupees = await Salle.count({
+            where: { disponibiliteSalle: 'Occupée' }
+        });
+        const tauxOccupationSalle = totalSalles > 0 ? ((sallesOccupees / totalSalles) * 100).toFixed(2) : 0;
+        console.log('✅ Taux salles:', tauxOccupationSalle + '%');
+
+        // 5. Taux d'occupation des Matériels - AVEC DÉBOGAGE
+        console.log('=== DÉBUT CALCUL MATÉRIELS ===');
+        let tauxOccupationMateriel = 0;
+        
+        // A. Récupération des statistiques
+        const statsMateriels = await Materiel.findOne({
+            attributes: [
+                [sequelize.fn('SUM', sequelize.col('qteTotDispo')), 'totalDisponible'],
+                [sequelize.fn('SUM', sequelize.col('qteEnLocation')), 'enLocation'],
+                [sequelize.fn('SUM', sequelize.col('qteActuelStock')), 'enStock']
+            ],
+            raw: true
+        });
+
+        console.log('📊 Stats matériels brutes:', statsMateriels);
+
+        const totalDisponible = parseFloat(statsMateriels?.totalDisponible) || 0;
+        const enLocation = parseFloat(statsMateriels?.enLocation) || 0;
+        const enStock = parseFloat(statsMateriels?.enStock) || 0;
+        
+        console.log('📊 Champs analysés:');
+        console.log('  - totalDisponible:', totalDisponible);
+        console.log('  - enLocation:', enLocation);
+        console.log('  - enStock:', enStock);
+        
+        if (totalDisponible > 0) {
+            tauxOccupationMateriel = ((enLocation / totalDisponible) * 100).toFixed(2);
+            console.log('✅ Calcul réussi:', enLocation + ' / ' + totalDisponible + ' = ' + tauxOccupationMateriel + '%');
+        } else {
+            console.log('❌ totalDisponible = 0, calcul impossible');
+            
+            // Méthode alternative : vérifier les données individuelles
+            const tousMateriels = await Materiel.findAll({
+                attributes: ['codeMat', 'designationMat', 'qteTotDispo', 'qteEnLocation', 'qteActuelStock'],
+                limit: 5
+            });
+            console.log('📋 Échantillon matériels:', JSON.stringify(tousMateriels, null, 2));
+        }
+
+        console.log('=== FIN CALCUL MATÉRIELS ===');
+
+        res.status(200).send({
+            totalClients,
+            locationsMois,
+            revenuTotal: revenuTotal || 0,
+            tauxOccupationSalle: parseFloat(tauxOccupationSalle),
+            tauxOccupationMateriel: parseFloat(tauxOccupationMateriel)
+        });
+        
+    } catch (error) {
+        console.error("❌ Erreur KPIs:", error);
+        res.status(500).send({
+            message: "Erreur serveur lors du calcul des KPIs.",
+            detail: error.message 
+        });
+    }
+};
+
+// --- 1. Indicateurs Clés de Performance (KPIs) ---
+/*exports.getKPIs = async (req, res) => {
     try {
         const debutMois = getMonthStart();
         
@@ -205,7 +165,7 @@ exports.getKPIs = async (req, res) => {
         });
     }
 };
-
+*/
 
 // --- 2. Rapport d'activité des Réservations (par mois) ---
 // 💡 CE BLOC EST MAINTENANT AU NIVEAU RACINE DU MODULE
@@ -299,3 +259,6 @@ exports.getRevenueByClientType = async (req, res) => {
         });
     }
 };
+
+const { ReservationSalle} = require('../models');
+

@@ -21,11 +21,11 @@
                       {{ item.isAvailable ? 'Disponible' : 'Occupé' }}
                   </span>
               </div>
-              <router-link :to="{ name: 'ReservationForm', query: { resourceId: item.id } }" 
+             <!-- <router-link :to="{ name: 'ReservationForm', query: { resourceId: item.id } }" 
                            class="btn cedii-btn-primary w-100 mt-auto" 
                            :disabled="!item.isAvailable">
                 Réserver
-              </router-link>
+              </router-link>-->
             </div>
           </div>
         </div>
@@ -39,15 +39,51 @@ import { ref, onMounted } from 'vue';
 import ClientNavbar from '../components/clientNavbar.vue';
 
 const catalogItems = ref([]);
+// Import des images locales
+import salleImage from '@/assets/images/salle-reunion.jpg';
+import bureauImage from '@/assets/images/bureau.jpg';
+import projecteurImage from '@/assets/images/projecteur.jpg';
+import chapiteauImage from '@/assets/images/chapiteau.jpg';
+
+
 
 const fetchCatalog = async () => {
     catalogItems.value = [
-        { id: 45, name: 'Salle de Réunion', description: 'Grande salle pour événements et réunions, capacité 50 personnes.', category: 'Immobilier', isAvailable: true, image: 'https://via.placeholder.com/400x200?text=Salle+A' },
-        { id: 46, name: 'Salle de Documentation', description: 'Salle pour des réunions, idéal pour le travail au calme.', category: 'Immobilier', isAvailable: false, image: 'https://via.placeholder.com/400x200?text=Bureau+B' },
-        { id: 47, name: 'Projécteur', description: 'Projecteur haute définition et écran mobile pour vos présentations.', category: 'Matériel', isAvailable: true, image: 'https://via.placeholder.com/400x200?text=Vehicule+C' },
-        { id: 48, name: 'Chapiteau', description: 'Grand chapiteau pour les événements différents.', category: 'Matériel', isAvailable: true, image: 'https://via.placeholder.com/400x200?text=Projecteur' },
+        { 
+            id: 45, 
+            name: 'Salle de Réunion', 
+            description: 'Grande salle pour événements et réunions, capacité 50 personnes.', 
+            category: 'Immobilier', 
+            isAvailable: true, 
+            image: salleImage
+        },
+        { 
+            id: 46, 
+            name: 'Salle de Documentation', 
+            description: 'Salle pour des réunions, idéal pour le travail au calme.', 
+            category: 'Immobilier', 
+            isAvailable: false, 
+            image: bureauImage
+        },
+        { 
+            id: 47, 
+            name: 'Projecteur', 
+            description: 'Projecteur haute définition et écran mobile pour vos présentations.', 
+            category: 'Matériel', 
+            isAvailable: true, 
+            image: projecteurImage
+        },
+        { 
+            id: 48, 
+            name: 'Chapiteau', 
+            description: 'Grand chapiteau pour les événements différents.', 
+            category: 'Matériel', 
+            isAvailable: true, 
+            image: chapiteauImage
+        },
     ];
 };
+
 
 onMounted(() => {
     fetchCatalog();

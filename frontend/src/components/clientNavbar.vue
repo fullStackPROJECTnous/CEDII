@@ -37,7 +37,7 @@
 <script setup>
 import { useRouter } from 'vue-router';
 // Assurez-vous d'importer AuthService ici si nécessaire
-// import AuthService from '../services/AuthService';
+import AuthService from '../services/AuthService';
 
 const router = useRouter();
 

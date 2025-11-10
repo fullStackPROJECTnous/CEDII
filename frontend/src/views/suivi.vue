@@ -1,12 +1,3 @@
-<!--<template>
-  <div class="p-4">
-    <h1>Calendrier🛎️</h1>
-    <p>Vue d'ensemble </p>
-    </div>
-</template>
-<script setup>
-// Logique Réception
-</script>-->
 
 <template>
   <div class="container-fluid py-4">
@@ -17,7 +8,7 @@
   </div>
     <div class="row">
       <div class="col-12">
-        <h1 class="h3 mb-4 text-dark">Suivi des Paiements & Rapprochement Bancaire</h1>
+        <h1 class="h3 mb-4 text-dark">Suivi des Paiements</h1>
       </div>
     </div>
 
@@ -87,9 +78,7 @@
         <h5 class="card-title mb-0 text-dark">
           <i class="bi bi-list-ul me-2"></i> Historique des Transactions Rapprochées
         </h5>
-        <button class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-arrow-clockwise"></i> Synchroniser Banque
-        </button>
+       
       </div>
       
       <div class="card-body">

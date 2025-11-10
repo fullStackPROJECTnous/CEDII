@@ -121,6 +121,12 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: false,
         freezeTableName: true
     });
+     Materiel.associate = (models) => {
+        Materiel.hasMany(models.Reservation, {
+            foreignKey: 'codeMat',
+            as: 'reservations'
+        });
+    };
 
     return Materiel;
 };

@@ -9,6 +9,8 @@ router.get(
     financeController.getFinanceDashboardData
 );
 
+router.get('/cashflow-synthese', financeController.getCashflowSynthese);
+
 router.get(
     '/facturation', 
     // [authJwt.verifyToken, authJwt.isFinanceOrAdmin],
