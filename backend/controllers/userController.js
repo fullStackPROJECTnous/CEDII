@@ -6,6 +6,7 @@ const User = db.User; // 💡 On utilise 'User' (avec une majuscule) pour le mod
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Utilisateur = db.utilisateur;
+const Client = db.Client;
 //import ServiceUser from '../../frontend/src/services/ServiceUser';
 
 // ... (exports.login) ...
@@ -91,6 +92,53 @@ exports.getAllUsers = async (req, res) => {
     } catch (error) {
         console.error("Erreur de récupération des utilisateurs:", error);
         res.status(500).send({ message: "Erreur interne lors de la récupération." });
+    }
+};
+
+// 🚨 AJOUT DE LA FONCTION MANQUANTE POUR LA ROUTE /clients/list 🚨
+exports.getAllClientUsers = async (req, res) => {
+    try {
+        // 1. Trouver tous les idUti qui sont déjà associés à un client
+        // 🚨 CORRECTION : On attend la résolution de la promesse avant d'appeler .map()
+        const associatedClients = await Client.findAll({
+            attributes: ['idUti'], 
+            raw: true,
+        });
+        
+        // Maintenant, on appelle .map() sur le tableau de résultats
+        const associatedUserIds = associatedClients.map(client => client.idUti); 
+
+        // 2. Trouver les utilisateurs ayant le rôle 'client' et QUI NE SONT PAS dans la liste
+        const unassociatedClientUsers = await Utilisateur.findAll({
+            where: { 
+                roleUti: 'client',
+                // LOGIQUE CRITIQUE : Exclure les IDs déjà trouvés 
+                idUti: {
+                    [Op.notIn]: associatedUserIds
+                }
+            },
+            // PAS DE CLAUSE 'INCLUDE' (pour éviter le conflit)
+            attributes: ['idUti', 'loginUti'], 
+        });
+
+        // 3. FORMATAGE POUR LE FRONTEND
+        const formattedUsers = unassociatedClientUsers
+            .map(user => ({
+                idUti: user.idUti,
+                // Utiliser le login pour l'affichage, car le nom/prénom n'est pas encore saisi
+                nom: user.loginUti, 
+                prenom: "(Nouvel Utilisateur)", 
+                login: user.loginUti 
+            }));
+
+        res.status(200).send(formattedUsers);
+        
+    } catch (error) {
+        // Afficher l'erreur complète dans le terminal pour le débogage
+        console.error("Erreur de récupération des utilisateurs non associés (pour la liste déroulante):", error);
+        res.status(500).send({ 
+            message: "Erreur interne lors de la récupération des utilisateurs clients." 
+        });
     }
 };
 

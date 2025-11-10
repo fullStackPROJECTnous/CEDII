@@ -97,16 +97,29 @@
             <form @submit.prevent="saveClient">
                 <!-- ID Utilisateur pour l'association -->
                 <div v-if="modalMode === 'create'" class="mb-3">
-                  <label for="idUti" class="form-label">ID Utilisateur à Associer <span class="text-danger">*</span></label>
-                  <input 
-                      type="number" 
-                      id="idUti" 
-                      v-model.number="currentClient.idUti" 
-                      class="form-control" 
-                      required 
-                      placeholder="ID d'un utilisateur existant (rôle client)"
-                  />
+                    <label for="idUti" class="form-label">Utilisateur à Associer <span class="text-danger">*</span></label>
+                    
+                    <select 
+                        id="idUti" 
+                        v-model.number="currentClient.idUti" 
+                        class="form-control" 
+                        required
+                    >
+                        <option value="" disabled>Sélectionner un utilisateur...</option>
+                        <option 
+                            v-for="user in clientUsers" 
+                            :key="user.idUti" 
+                            :value="user.idUti"
+                        >
+                            ID {{ user.idUti }} - {{ user.nom }} {{ user.prenom }}
+                        </option>
+                    </select>
+                    
+                    <small v-if="!clientUsers || clientUsers.length === 0" class="text-warning">
+                        Chargement ou aucun utilisateur 'client' trouvé.
+                    </small>
                 </div>
+
 
                 <div class="mb-3">
                     <label class="form-label">Nom <span class="text-danger">*</span></label>
@@ -136,7 +149,9 @@
                       <option value="particulier">Particulier</option>
                       <option value="entreprise">Entreprise</option>
                       <option value="institution Public">Institution Publique</option>
-                  </select>
+                      <option value="etudiant">Etudiant</option>
+                      
+                    </select>
                   </div>
                   <div class="mb-3">
                     <label class="form-label">Statut Client</label>
@@ -311,6 +326,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import ClientService from '../services/ClientService'; 
+import UserServices from '../services/UserServices';
 // Assurez-vous d'avoir un service pour les réservations et locations pour ces fonctionnalités
 // import ReservationService from '../services/ReservationService';
 // import LocationService from '../services/LocationService';
@@ -321,6 +337,7 @@ const clients = ref([]);
 const searchQuery = ref('');
 const isModalOpen = ref(false);
 const modalMode = ref('create'); // 'create' ou 'update'
+const clientUsers = ref([]);
 const isHistoryModalOpen = ref(false); // NOUVEAU: État de la modale Historique
 const historyClient = ref({}); // NOUVEAU: Données du client pour l'historique
 const historyTab = ref('locations'); // NOUVEAU: Onglet actif dans la modale d'historique
@@ -460,6 +477,19 @@ const formatCurrency = (value) => {
     }).format(value);
 };
 
+const fetchClientUsers = async () => {
+    try {
+        console.log('🔄 Chargement des utilisateurs clients...');
+        // Appel au service
+        const usersData = await UserServices.getAllClientUsers(); 
+        clientUsers.value = usersData;
+        console.log(`✅ ${usersData.length} utilisateurs clients chargés.`);
+
+    } catch (error) {
+        console.error("❌ Erreur de chargement des utilisateurs clients:", error);
+        clientUsers.value = []; 
+    } 
+};
 
 const topClient = ref({ name: 'N/A', revenue: 0 }); // Remplacer le computed simulé
 const activeClient = ref({ name: 'N/A', count: 0 }); // Remplacer le computed simulé
@@ -588,6 +618,7 @@ const openHistoryModal = async (client) => {
 // Point d'entrée
 onMounted(() => {
     fetchClients();
+    fetchClientUsers();
     fetchMetrics(); // 👈 Appel ici
 });
 

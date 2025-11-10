@@ -18,13 +18,24 @@ export default function authHeader() {
 
 export default function authHeader() {
   // Récupère l'utilisateur stocké localement, qui doit contenir le token JWT
-  const user = JSON.parse(localStorage.getItem('user'));
+  const userString = localStorage.getItem('user');
+  let user = null;
 
-  if (user && user.token) {
+  if (userString) {
+      try {
+          user = JSON.parse(userString);
+      } catch (e) {
+          console.error("Erreur lors de l'analyse JSON de l'utilisateur stocké:", e);
+          return {};
+      }
+  }
+
+  // 🚨 CORRECTION CRITIQUE : Le token est stocké sous la clé 'accessToken' (ou 'token')
+  // Basé sur les messages d'erreur courants, nous utilisons 'accessToken'.
+  if (user && user.accessToken) {
     // Si un utilisateur et un token existent, retourne l'en-tête 'Authorization'
-    // Format standard JWT : "Bearer <token>"
     console.log("Jeton d'authentification trouvé. Envoi de l'en-tête 'Authorization'.");
-    return { Authorization: 'Bearer ' + user.token };
+    return { Authorization: 'Bearer ' + user.accessToken }; // Changement ici
   } else {
     // Sinon, retourne un objet vide ou un en-tête pour un accès public
     console.log("Aucun jeton trouvé. Envoi d'un en-tête vide.");

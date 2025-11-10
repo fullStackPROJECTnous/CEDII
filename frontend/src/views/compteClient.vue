@@ -28,7 +28,7 @@
                         <li class="list-group-item">**Email :** {{ clientInfo.email }}</li>
                         <li class="list-group-item">**Téléphone :** {{ clientInfo.phone }}</li>
                         <li class="list-group-item">**Adresse :** {{ clientInfo.address }}</li>
-                        <li class="list-group-item">**Membre depuis :** {{ formatDate(clientInfo.memberSince) }}</li>
+                        
                     </ul>
                     <div class="card-footer bg-white border-0 text-end">
                         <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil-square"></i> Modifier</button>
@@ -96,7 +96,14 @@ import ClientService from '../services/ClientService';
 //import LocationService from '../services/LocationService';
 
 const clientName = ref('Client'); 
-const clientInfo = ref({}); // Nouvel état pour les informations du client
+const clientInfo = ref({
+    name: 'N/A', 
+    email: 'N/A', 
+    phone: 'N/A', 
+    address: 'N/A'
+}); // Nouvel état pour les informations du client
+
+
 const nextReservation = ref({});
 const pastReservations = ref([]);
 
@@ -104,22 +111,41 @@ const pastReservations = ref([]);
 
 const fetchClientData = async () => {
     try {
-        // 🚀 CORRECTION MAJEURE : Utilisez getMyProfile() qui lit l'ID dans le token JWT
-        const response = await ClientService.getProfile(); 
+        const clientData = await ClientService.getMyProfile(); 
         
-        clientData.value = response.data; // Assurez-vous d'accéder à .data si le service retourne la promesse axios complète
+        console.log("✅ Données client chargées (Frontend) :", clientData);
         
-        console.log("✅ Données client chargées :", clientData.value);
+        // 🚨 CORRECTION 1 : Utiliser le login pour le message d'accueil
+        // L'objet 'utilisateur' est imbriqué dans la réponse Sequelize
+        clientName.value = clientData.utilisateur?.loginUti || clientData.prenomCli || 'Client'; // Affichera 'LOGIN'
         
-        // Mettre à jour le nom dans la navbar si nécessaire
-        // const { prenomCli, nomCli } = response.data;
-        // clientName.value = `${prenomCli} ${nomCli}`;
-
+        // 2. Mise à jour des coordonnées
+        clientInfo.value = {
+            // Affichage du nom complet dans le champ 'Nom complet'
+            name: `${clientData.nomCli || ''} ${clientData.prenomCli || ''}`,
+            
+            email: clientData.emailCli || 'Non spécifié', 
+            
+            // 🚨 CORRECTION 2 : Vérification du Téléphone (doit être telphoneCli)
+            // On vérifie si la valeur est non nulle et non vide
+            phone: clientData.telephoneCli && clientData.telephoneCli.trim() !== '' 
+                   ? clientData.telephoneCli 
+                   : 'Non spécifié', 
+            
+            // 🚨 CORRECTION 3 : Vérification de l'Adresse
+            // On vérifie si la valeur est non nulle et non vide
+            address: clientData.addresseCli && clientData.addresseCli.trim() !== '' 
+                     ? clientData.addresseCli 
+                     : 'Non spécifiée',
+        };
+        
     } catch (error) {
         console.error("❌ Échec du chargement des données client:", error.response?.data || error);
-        // Gérer l'erreur (ex: déconnexion si le token est invalide)
+        // Si la requête échoue, mettons le nom à 'Erreur' pour le diagnostic
+        clientName.value = 'Erreur (Token?)'; 
     }
-};
+}
+
 const formatDate = (dateString) => {
     // Fonction utilitaire pour formater la date
     if (!dateString) return 'N/A';

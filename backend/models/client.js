@@ -118,9 +118,7 @@ module.exports = (sequelize) => {
         },
         typeCli: {
             type: DataTypes.STRING(31),
-
-
-            allowNull: true,
+            allowNull: false,
             field: 'typeCli'
         },
         statutCli: {
@@ -159,6 +157,15 @@ module.exports = (sequelize) => {
         Client.hasMany(models.Reservation, {
             foreignKey: 'idCli', // ⬅️ Clé étrangère dans la table 'reservation'
             as: 'reservations'
+        });
+    };
+
+    // 🚨 AJOUT CRITIQUE : RELATION INVERSE 🚨
+    Client.associate = (models) => {
+        // Un client appartient à un seul utilisateur via sa clé étrangère 'idUti'
+        Client.belongsTo(models.utilisateur, { 
+            foreignKey: 'idUti',
+            
         });
     };
     

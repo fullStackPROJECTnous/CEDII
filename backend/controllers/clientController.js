@@ -329,46 +329,50 @@ exports.getClientProfileByUtiId = async (req, res) => {
 
 // Supposons que db est votre objet de connexion à la base de données
 
-exports.getProfile = async (req, res) => {
-    // 🚨 VÉRIFIEZ QUE VOUS UTILISEZ BIEN 'req.idUti'
-    const idUti = req.idUti; 
-
-    // Vérification de sécurité supplémentaire (élimine le NaN au cas où)
-    if (!idUti || isNaN(idUti)) {
-        // Cette erreur est capturée par le logger [VERIF FINALE]
-        console.log(`[VERIF FINALE] Tentative de récupération pour idUti : ${idUti}`);
-        console.log("[VERIF FINALE] ÉCHEC 401 : ID utilisateur manquant ou invalide.");
-        
-        return res.status(401).send({ 
-            message: 'Authentification requise. ID utilisateur non disponible ou invalide.' 
-        });
+exports.getMyProfile = async (req, res) => {
+    // 1. Récupère l'ID utilisateur (req.userId doit être injecté par le middleware JWT)
+    const userId = req.idUti; 
+    
+    // Vérification de sécurité (si le middleware JWT n'a pas pu décoder l'ID)
+    if (!userId) {
+        return res.status(401).send({ message: "Authentification requise. ID utilisateur non disponible ou invalide." });
     }
-    
-    // Si nous arrivons ici, idUti est garanti d'être un nombre valide
-    
+
     try {
-        // Sequelize peut maintenant utiliser l'ID en toute sécurité
-        const client = await Client.findOne({
-            where: { idUti: idUti }, // idUti est un nombre entier (INT)
+        // 2. Requête Sequelize : Trouver la fiche Client et joindre l'Utilisateur
+        const clientProfile = await Client.findOne({ 
+            // Critère de recherche : l'idUti doit correspondre à l'ID de l'utilisateur connecté
+            where: { idUti: userId }, 
+            
+            // Jointure : Inclure les données de la table Utilisateur
             include: [{ 
                 model: Utilisateur, 
+                as: 'utilisateur', // 🚨 Doit correspondre à l'alias défini dans votre association
                 attributes: ['loginUti', 'roleUti'] 
             }], 
-            attributes: { exclude: ['idUti'] }
+            
+            // Sélectionner tous les attributs du Client (nomCli, prenomCli, etc.)
+            attributes: [
+                'idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli', 
+                'addresseCli', 'typeCli', 'statutCli'
+            ],
+            
+            // Convertir en objet JavaScript simple pour l'envoi
+            raw: false, // Important pour garder les données de l'inclusion (Utilisateur)
+            nest: true // Optionnel, mais rend l'objet plus propre
         });
 
-        if (!client) {
-            return res.status(404).send({ 
-                message: "Profil client introuvable pour cet utilisateur." 
-            });
+        // 3. Vérification du résultat
+        if (!clientProfile) {
+            // Si le token est valide mais qu'aucune fiche client n'a été créée pour cet utilisateur
+            return res.status(404).send({ message: "Fiche client introuvable. Veuillez compléter votre profil." });
         }
+        
+        // 4. Succès : Envoyer les données du profil (Client + Utilisateur)
+        res.status(200).send(clientProfile);
 
-        res.status(200).send(client);
     } catch (error) {
-        console.error("Erreur serveur lors de la récupération du profil:", error);
-        res.status(500).send({ 
-            message: "Erreur serveur lors de la récupération du profil.", 
-            details: error.message 
-        });
+        console.error("Erreur lors de la récupération du profil par ID utilisateur:", error);
+        res.status(500).send({ message: "Erreur interne lors de la récupération du profil client." });
     }
 };

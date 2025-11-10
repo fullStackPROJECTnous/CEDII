@@ -10,6 +10,7 @@ const userController = require('../controllers/userController');
 // Route POST pour l'inscription (pour ajouter des utilisateurs au début)
 //router.post('/home', userController.home);
 
+router.get('/clients/list', userController.getAllClientUsers);
 // Route POST pour la connexion (le vrai point de login)
 router.post('/login', userController.login);
 

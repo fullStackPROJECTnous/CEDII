@@ -26,5 +26,14 @@ module.exports = (sequelize, DataTypes) => {
         timestamps: false //Pas de colonnes 'createdAt' ou 'updatedAt'
     });
 
+    // 🚨 AJOUT CRITIQUE : DÉFINITION DE L'ASSOCIATION 🚨
+    Utilisateur.associate = (models) => {
+        // Un utilisateur est associé à un seul client via la clé étrangère 'idUti' dans la table Client
+        
+        Utilisateur.hasOne(models.Client, { 
+            foreignKey: 'idUti' 
+        });
+    };
+
     return Utilisateur;
 };

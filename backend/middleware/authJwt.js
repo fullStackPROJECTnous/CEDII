@@ -7,7 +7,10 @@ const Utilisateur = db.utilisateur; // Assurez-vous que le modèle est correct
 // ======================================================
 
 const verifyToken = (req, res, next) => {
-    // 1. Récupérer le token (utilise 'Authorization: Bearer <token>' ou 'x-access-token')
+    // 🚨 1. AJOUTEZ LE CONSOLE.LOG ICI (pour le débogage) 🚨
+    console.log("Tentative de lecture de l'en-tête Authorization:", req.headers['authorization']);
+    
+    // 1. Récupérer le token depuis l'en-tête (standard: 'x-access-token' ou 'Authorization: Bearer <token>')
     let token = req.headers['x-access-token'] || req.headers['authorization'];
 
     if (!token) {
@@ -16,49 +19,29 @@ const verifyToken = (req, res, next) => {
         });
     }
 
-    // Retirer 'Bearer ' si présent
+    // Si le format est 'Bearer <token>', extraire uniquement le token
     if (token.startsWith('Bearer ')) {
         token = token.slice(7, token.length);
     }
     
     // 2. Vérifier et décoder le token
+    // Le secret doit correspondre à celui utilisé lors de la connexion (authController.js)
     jwt.verify(token, process.env.JWT_SECRET || 'votre_cle_secrete', (err, decoded) => {
         if (err) {
-            // Token expiré ou invalide
+            // Le token est expiré, invalide, ou falsifié
             return res.status(401).send({
                 message: "Non autorisé! Le token est invalide ou expiré."
             });
         }
         
-        // 🚨 CORRECTION MAJEURE: Prioriser les clés 'idUti' ou 'id' du payload du token
-        const rawId = decoded.idUti || decoded.id; 
-
-        if (rawId) {
-            // Conversion forcée en entier pour prévenir le 'NaN'
-            const idUtiNumber = parseInt(rawId, 10); 
-
-            if (isNaN(idUtiNumber)) {
-                // Si la valeur est bien là mais non numérique
-                 return res.status(401).send({
-                    message: "Authentification requise. ID utilisateur non disponible ou invalide."
-                });
-            }
-            
-            // 3. Stocker l'ID sous le nom ATTENDU par le contrôleur
-            req.idUti = idUtiNumber; 
-            
-            // Stocker le rôle
-            req.userRole = decoded.role; 
-
-            next(); // Succès
-        } else {
-             // Si le token est valide mais ne contient pas l'ID
-             return res.status(401).send({
-                message: "Authentification requise. ID utilisateur non disponible ou invalide."
-            });
-        }
+        // 3. Stocker l'ID de l'utilisateur et son rôle pour les middlewares suivants
+        req.idUti = decoded.id; // Stocke l'ID
+        req.userRole = decoded.roleUti; // Stocke le rôle (assurez-vous que le token utilise 'roleUti')
+        
+        next(); // Passer au prochain middleware ou au contrôleur
     });
 };
+
 // Le reste du fichier 'middleware/auth.js' reste inchangé (exports, isAdmin, etc.)
 // ======================================================
 // 2. Middleware de Vérification du Rôle (Admin Check)

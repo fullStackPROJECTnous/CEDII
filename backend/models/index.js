@@ -36,17 +36,14 @@ db.Materiel = require("./materiel.js")(sequelize, DataTypes);
 db.Salle = require("./salle.js")(sequelize, DataTypes); 
 db.MaterielBureau = require('./materielModel.js')(sequelize, DataTypes) ;
 
+// --- SECTION CRITIQUE : MISE EN PLACE DES ASSOCIATIONS ---
 Object.keys(db).forEach(modelName => {
-  // 💡 Vérifie si l'élément existe ET qu'il a une fonction associate
-  if (db[modelName] && db[modelName].associate) { 
-    // Exclure les clés internes de Sequelize
-    if (modelName !== 'Sequelize' && modelName !== 'sequelize') {
-      db[modelName].associate(db);
-    }
-  }
+    // Si un modèle charge 'undefined', la ligne db[modelName].associate échoue.
+    if (db[modelName] && db[modelName].associate) { // 🚨 Ajout d'un contrôle 'db[modelName]'
+        db[modelName].associate(db);
+    }
 });
-
-// --- FIN DU CHARGEMENT DES MODÈLES ---
+// --- FIN DE LA MISE EN PLACE DES ASSOCIATIONS ---
 
 
 // models/index.js

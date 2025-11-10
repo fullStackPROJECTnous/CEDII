@@ -6,6 +6,7 @@ const ReminderService = require('./routes/ReminderService');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
 app.use(express.urlencoded({ extended: true}));
 
 // Routes exemple
@@ -21,52 +22,43 @@ sequelize.sync().then(() => {
   
 });
 
-// server.js (main file)
+
+// --- IMPORTATIONS DES ROUTES ---
 
 const clientRoutes = require('./routes/clientRoutes');
-// ... other setup ...
-app.use('/api/clients', clientRoutes); // All routes start with /api/clients
+const authRoutes = require('./routes/authRoutes'); 
+const userRoutes = require('./routes/userRoutes'); // Le routeur qui contient getAllClientUsers
+const salleRoutes = require('./routes/salleRoutes'); 
+const patrimoineRoutes = require('./routes/patrimoineRoutes'); 
+const routesUsers = require('./routes/routeUsers');
+const financeRoute = require('./routes/financeRoute');
+const rapportRoutes = require('./routes/rapportRoutes'); 
+const locationRoutes = require('./routes/locationRoutes');
+const materielBureauRoutes = require('./routes/materielBureauRoutes');
 
+// --- MONTAGE DES ROUTES ---
 
-// 🚨 Nouvelle Route pour l'Authentification
-const authRoutes = require('./routes/authRoutes');
+app.use('/api/clients', clientRoutes); 
 app.use('/api/auth', authRoutes); 
 
-const userRoutes = require('./routes/userRoutes');
-// 💡 Utilisez /api/auth comme base pour la connexion
-app.use('/api/auth', userRoutes);
+// 🚨 CORRECTION CRITIQUE : Monte le routeur utilisateur sous /api/users
+// Ceci crée l'URL complète : /api/users/clients/list
+app.use('/api/users', userRoutes); 
+app.use('/api', routesUsers); 
 
+// 💡 L'ancienne ligne (si elle causait le conflit) est gérée ci-dessus ou peut être modifiée/supprimée
+// app.use('/api/auth', userRoutes); // <-- Si cette ligne existe, elle est maintenant un doublon/conflit pour /api/users
 
-const salleRoutes = require('./routes/salleRoutes');
 app.use('/api/salle', salleRoutes); 
-
-const patrimoineRoutes = require('./routes/patrimoineRoutes');
 app.use('/api/patrimoine', patrimoineRoutes); 
 
-
-//app.use('/api/reception', locationRoutes);
-
-const routesUsers = require('./routes/routeUsers');
-// ... autres imports de routes
-
 app.use('/api', routesUsers); 
-// ... autres app.use
 
-const financeRoute = require('./routes/financeRoute');
-
-// Définition de la route de base pour la finance
 app.use('/api/finance', financeRoute);
 
-const rapportRoutes = require('./routes/rapportRoutes'); // 👈 CORRECTION
-const locationRoutes = require('./routes/locationRoutes');
-
-// Utilisation des routes - CORRECTION : pas de préfixe en double
 app.use('/api/rapports', rapportRoutes);
 app.use('/api/locations', locationRoutes);
 
-
-const materielBureauRoutes = require('./routes/materielBureauRoutes');
-app.use('/api/materiel-bureau',materielBureauRoutes  ); 
-
+app.use('/api/materiel-bureau',materielBureauRoutes);
 
 

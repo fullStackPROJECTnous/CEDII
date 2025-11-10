@@ -79,19 +79,19 @@ async getClientHistory(idCli) {
     });
 },
 
-async getProfile() {
+async getMyProfile() {
     try {
         const response = await axios.get(`${API_BASE_URL}/profile`, { 
-            headers: authHeader() // 🚨 CRITIQUE : Envoie l'en-tête 'Authorization'
+            headers: authHeader() // Lit le token corrigé et l'envoie
         });
         return response.data;
     } catch (error) {
-        console.error("Erreur lors de la récupération du profil par token:", error.response.data);
-        throw error.response.data;
+        // Cette erreur est déclenchée par le 403 du serveur
+        console.error("Erreur lors de la récupération du profil par token:", error.response?.data || error);
+        // On renvoie l'erreur pour qu'elle soit gérée dans le composant Vue
+        throw error.response?.data || error; 
     }
-},
-
-
+  },
 
 
     async getClientProfile(idCli) {

@@ -45,28 +45,43 @@ exports.home = (req, res) => {
 
 // 3. FONCTION DE CONNEXION (LOGIN) - 🚨 NOUVEAU CODE REQUIS
 exports.login = async (req, res) => {
-    const { loginUti, motDePasseUti } = req.body;
+    
+    // --- Correction A : Vérification de l'existence de req.body ---
+    if (!req.body) {
+        return res.status(400).send({ message: "Requête mal formatée. Le corps JSON est manquant." });
+    }
+    
+    // Si req.body existe, la déstructuration est sécurisée
+    const { loginUti, motDePasseUti } = req.body; 
+
+    // --- Correction B : Vérification des champs requis ---
+    if (!loginUti || !motDePasseUti) {
+        return res.status(400).send({ message: "Veuillez fournir le login et le mot de passe." });
+    }
 
     try {
         // 1. Trouver l'utilisateur par son login
         const user = await utilisateur.findOne({ where: { loginUti } });
 
         if (!user) {
-            return res.status(401).send({ message: "Identifiants invalides (login non trouvé)." });
+            // Statut 401 pour identifiants invalides
+            return res.status(401).send({ message: "Identifiants invalides." }); 
         }
 
         // 2. Comparer le mot de passe haché
+        // NOTE IMPORTANTE : Le nom du champ dans la DB est-il bien 'motDePasseUti' ?
+        // Si Sequelize ne renvoie pas le mot de passe haché, cette ligne peut planter.
         const isPasswordValid = await bcrypt.compare(motDePasseUti, user.motDePasseUti);
 
         if (!isPasswordValid) {
-            return res.status(401).send({ message: "Identifiants invalides (mot de passe incorrect)." });
+            return res.status(401).send({ message: "Identifiants invalides." });
         }
 
         // 3. Générer le token JWT
         const token = jwt.sign(
             { id: user.idUti, login: user.loginUti, roleUti: user.roleUti },
-            JWT_SECRET,
-            { expiresIn: '24h' } // Le token expire après 24 heures
+            process.env.JWT_SECRET, // Utilisez l'environnement variable pour la clé secrète
+            { expiresIn: '24h' }
         );
 
         // 4. Succès : Renvoyer le token et les infos utilisateur
@@ -74,13 +89,14 @@ exports.login = async (req, res) => {
             message: "Connexion réussie.",
             idUti: user.idUti,
             loginUti: user.loginUti,
-            roleUti: user.roleUti, // Nécessaire pour le Dashboard Vue
+            roleUti: user.roleUti,
             accessToken: token
         });
 
     } catch (error) {
-        console.error("Erreur de connexion:", error);
-        res.status(500).send({ message: "Erreur serveur lors de la connexion.", error: error.message });
+        console.error("Erreur fatale de connexion:", error);
+        // Toujours renvoyer une erreur 500 générique en production pour la sécurité
+        res.status(500).send({ message: "Erreur serveur interne lors de la connexion." });
     }
 };
 
