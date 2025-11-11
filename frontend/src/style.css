@@ -12,6 +12,13 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  --cedii-primary-light: #5811EE;
+  --cedii-primary-dark: #04058F;
+  --cedii-dark: #02061E;
+  --cedii-secondary: #067186;
+  --cedii-neutral: #55555E;
+
 }
 
 a {

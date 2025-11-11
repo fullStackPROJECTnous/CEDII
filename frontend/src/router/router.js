@@ -39,7 +39,8 @@ import EtatLieu from '../views/etatLieu.vue';
 import ReservationValidation from '../views/reservationValidation.vue';
 import FormEtatLieu from '../views/formEtatLieu.vue';
 import ReservationLocationForm from '../views/reservationLocationForm.vue';
-import DashboardEnfant from '../views/dashboardEnfant.vue';
+//import DashboardEnfant from '../views/dashboardEnfant.vue';
+
 
 
 // ... (Garde de Navigation) ...
@@ -109,6 +110,7 @@ const routes = [
     component: ClientManagement,
     meta: { requiresAuth: true } // Exemple de protection de route
   },
+ 
    {
     path: '/salleManagement',
     name: 'SalleManagement',

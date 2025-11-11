@@ -1,84 +1,218 @@
 <template>
   <div class="register-wrapper d-flex justify-content-center align-items-center">
-    <div class="card shadow-lg p-4 register-card">
-      <div class="card-body">
-        <h3 class="card-title text-center cedii-text-dark mb-4">
-          Créer un Compte CEDII
-        </h3>
-        <p class="text-center text-muted mb-4">Inscription Utilisateur</p>
-
-        <form @submit.prevent="handleRegister">
-          <div class="mb-3">
-            <label for="loginUti" class="form-label">Identifiant (Login)</label>
-            <input type="text" id="loginUti" v-model="formData.loginUti" class="form-control" required />
-          </div>
-
-          <div class="mb-3">
-            <label for="motDePasseUti" class="form-label">Mot de passe</label>
-            <input type="password" id="motDePasseUti" v-model="formData.motDePasseUti" class="form-control" required />
-          </div>
-
-          <div class="mb-4">
-            <label for="roleUti" class="form-label">Rôle</label>
-            <select id="roleUti" v-model="formData.roleUti" class="form-select" required>
-              <option value="client">Client</option>
-              <option value="admin">Administrateur</option>
-              <option value="reception">Receptionniste</option>
-              <option value="finance">Financiere</option>
-              </select>
-          </div>
-
-          <div v-if="message" :class="['alert', isSuccess ? 'alert-success' : 'alert-danger', 'text-center']">{{ message }}</div>
-
-          <button type="submit" class="btn cedii-btn-primary w-100" :disabled="isLoading">
-            {{ isLoading ? 'Enregistrement...' : 'Créer le Compte' }}
-          </button>
-        </form>
-        
-        <div class="text-center mt-3">
-            <router-link to="/" class="cedii-text-action">Retour à la connexion</router-link>
+    <n-card class="register-card shadow-lg" :bordered="false">
+      <template #header>
+        <div class="text-center">
+          <n-h2 class="cedii-text-dark mb-2">Créer un Compte CEDII</n-h2>
+          <n-text class="text-muted">Inscription Utilisateur</n-text>
         </div>
-      </div>
-    </div>
+      </template>
+
+      <n-form @submit.prevent="handleRegister" :model="formData" :rules="rules" ref="formRef">
+        <n-grid :cols="1" :x-gap="24" :y-gap="16">
+          <!-- Identifiant -->
+          <n-gi>
+            <n-form-item label="Identifiant (Login)" path="loginUti" label-placement="left">
+              <n-input
+                v-model:value="formData.loginUti"
+                placeholder="Entrez votre identifiant"
+                size="large"
+                :disabled="isLoading"
+              />
+            </n-form-item>
+          </n-gi>
+
+          <!-- Mot de passe -->
+          <n-gi>
+            <n-form-item label="Mot de passe" path="motDePasseUti" label-placement="left">
+              <n-input
+                type="password"
+                v-model:value="formData.motDePasseUti"
+                placeholder="Entrez votre mot de passe"
+                size="large"
+                :disabled="isLoading"
+                show-password-on="click"
+              />
+            </n-form-item>
+          </n-gi>
+
+          <!-- Rôle -->
+          <n-gi>
+            <n-form-item label="Rôle" path="roleUti" label-placement="left">
+              <n-select
+                v-model:value="formData.roleUti"
+                :options="roleOptions"
+                size="large"
+                :disabled="isLoading"
+              />
+            </n-form-item>
+          </n-gi>
+        </n-grid>
+
+        <!-- Message d'alerte -->
+        <n-alert 
+          v-if="message" 
+          :type="isSuccess ? 'success' : 'error'" 
+          class="mb-3"
+          :show-icon="true"
+        >
+          {{ message }}
+        </n-alert>
+
+        <!-- Bouton d'inscription -->
+        <n-button 
+          type="primary" 
+          attr-type="submit" 
+          size="large" 
+          :loading="isLoading"
+          class="w-100 cedii-btn-primary"
+          :disabled="isLoading"
+        >
+          {{ isLoading ? 'Enregistrement...' : 'Créer le Compte' }}
+        </n-button>
+      </n-form>
+
+      <!-- Lien de retour -->
+      <template #footer>
+        <div class="text-center">
+          <router-link to="/" class="cedii-text-action text-decoration-none">
+            <n-button text type="primary" size="small">
+              <template #icon>
+                <n-icon>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                  </svg>
+                </n-icon>
+              </template>
+              Retour à la connexion
+            </n-button>
+          </router-link>
+        </div>
+      </template>
+    </n-card>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
+import { 
+  NCard, 
+  NH2, 
+  NText, 
+  NForm, 
+  NFormItem, 
+  NInput, 
+  NSelect, 
+  NButton, 
+  NAlert, 
+  NIcon,
+  NGrid,
+  NGi
+} from 'naive-ui';
 import AuthService from '../services/AuthService'; 
 
 const router = useRouter();
 const isLoading = ref(false);
 const message = ref('');
 const isSuccess = ref(false);
+const formRef = ref(null);
 
-const formData = ref({
+const formData = reactive({
   loginUti: '',
   motDePasseUti: '',
-  roleUti: 'client' // Rôle par défaut pour les auto-inscriptions
+  roleUti: 'client'
 });
+
+const roleOptions = [
+  {
+    label: 'Client',
+    value: 'client'
+  },
+  {
+    label: 'Administrateur',
+    value: 'admin'
+  },
+  {
+    label: 'Réceptionniste',
+    value: 'reception'
+  },
+  {
+    label: 'Financière',
+    value: 'finance'
+  }
+];
+
+// Règles de validation
+const rules = {
+  loginUti: [
+    {
+      required: true,
+      message: 'L\'identifiant est requis',
+      trigger: ['input', 'blur']
+    },
+    {
+      min: 3,
+      message: 'L\'identifiant doit contenir au moins 3 caractères',
+      trigger: ['input', 'blur']
+    }
+  ],
+  motDePasseUti: [
+    {
+      required: true,
+      message: 'Le mot de passe est requis',
+      trigger: ['input', 'blur']
+    },
+    {
+      min: 6,
+      message: 'Le mot de passe doit contenir au moins 6 caractères',
+      trigger: ['input', 'blur']
+    }
+  ],
+  roleUti: [
+    {
+      required: true,
+      message: 'Le rôle est requis',
+      trigger: ['change', 'blur']
+    }
+  ]
+};
 
 async function handleRegister() {
   message.value = '';
-  isLoading.value = true;
-  isSuccess.value = false;
-
+  
   try {
-    const response = await AuthService.register(formData.value);
+    // Validation du formulaire
+    await formRef.value?.validate();
+    
+    isLoading.value = true;
+    isSuccess.value = false;
+
+    const response = await AuthService.register(formData);
     
     isSuccess.value = true;
     message.value = response.data.message || "Compte créé avec succès ! Vous pouvez maintenant vous connecter.";
     
-    // Après 3 secondes, rediriger l'utilisateur vers la page de login
+    // Redirection après 3 secondes
     setTimeout(() => {
-        router.push('/');
+      router.push('/');
     }, 3000);
 
   } catch (err) {
-    const msg = err.response?.data?.message || "Erreur lors de l'inscription. Vérifiez les données.";
-    isSuccess.value = false;
-    message.value = msg;
+    if (err.response?.status === 400) {
+      // Erreur de validation du backend
+      const msg = err.response?.data?.message || "Erreur lors de l'inscription. Vérifiez les données.";
+      isSuccess.value = false;
+      message.value = msg;
+    } else if (err.errors) {
+      // Erreur de validation Naive UI
+      console.log('Validation errors:', err.errors);
+    } else {
+      // Autre erreur
+      const msg = err.response?.data?.message || "Erreur lors de l'inscription. Vérifiez les données.";
+      isSuccess.value = false;
+      message.value = msg;
+    }
   } finally {
     isLoading.value = false;
   }
@@ -86,32 +220,80 @@ async function handleRegister() {
 </script>
 
 <style scoped>
-/* Les styles réutilisent ceux de Login.vue */
 .register-wrapper {
   min-height: 100vh;
-  background-color: var(--cedii-dark); /* #02061E */
+  background: linear-gradient(135deg, #02061E 0%, #04058F 100%);
+  padding: 20px;
 }
 
 .register-card {
-  max-width: 450px;
+  max-width: 500px;
   width: 100%;
-  border-radius: 10px;
+  border-radius: 12px;
+  background: white;
 }
 
-/* Couleurs CEDII pour le composant (assurez-vous qu'elles sont définies globalement ou dans un bloc non scoped si vous n'utilisez pas de variables CSS) */
+/* Styles pour les labels à gauche */
+:deep(.n-form-item .n-form-item-label) {
+  text-align: left;
+  font-weight: 500;
+  color: var(--cedii-dark, #02061E);
+  min-width: 140px;
+  margin-right: 16px;
+}
+
+:deep(.n-form-item .n-form-item-blank) {
+  flex: 1;
+}
+
+/* Palette de couleurs CEDII */
 .cedii-text-dark {
-    color: var(--cedii-dark, #02061E);
+  color: var(--cedii-dark, #02061E) !important;
 }
+
 .cedii-btn-primary {
-    background-color: var(--cedii-primary-light, #5B11EE); 
-    border-color: var(--cedii-primary-light, #5B11EE);
-    color: white;
+  background-color: var(--cedii-primary-light, #5B11EE) !important;
+  border-color: var(--cedii-primary-light, #5B11EE) !important;
+  color: white !important;
 }
+
 .cedii-btn-primary:hover {
-    background-color: var(--cedii-primary-dark, #0405BF);
-    border-color: var(--cedii-primary-dark, #0405BF);
+  background-color: var(--cedii-primary-dark, #0405BF) !important;
+  border-color: var(--cedii-primary-dark, #0405BF) !important;
 }
+
 .cedii-text-action {
-    color: var(--cedii-action, #0671B6);
+  color: var(--cedii-action, #0671B6) !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .register-wrapper {
+    padding: 16px;
+  }
+  
+  :deep(.n-form-item .n-form-item-label) {
+    min-width: 120px;
+    margin-right: 12px;
+  }
+}
+
+@media (max-width: 576px) {
+  :deep(.n-form-item) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  :deep(.n-form-item .n-form-item-label) {
+    min-width: auto;
+    margin-right: 0;
+    margin-bottom: 8px;
+    text-align: left;
+    width: 100%;
+  }
+  
+  :deep(.n-form-item .n-form-item-blank) {
+    width: 100%;
+  }
 }
 </style>

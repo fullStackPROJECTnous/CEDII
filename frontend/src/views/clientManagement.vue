@@ -1,1205 +1,891 @@
-
-
-<!--
 <template>
-  <div class="retour">
-    <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary mt-3">
-      Retour à l'Acceuil
-    </router-link>
-  </div>
-  <div class="client-management p-4 bg-white rounded shadow-sm">
-    
-    <h3 class="mb-4">Gestion des Clients</h3>
-      
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <button class="btn btn-sm cedii-btn-primary" @click="openModal('create')">
-            <i class="bi bi-plus-lg me-1"></i> Ajouter un Client
-        </button>
-        <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Rechercher par Nom, Email ou Téléphone..." 
-            class="form-control form-control-sm w-50"
-        />
-    </div>
+  <div class="client-management-container">
+    <!-- Header avec navigation -->
+    <div class="header-section mb-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <n-button 
+          type="primary" 
+          ghost 
+          @click="$router.back()"
+          class="back-button"
+          size="small"
+        >
+          <template #icon>
+            <n-icon>
+              <i class="bi bi-arrow-left"></i>
+            </n-icon>
+          </template>
+          Retour à l'Accueil
+        </n-button>
 
- 
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card p-3 shadow-sm border-start border-success border-4 h-100">
-                <p class="mb-1 fw-bold text-success">Client le plus rentable du mois</p>
-                <h5 class="mb-0">{{ topClient.name || 'N/A' }} <span class="badge bg-success ms-2">{{ formatCurrency(topClient.revenue) }}</span></h5>
-            </div>
+        <div class="header-title text-center flex-grow-1">
+          <h1 class="page-title cedii-text-primary mb-2">
+            <i class="bi bi-people-fill me-2"></i> 
+            Gestion des Clients
+          </h1>
+          <p class="page-subtitle text-muted mb-0">
+            Gestion complète du portefeuille clients et suivi des activités
+          </p>
         </div>
-      <div class="col-md-6">
-    <div class="card p-3 shadow-sm border-start border-primary border-4 h-100">
-        <p class="mb-1 fw-bold text-primary">Client le plus actif (Locations)</p>
-        <h5 class="mb-0">
-            {{ activeClient.name }}
-            <span v-if="activeClient.count > 0" class="badge bg-primary ms-2">
-                {{ activeClient.count }} Location(s)
-            </span>
-            <span v-else class="badge bg-secondary ms-2">Aucune location</span>
-        </h5>
-        <small class="text-muted">Basé sur le nombre de locations effectuées</small>
-    </div>
-</div>
-    </div>
-
-    <div class="table-responsive">
-      <table class="table table-striped table-hover">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Nom Complet</th>
-            <th>Email</th>
-            <th>Téléphone</th>
-            <th>Type Client</th>
-            <th>Statut</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="filteredClients.length === 0">
-            <td colspan="7" class="text-center text-muted">Aucun client trouvé.</td>
-          </tr>
-          <tr v-for="client in filteredClients" :key="client.idCli">
-            <td>#{{ client.idCli }}</td>
-            <td>{{ client.nomCli }} {{ client.prenomCli }}</td>
-            <td>{{ client.emailCli }}</td>
-            <td>{{ client.telephoneCli }}</td>
-            <td>{{ client.typeCli }}</td>
-            <td>
-              <span :class="getStatusBadgeClass(client.statutCli)">{{ client.statutCli }}</span>
-            </td>
-            <td>
-              <div class="btn-group btn-group-sm">
-                
-                <button class="btn btn-outline-info" @click="openHistoryModal(client)">
-                  <i class="bi bi-clock-history"></i> Historique
-                </button>
-                <button class="btn btn-outline-primary" @click="openModal('update', client)">
-                    <i class="bi bi-pencil-square"></i>
-                </button>
-               
-                <button 
-                  :class="client.statutCli === 'désactivé' ? 'btn-success' : 'btn-warning'"
-                  @click="toggleClientStatus(client)">
-                    <i :class="client.statutCli === 'désactivé' ? 'bi bi-check-lg' : 'bi bi-x-octagon'"></i> 
-                    {{ client.statutCli === 'désactivé' ? 'Activer' : 'Désactiver' }}
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    
-  
-    <div v-if="isModalOpen" class="modal-placeholder">
-        <div class="modal-content-simulated p-4 bg-light shadow-lg">
-            <h5>{{ modalMode === 'create' ? 'Ajouter un nouveau Client' : 'Modifier Client' }}</h5>
-            
-            <form @submit.prevent="saveClient">
-                <!-- ID Utilisateur pour l'association
-                <div v-if="modalMode === 'create'" class="mb-3">
-                  <label for="idUti" class="form-label">ID Utilisateur à Associer <span class="text-danger">*</span></label>
-                  <input 
-                      type="number" 
-                      id="idUti" 
-                      v-model.number="currentClient.idUti" 
-                      class="form-control" 
-                      required 
-                      placeholder="ID d'un utilisateur existant (rôle client)"
-                  />
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Nom <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" v-model="currentClient.nomCli" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Prénom</label>
-                    <input type="text" class="form-control" v-model="currentClient.prenomCli">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-control" v-model="currentClient.emailCli">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Téléphone</label>
-                    <input type="text" class="form-control" v-model="currentClient.telephoneCli">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Adresse</label>
-                    <input type="text" class="form-control" v-model="currentClient.addresseCli">
-                </div>
-                  <div class="mb-3">
-                    <label class="form-label">Type Client</label>
-                    <select id="typeCli" v-model="currentClient.typeCli" class="form-select" required>
-                      <option value="ONG" >ONG</option>
-                      <option value="association">Association</option>
-                      <option value="particulier">Particulier</option>
-                      <option value="entreprise">Entreprise</option>
-                      <option value="institution Public">Institution Publique</option>
-                  </select>
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Statut Client</label>
-                      <select id="statutCli" v-model="currentClient.statutCli" class="form-select" required>
-                      <option value="actif">Actif</option>
-                      <option value="inactif" >Inactif</option>
-                      <option value="bloqué">Bloqué</option>
-                    
-                       </select>
-                  </div>
-
-                <div class="d-flex justify-content-end">
-                    <button type="button" class="btn btn-secondary me-2" @click="isModalOpen = false">Annuler</button>
-                    <button type="submit" class="btn cedii-btn-primary">{{ modalMode === 'create' ? 'Créer' : 'Sauvegarder' }}</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- NOUVEAU: MODAL D'HISTORIQUE ET SUIVI 
-    <div v-if="isHistoryModalOpen" class="modal-placeholder">
-      <div class="modal-content-simulated p-4 bg-white shadow-lg large-modal">
-        <h5 class="mb-4">Historique et Activité pour: {{ historyClient.nomCli }} {{ historyClient.prenomCli }}</h5>
-        
-        <ul class="nav nav-tabs mb-3">
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: historyTab === 'locations' }" @click="historyTab = 'locations'">Historique Locations</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: historyTab === 'reservations' }" @click="historyTab = 'reservations'">Réservations Actuelles</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: historyTab === 'activite' }" @click="historyTab = 'activite'">Suivi d'Activité (Logs)</button>
-          </li>
-        </ul>
-
-    <!-- CORRECTION dans le template - section historique
-<div v-if="historyTab === 'locations'">
-    <h6>Locations Passées</h6>
-    <table class="table table-sm table-striped">
-        <thead>
-            <tr>
-                <th>ID Loc</th>
-                <th>Date Début</th>
-                <th>Date Fin</th>
-                <th>Type</th>
-                <th>Montant</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr v-for="loc in historyClient.locations" :key="loc.idLo">
-                <td>#{{ loc.idLo }}</td>
-                <td>{{ formatDate(loc.dateDebut) }}</td>
-                <td>{{ formatDate(loc.dateFin) }}</td>
-                <td>{{ loc.typeLo }}</td>
-                <td class="fw-bold">{{ formatCurrency(loc.montant) }}</td>
-            </tr>
-            <tr v-if="historyClient.locations.length === 0">
-                <td colspan="5" class="text-center text-muted">Aucune location terminée.</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<div v-if="historyTab === 'reservations'">
-    <h6>Réservations en Cours/Futures</h6>
-    <table class="table table-sm table-striped">
-        <thead>
-            <tr>
-                <th>ID Résa</th>
-                <th>Date Résa</th>
-                <th>Date Début</th>
-                <th>Date Fin</th>
-                <th>Type</th>
-                <th>Statut</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr v-for="resa in historyClient.reservations" :key="resa.idResa">
-                <td>#{{ resa.idResa }}</td>
-                <td>{{ formatDate(resa.dateResa) }}</td>
-                <td>{{ formatDate(resa.dateDebut) }}</td>
-                <td>{{ formatDate(resa.dateFin) }}</td>
-                <td>{{ resa.type }}</td>
-                <td>
-                    <span :class="getStatusBadgeClass(resa.statut)">
-                        {{ resa.statut }}
-                    </span>
-                </td>
-            </tr>
-            <tr v-if="historyClient.reservations.length === 0">
-                <td colspan="6" class="text-center text-muted">Aucune réservation en cours.</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-          <div v-if="historyTab === 'activite'">
-            <h6>Journal des Activités Récentes (Logs de connexion, modifications, etc.)</h6>
-            <ul class="list-group list-group-flush">
-              <li v-for="(activity, index) in historyClient.activityLogs" :key="index" class="list-group-item">
-                <small class="text-muted">{{ activity.date }}</small> - {{ activity.description }}
-              </li>
-              <li v-if="historyClient.activityLogs.length === 0" class="list-group-item text-center text-muted">
-                    Aucun log d'activité récent.
-              </li>
-            </ul>
-          </div>
-            <div class="d-flex justify-content-end mt-4">
-            <button class="btn btn-secondary" @click="isHistoryModalOpen = false">Fermer</button>
-        </div>
-        </div>
-
-      
       </div>
     </div>
-  
-    
 
- 
+    <!-- Cartes de statistiques (seulement les 2 KPIs demandés) -->
+    <n-grid :cols="2" :x-gap="12" :y-gap="12" class="mb-4">
+      <n-gi>
+        <n-card class="stat-card top-client" content-class="text-center">
+          <div class="stat-content">
+            <n-icon color="#faad14" size="24" class="mb-2">
+              <i class="bi bi-trophy"></i>
+            </n-icon>
+            <div class="stat-value">{{ formatCurrency(topClient.revenue) }}</div>
+            <div class="stat-label">Client le plus rentable</div>
+            <n-text depth="3" class="small">{{ topClient.name }}</n-text>
+          </div>
+        </n-card>
+      </n-gi>
+      <n-gi>
+        <n-card class="stat-card active-client" content-class="text-center">
+          <div class="stat-content">
+            <n-icon color="#1890ff" size="24" class="mb-2">
+              <i class="bi bi-lightning-charge"></i>
+            </n-icon>
+            <div class="stat-value">{{ activeClient.count }}</div>
+            <div class="stat-label">Client le plus actif</div>
+            <n-text depth="3" class="small">{{ activeClient.name }}</n-text>
+          </div>
+        </n-card>
+      </n-gi>
+    </n-grid>
+
+    <!-- Barre d'actions et recherche -->
+    <n-card class="filters-card mb-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <n-button type="primary" @click="openModal('create')" class="me-3">
+          <template #icon>
+            <n-icon><i class="bi bi-plus-circle"></i></n-icon>
+          </template>
+          Ajouter un Client
+        </n-button>
+        
+        <n-input
+          v-model:value="searchQuery"
+          placeholder="Rechercher par nom, email, téléphone..."
+          clearable
+          class="search-input"
+          style="max-width: 400px;"
+        >
+          <template #prefix>
+            <n-icon><i class="bi bi-search"></i></n-icon>
+          </template>
+        </n-input>
+      </div>
+    </n-card>
+
+    <!-- Tableau des clients -->
+    <n-card class="main-card">
+      <template #header>
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h3 class="card-title mb-0">
+              <i class="bi bi-list-ul me-2"></i>
+              Liste des Clients
+            </h3>
+            <p class="card-subtitle text-muted mb-0">
+              {{ filteredClients.length }} client(s) trouvé(s)
+            </p>
+          </div>
+          <!-- Bouton Exporter supprimé -->
+        </div>
+      </template>
+
+      <div class="table-scroll-container">
+        <n-data-table
+          :columns="tableColumns"
+          :data="filteredClients"
+          :bordered="false"
+          :loading="isLoading"
+          size="small"
+          class="clients-table"
+          flex-height
+          :min-height="400"
+          :max-height="600"
+          :scroll-x="1200"
+        />
+      </div>
+
+      <template #footer>
+        <div class="text-center text-muted small">
+          <n-text depth="3">
+            <i class="bi bi-info-circle me-1"></i>
+            Double-cliquez sur un client pour voir son historique détaillé
+          </n-text>
+        </div>
+      </template>
+    </n-card>
+
+    <!-- Modal Création/Modification Client -->
+    <n-modal
+      v-model:show="showClientModal"
+      preset="dialog"
+      :title="modalMode === 'create' ? 'Ajouter un nouveau Client' : 'Modifier le Client'"
+      positive-text="Sauvegarder"
+      negative-text="Annuler"
+      :loading="isSubmitting"
+      @positive-click="saveClient"
+      @negative-click="showClientModal = false"
+      style="width: 700px"
+    >
+      <n-form :model="currentClient" :rules="clientRules" ref="clientFormRef">
+        <n-grid :cols="2" :x-gap="16" :y-gap="16">
+          <!-- Association Utilisateur -->
+          <n-gi :span="2">
+            <n-form-item 
+              v-if="modalMode === 'create'" 
+              label="Utilisateur à Associer" 
+              path="idUti"
+            >
+              <n-select
+                v-model:value="currentClient.idUti"
+                :options="clientUserOptions"
+                placeholder="Sélectionner un utilisateur..."
+                clearable
+                filterable
+              />
+            </n-form-item>
+            <n-form-item 
+              v-else 
+              label="ID Utilisateur Associé"
+            >
+              <n-input
+                :value="currentClient.idUti"
+                disabled
+                placeholder="ID utilisateur non modifiable"
+              />
+            </n-form-item>
+          </n-gi>
+
+          <!-- Informations personnelles -->
+          <n-gi>
+            <n-form-item label="Nom" path="nomCli">
+              <n-input v-model:value="currentClient.nomCli" placeholder="Nom du client" />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="Prénom" path="prenomCli">
+              <n-input v-model:value="currentClient.prenomCli" placeholder="Prénom du client" />
+            </n-form-item>
+          </n-gi>
+
+          <n-gi>
+            <n-form-item label="Email" path="emailCli">
+              <n-input v-model:value="currentClient.emailCli" placeholder="email@exemple.com" />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="Téléphone" path="telephoneCli">
+              <n-input v-model:value="currentClient.telephoneCli" placeholder="+261 XX XX XXX XX" />
+            </n-form-item>
+          </n-gi>
+
+          <n-gi :span="2">
+            <n-form-item label="Adresse" path="addresseCli">
+              <n-input
+                v-model:value="currentClient.addresseCli"
+                type="textarea"
+                placeholder="Adresse complète du client"
+                :rows="2"
+              />
+            </n-form-item>
+          </n-gi>
+
+          <n-gi>
+            <n-form-item label="Type Client" path="typeCli">
+              <n-select
+                v-model:value="currentClient.typeCli"
+                :options="typeOptions"
+                placeholder="Sélectionner le type"
+              />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="Statut" path="statutCli">
+              <n-select
+                v-model:value="currentClient.statutCli"
+                :options="statusOptions"
+                placeholder="Sélectionner le statut"
+              />
+            </n-form-item>
+          </n-gi>
+        </n-grid>
+      </n-form>
+    </n-modal>
+
+    <!-- Modal Historique Client -->
+    <n-modal
+      v-model:show="showHistoryModal"
+      preset="dialog"
+      :title="`Historique - ${historyClient.nomCli} ${historyClient.prenomCli}`"
+      style="width: 900px"
+      :show-icon="false"
+    >
+      <div class="history-modal-scroll">
+        <n-tabs type="line" v-model:value="historyTab">
+          <n-tab-pane name="locations" tab="Historique Locations">
+            <n-card size="small" :bordered="false">
+              <template #header>
+                <div class="d-flex justify-content-between align-items-center">
+                  <h6 class="mb-0">Locations Passées</h6>
+                  <n-tag type="info" size="small">
+                    {{ historyClient.locations?.length || 0 }} location(s)
+                  </n-tag>
+                </div>
+              </template>
+              
+              <n-data-table
+                :columns="locationColumns"
+                :data="historyClient.locations || []"
+                size="small"
+                :bordered="false"
+                :loading="historyLoading"
+                :max-height="300"
+                :scroll-x="800"
+              />
+            </n-card>
+          </n-tab-pane>
+
+          <n-tab-pane name="reservations" tab="Réservations Actuelles">
+            <n-card size="small" :bordered="false">
+              <template #header>
+                <div class="d-flex justify-content-between align-items-center">
+                  <h6 class="mb-0">Réservations en Cours</h6>
+                  <n-tag type="info" size="small">
+                    {{ historyClient.reservations?.length || 0 }} réservation(s)
+                  </n-tag>
+                </div>
+              </template>
+              
+              <n-data-table
+                :columns="reservationColumns"
+                :data="historyClient.reservations || []"
+                size="small"
+                :bordered="false"
+                :max-height="300"
+                :scroll-x="800"
+              />
+            </n-card>
+          </n-tab-pane>
+
+          <n-tab-pane name="activite" tab="Suivi d'Activité">
+            <n-card size="small" :bordered="false">
+              <template #header>
+                <h6 class="mb-0">Journal des Activités</h6>
+              </template>
+              
+              <div class="timeline-scroll">
+                <n-timeline>
+                  <n-timeline-item
+                    v-for="(activity, index) in historyClient.activityLogs || []"
+                    :key="index"
+                    :type="getTimelineType(activity.type)"
+                    :time="activity.date"
+                  >
+                    {{ activity.description }}
+                  </n-timeline-item>
+                  <n-timeline-item v-if="!historyClient.activityLogs?.length">
+                    <n-empty description="Aucune activité récente">
+                      <template #icon>
+                        <n-icon>
+                          <i class="bi bi-clock-history"></i>
+                        </n-icon>
+                      </template>
+                    </n-empty>
+                  </n-timeline-item>
+                </n-timeline>
+              </div>
+            </n-card>
+          </n-tab-pane>
+        </n-tabs>
+      </div>
+
+      <template #action>
+        <n-button @click="showHistoryModal = false">Fermer</n-button>
+      </template>
+    </n-modal>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import ClientService from '../services/ClientService'; 
-// Assurez-vous d'avoir un service pour les réservations et locations pour ces fonctionnalités
-// import ReservationService from '../services/ReservationService';
-// import LocationService from '../services/LocationService';
-
-
-// --- États Locaux ---
-const clients = ref([]);
-const searchQuery = ref('');
-const isModalOpen = ref(false);
-const modalMode = ref('create'); // 'create' ou 'update'
-const isHistoryModalOpen = ref(false); // NOUVEAU: État de la modale Historique
-const historyClient = ref({}); // NOUVEAU: Données du client pour l'historique
-const historyTab = ref('locations'); // NOUVEAU: Onglet actif dans la modale d'historique
-
-// Modèle de données correspondant aux colonnes de votre BDD
-const emptyClient = {
-    idCli: null, 
-    idUti: '', 
-    nomCli: '', 
-    prenomCli: '', 
-    emailCli: '', 
-    telephoneCli: '', 
-    addresseCli: '' ,
-    typeCli: 'particulier',
-    statutCli: 'actif'
-};
-const currentClient = ref({...emptyClient});
-
-
-// --- Logique Calculée / Classement ---
-
-const filteredClients = computed(() => {
-    if (!searchQuery.value) {
-        return clients.value;
-    }
-    const query = searchQuery.value.toLowerCase();
-    return clients.value.filter(client => {
-        return (
-            client.nomCli.toLowerCase().includes(query) ||
-            (client.prenomCli && client.prenomCli.toLowerCase().includes(query)) ||
-            (client.emailCli && client.emailCli.toLowerCase().includes(query)) ||
-            (client.telephoneCli && client.telephoneCli.includes(query))
-        );
-    });
-});
-
-
-
-
-// --- Fonctions API ---
-
-const fetchClients = async () => {
-    try {
-        // Le service devrait idéalement retourner des données enrichies pour le classement
-        const clientsData = await ClientService.getAllClients();
-        clients.value = clientsData; 
-    } catch (error) {
-        console.error("Erreur de chargement des clients:", error);
-    } 
-};
-
-const saveClient = async () => {
-    try {
-        if (modalMode.value === 'create') {
-            // Création: Associe l'idUti
-            await ClientService.createClient(currentClient.value);
-            alert("Client créé avec succès!");
-        } else {
-            // Mise à jour: Désactive la modification de l'ID utilisateur ici pour la simplicité
-            const clientId = currentClient.value.idCli;
-            const dataToSend = { ...currentClient.value };
-            delete dataToSend.idCli;
-            await ClientService.updateClient(clientId, dataToSend); 
-            alert("Client mis à jour avec succès!");
-        }
-        isModalOpen.value = false;
-        fetchClients(); // Recharger les données
-    } catch (error) {
-        const errorMessage = error.response?.data?.message || error.message || "Erreur inconnue lors de la sauvegarde.";
-        console.error("Erreur de sauvegarde détaillée:", error.response?.data || error); 
-        alert(`Échec de la sauvegarde : ${errorMessage}`); 
-    }
-};
-
-const toggleClientStatus = async (client) => {
-    const newStatus = client.statutCli === 'désactivé' ? 'actif' : 'désactivé';
-    if (confirm(`Voulez-vous vraiment changer le statut de ${client.nomCli} à '${newStatus}' ?`)) {
-        try {
-            await ClientService.updateClient(client.idCli, { statutCli: newStatus });
-            alert(`Statut mis à jour à '${newStatus}' avec succès.`);
-            fetchClients();
-        } catch (error) {
-            alert("Erreur lors de la mise à jour du statut.");
-            console.error("Erreur de statut:", error);
-        }
-    }
-};
-
-// Suppression purement logique (si nécessaire, mais la désactivation est préférée)
-/*
-const deleteClient = async (idCli) => {
-    // ... code de suppression ...
-};
-*/
-
-
-// --- Logique Modale ---
-
-const openModal = (mode, clientData = null) => {
-    isHistoryModalOpen.value = false; // Fermer l'historique si ouvert
-    modalMode.value = mode;
-    if (mode === 'create') {
-        currentClient.value = { ...emptyClient, idUti: '' };
-    } else {
-        currentClient.value = { ...clientData }; 
-    }
-    isModalOpen.value = true;
-};
-
-const getStatusBadgeClass = (statut) => {
-    switch (statut.toLowerCase()) {
-        case 'actif': return 'badge bg-success';
-        case 'bloqué': return 'badge bg-danger';
-        case 'inactif': return 'badge bg-secondary';
-        case 'désactivé': return 'badge bg-warning text-dark';
-        case 'confirmée': return 'badge bg-primary';
-        case 'en attente': return 'badge bg-info text-dark';
-        default: return 'badge bg-light text-dark';
-    }
-};
-
-const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('fr-FR');
-};
-
-const formatCurrency = (value) => {
-    // Le code culturel (locale) pour Madagascar est 'mg-MG'.
-    // Le code de devise pour l'Ariary Malgache est 'MGA'.
-    return new Intl.NumberFormat('fr-MG', { 
-        style: 'currency', 
-        currency: 'MGA',
-        // Optionnel : ajouter des chiffres après la virgule si nécessaire,
-        // bien que l'Ariary n'ait traditionnellement pas de décimales.
-        minimumFractionDigits: 0, 
-        maximumFractionDigits: 0
-    }).format(value);
-};
-
-
-const topClient = ref({ name: 'N/A', revenue: 0 }); // Remplacer le computed simulé
-const activeClient = ref({ name: 'N/A', count: 0 }); // Remplacer le computed simulé
-
-const fetchMetrics = async () => {
-    try {
-        console.log('🔄 Chargement des métriques de classement...');
-        
-        const metricsData = await ClientService.getRankingMetrics();
-        console.log('📊 Données reçues:', metricsData);
-
-        // Gestion robuste des données potentiellement vides
-        const top = metricsData.topClient || {};
-        const active = metricsData.activeClient || {};
-
-        console.log('Top client brut:', top);
-        console.log('Active client brut:', active);
-
-        // Vérification si nous avons des données valides
-        const hasTopClient = top && (top.totalRevenue > 0 || top.nomCli);
-        const hasActiveClient = active && (active.totalLocations > 0 || active.nomCli);
-
-        topClient.value = {
-            name: hasTopClient && top.nomCli 
-                ? `${top.nomCli} ${top.prenomCli || ''}`.trim()
-                : 'Aucun client rentable',
-            revenue: parseFloat(top.totalRevenue) || 0
-        };
-
-        activeClient.value = {
-            name: hasActiveClient && active.nomCli
-                ? `${active.nomCli} ${active.prenomCli || ''}`.trim()
-                : 'Aucun client actif',
-            count: parseInt(active.totalLocations) || 0
-        };
-
-        console.log('✅ Métriques mises à jour:', {
-            topClient: topClient.value,
-            activeClient: activeClient.value
-        });
-
-    } catch (error) {
-        console.error("❌ Erreur de chargement des métriques:", error);
-        
-        // Messages plus informatifs en cas d'erreur
-        topClient.value = { 
-            name: 'Données indisponibles', 
-            revenue: 0 
-        };
-        activeClient.value = { 
-            name: 'Données indisponibles', 
-            count: 0 
-        };
-    }
-};
-
-const openHistoryModal = async (client) => {
-    isModalOpen.value = false; 
-    
-    try {
-        console.log('🔄 Chargement historique pour client:', client.idCli);
-        
-        const historyData = await ClientService.getClientHistory(client.idCli);
-        console.log('📊 Données historiques reçues:', historyData);
-
-        // 🚨 CORRECTION: Vérification et mapping correct des données
-        historyClient.value = {
-            ...client,
-            locations: Array.isArray(historyData.locations) 
-                ? historyData.locations.map(loc => ({
-                    idLo: loc.idLo,
-                    dateDebut: loc.dateDebut,
-                    dateFin: loc.dateFin,
-                    typeLo: loc.typeLo,
-                    montant: loc.montant
-                }))
-                : [],
-            reservations: Array.isArray(historyData.reservations) 
-                ? historyData.reservations.map(res => ({
-                    idResa: res.idResa,
-                    dateResa: res.dateResa,
-                    dateDebut: res.dateDebut,
-                    dateFin: res.dateFin,
-                    type: res.type,
-                    statut: res.statut
-                }))
-                : [],
-            // Logs simulés (vous pouvez les récupérer via une autre API si nécessaire)
-            activityLogs: [
-                { date: '2025-10-15 14:30', description: 'Connexion réussie.' },
-                { date: '2025-09-15 10:00', description: 'Facture payée automatiquement.' },
-            ]
-        };
-
-        console.log('✅ Historique préparé:', historyClient.value);
-        historyTab.value = 'locations';
-        isHistoryModalOpen.value = true;
-
-    } catch (error) {
-        console.error("❌ Erreur de chargement de l'historique:", error);
-        
-        // Fallback avec données vides
-        historyClient.value = {
-            ...client,
-            locations: [],
-            reservations: [],
-            activityLogs: []
-        };
-        
-        historyTab.value = 'locations';
-        isHistoryModalOpen.value = true;
-        
-        alert("⚠️ Certaines données d'historique n'ont pas pu être chargées.");
-    }
-};
-
-
-// Point d'entrée
-onMounted(() => {
-    fetchClients();
-    fetchMetrics(); // 👈 Appel ici
-});
-
-
-// --- Point d'entrée ---
-//onMounted(fetchClients);
-</script>
-
-<style scoped>
-/* Style personnalisé pour les boutons CEDII */
-.cedii-btn-primary {
-    background-color: var(--cedii-primary-light, #5B11EE);
-    border-color: var(--cedii-primary-light, #5B11EE);
-    color: white;
-}
-.cedii-btn-primary:hover {
-    background-color: var(--cedii-primary-dark, #0405BF);
-    border-color: var(--cedii-primary-dark, #0405BF);
-}
-.retour{
-    float: right;
-}
-
-/* Styles pour les modales */
-.modal-placeholder {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.6);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1050;
-}
-.modal-content-simulated {
-    width: 450px;
-    max-height: 90vh; 
-    overflow-y: auto; 
-    border-radius: 8px;
-    
-}
-/* Style spécifique pour la modale d'historique */
-.large-modal {
-    width: 80%; /* Plus large pour l'historique */
-    max-width: 900px;
-}
-</style> -->
-
-
-<template>
-  <div class="retour">
-    <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary mt-3">
-      Retour à l'Acceuil
-    </router-link>
-  </div>
-  <div class="client-management p-4 bg-white rounded shadow-sm">
-    
-    <h3 class="mb-4">Gestion des Clients</h3>
-      
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <button class="btn btn-sm cedii-btn-primary" @click="openModal('create')">
-            <i class="bi bi-plus-lg me-1"></i> Ajouter un Client
-        </button>
-        <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Rechercher par Nom, Email ou Téléphone..." 
-            class="form-control form-control-sm w-50"
-        />
-    </div>
-
-    <!-- Affichage des Classements Clés (Nouveauté) -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card p-3 shadow-sm border-start border-success border-4 h-100">
-                <p class="mb-1 fw-bold text-success">Client le plus rentable du mois</p>
-                <h5 class="mb-0">{{ topClient.name || 'N/A' }} <span class="badge bg-success ms-2">{{ formatCurrency(topClient.revenue) }}</span></h5>
-            </div>
-        </div>
-      <div class="col-md-6">
-    <div class="card p-3 shadow-sm border-start border-primary border-4 h-100">
-        <p class="mb-1 fw-bold text-primary">Client le plus actif (Locations)</p>
-        <h5 class="mb-0">
-            {{ activeClient.name }}
-            <span v-if="activeClient.count > 0" class="badge bg-primary ms-2">
-                {{ activeClient.count }} Location(s)
-            </span>
-            <span v-else class="badge bg-secondary ms-2">Aucune location</span>
-        </h5>
-        <small class="text-muted">Basé sur le nombre de locations effectuées</small>
-    </div>
-</div>
-    </div>
-
-    <div class="table-responsive">
-      <table class="table table-striped table-hover">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Nom Complet</th>
-            <th>Email</th>
-            <th>Téléphone</th>
-            <th>Type Client</th>
-            <th>Statut</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="filteredClients.length === 0">
-            <td colspan="7" class="text-center text-muted">Aucun client trouvé.</td>
-          </tr>
-          <tr v-for="client in filteredClients" :key="client.idCli">
-            <td>#{{ client.idCli }}</td>
-            <td>{{ client.nomCli }} {{ client.prenomCli }}</td>
-            <td>{{ client.emailCli }}</td>
-            <td>{{ client.telephoneCli }}</td>
-            <td>{{ client.typeCli }}</td>
-            <td>
-              <span :class="getStatusBadgeClass(client.statutCli)">{{ client.statutCli }}</span>
-            </td>
-            <td>
-              <div class="btn-group btn-group-sm">
-                <!-- NOUVEAU: Bouton pour l'Historique/Suivi d'Activité -->
-                <button class="btn btn-outline-info" @click="openHistoryModal(client)">
-                  <i class="bi bi-clock-history"></i> Historique
-                </button>
-                <button class="btn btn-outline-primary" @click="openModal('update', client)">
-                    <i class="bi bi-pencil-square"></i>
-                </button>
-                <!-- Changement: Désactivation au lieu de suppression pure pour l'historique -->
-                <button 
-                class="btn btn-outline-danger" 
-                @click="deleteClient(client)"
-                title="Supprimer définitivement le client"
-              >
-                <i class="bi bi-trash"></i> Supprimer
-              </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    
-    <!-- MODAL PRINCIPAL (Création/Modification) -->
-    <div v-if="isModalOpen" class="modal-placeholder">
-        <div class="modal-content-simulated p-4 bg-light shadow-lg">
-            <h5>{{ modalMode === 'create' ? 'Ajouter un nouveau Client' : 'Modifier Client' }}</h5>
-            
-            <form @submit.prevent="saveClient">
-                <!-- SELECT pour l'association utilisateur -->
-                <div v-if="modalMode === 'create'" class="mb-3">
-                    <label for="idUti" class="form-label">Utilisateur à Associer <span class="text-danger">*</span></label>
-                    
-                    <select 
-                        id="idUti" 
-                        v-model.number="currentClient.idUti" 
-                        class="form-control" 
-                        required
-                    >
-                        <option value="" disabled>Sélectionner un utilisateur...</option>
-                        <option 
-                            v-for="user in clientUsers" 
-                            :key="user.idUti" 
-                            :value="user.idUti"
-                        >
-                            ID {{ user.idUti }} - {{ user.nom }} {{ user.prenom }}
-                        </option>
-                    </select>
-                    
-                    <small v-if="!clientUsers || clientUsers.length === 0" class="text-warning">
-                        Chargement ou aucun utilisateur 'client' trouvé.
-                    </small>
-                </div>
-                 <div v-if="modalMode === 'update'" class="mb-3">
-                    <label for="idUtiDisplay" class="form-label">ID Utilisateur Associé</label>
-                    <input 
-                        type="text" 
-                        id="idUtiDisplay" 
-                        :value="currentClient.idUti" 
-                        class="form-control" 
-                        disabled
-                        readonly
-                        placeholder="ID utilisateur non modifiable"
-                    />
-                    <small class="text-muted">
-                        L'ID utilisateur ne peut pas être modifié après la création du client.
-                    </small>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Nom <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" v-model="currentClient.nomCli" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Prénom</label>
-                    <input type="text" class="form-control" v-model="currentClient.prenomCli">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-control" v-model="currentClient.emailCli">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Téléphone</label>
-                    <input type="text" class="form-control" v-model="currentClient.telephoneCli">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Adresse</label>
-                    <input type="text" class="form-control" v-model="currentClient.addresseCli">
-                </div>
-                  <div class="mb-3">
-                    <label class="form-label">Type Client</label>
-                    <select id="typeCli" v-model="currentClient.typeCli" class="form-select" required>
-                      <option value="ONG" >ONG</option>
-                      <option value="association">Association</option>
-                      <option value="particulier">Particulier</option>
-                      <option value="entreprise">Entreprise</option>
-                      <option value="institution Public">Institution Publique</option>
-                  </select>
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Statut Client</label>
-                      <select id="statutCli" v-model="currentClient.statutCli" class="form-select" required>
-                      <option value="actif">Actif</option>
-                      <option value="inactif" >Inactif</option>
-                      <option value="bloqué">Bloqué</option>
-                    
-                       </select>
-                  </div>
-
-                <div class="d-flex justify-content-end">
-                    <button type="button" class="btn btn-secondary me-2" @click="isModalOpen = false">Annuler</button>
-                    <button type="submit" class="btn cedii-btn-primary">{{ modalMode === 'create' ? 'Créer' : 'Sauvegarder' }}</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- NOUVEAU: MODAL D'HISTORIQUE ET SUIVI -->
-    <div v-if="isHistoryModalOpen" class="modal-placeholder">
-      <div class="modal-content-simulated p-4 bg-white shadow-lg large-modal">
-        <h5 class="mb-4">Historique et Activité pour: {{ historyClient.nomCli }} {{ historyClient.prenomCli }}</h5>
-        
-        <ul class="nav nav-tabs mb-3">
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: historyTab === 'locations' }" @click="historyTab = 'locations'">Historique Locations</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: historyTab === 'reservations' }" @click="historyTab = 'reservations'">Réservations Actuelles</button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" :class="{ active: historyTab === 'activite' }" @click="historyTab = 'activite'">Suivi d'Activité (Logs)</button>
-          </li>
-        </ul>
-
-    <!-- CORRECTION dans le template - section historique -->
-<div v-if="historyTab === 'locations'">
-    <h6>Locations Passées</h6>
-    <table class="table table-sm table-striped">
-        <thead>
-            <tr>
-                <th>ID Loc</th>
-                <th>Date Début</th>
-                <th>Date Fin</th>
-                <th>Type</th>
-                <th>Montant</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr v-for="loc in historyClient.locations" :key="loc.idLo">
-                <td>#{{ loc.idLo }}</td>
-                <td>{{ formatDate(loc.dateDebut) }}</td>
-                <td>{{ formatDate(loc.dateFin) }}</td>
-                <td>{{ loc.typeLo }}</td>
-                <td class="fw-bold">{{ formatCurrency(loc.montant) }}</td>
-            </tr>
-            <tr v-if="historyClient.locations.length === 0">
-                <td colspan="5" class="text-center text-muted">Aucune location terminée.</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<div v-if="historyTab === 'reservations'">
-    <h6>Réservations en Cours/Futures</h6>
-    <table class="table table-sm table-striped">
-        <thead>
-            <tr>
-                <th>ID Résa</th>
-                <th>Date Résa</th>
-                <th>Date Début</th>
-                <th>Date Fin</th>
-                <th>Type</th>
-                <th>Statut</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr v-for="resa in historyClient.reservations" :key="resa.idResa">
-                <td>#{{ resa.idResa }}</td>
-                <td>{{ formatDate(resa.dateResa) }}</td>
-                <td>{{ formatDate(resa.dateDebut) }}</td>
-                <td>{{ formatDate(resa.dateFin) }}</td>
-                <td>{{ resa.type }}</td>
-                <td>
-                    <span :class="getStatusBadgeClass(resa.statut)">
-                        {{ resa.statut }}
-                    </span>
-                </td>
-            </tr>
-            <tr v-if="historyClient.reservations.length === 0">
-                <td colspan="6" class="text-center text-muted">Aucune réservation en cours.</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-          <div v-if="historyTab === 'activite'">
-            <h6>Journal des Activités Récentes (Logs de connexion, modifications, etc.)</h6>
-            <ul class="list-group list-group-flush">
-              <li v-for="(activity, index) in historyClient.activityLogs" :key="index" class="list-group-item">
-                <small class="text-muted">{{ activity.date }}</small> - {{ activity.description }}
-              </li>
-              <li v-if="historyClient.activityLogs.length === 0" class="list-group-item text-center text-muted">
-                    Aucun log d'activité récent.
-              </li>
-            </ul>
-          </div>
-            <div class="d-flex justify-content-end mt-4">
-            <button class="btn btn-secondary" @click="isHistoryModalOpen = false">Fermer</button>
-        </div>
-        </div>
-
-      
-      </div>
-    </div>
-  
-    
-
- 
-</template>
-
-<script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, h } from 'vue';
+import { NButton, NTag, NBadge } from 'naive-ui';
 import ClientService from '../services/ClientService'; 
 import UserServices from '../services/ServiceUser';
 
-// --- États Locaux ---
+// États principaux
 const clients = ref([]);
 const searchQuery = ref('');
-const isModalOpen = ref(false);
-const modalMode = ref('create'); // 'create' ou 'update'
-const isHistoryModalOpen = ref(false);
-const historyClient = ref({});
+const isLoading = ref(false);
+const isSubmitting = ref(false);
+const historyLoading = ref(false);
+
+// États modales
+const showClientModal = ref(false);
+const showHistoryModal = ref(false);
+const modalMode = ref('create');
 const historyTab = ref('locations');
-const clientUsers = ref([]); // AJOUT: Liste des utilisateurs clients
+
+// Données courantes
+const currentClient = ref({});
+const historyClient = ref({});
+const clientUsers = ref([]);
 
 // Modèle de données
 const emptyClient = {
-    idCli: null, 
-    idUti: '', 
-    nomCli: '', 
-    prenomCli: '', 
-    emailCli: '', 
-    telephoneCli: '', 
-    addresseCli: '' ,
-    typeCli: 'particulier',
-    statutCli: 'actif'
-};
-const currentClient = ref({...emptyClient});
-
-// --- Fonctions pour charger les utilisateurs clients ---
-const fetchClientUsers = async () => {
-    try {
-        console.log('🔄 Chargement des utilisateurs clients...');
-        // Appel au service
-        const usersData = await UserServices.getAllClientUsers(); 
-        clientUsers.value = usersData;
-        console.log(`✅ ${usersData.length} utilisateurs clients chargés.`);
-
-    } catch (error) {
-        console.error("❌ Erreur de chargement des utilisateurs clients:", error);
-        clientUsers.value = []; 
-    } 
+  idCli: null, 
+  idUti: '', 
+  nomCli: '', 
+  prenomCli: '', 
+  emailCli: '', 
+  telephoneCli: '', 
+  addresseCli: '',
+  typeCli: 'particulier',
+  statutCli: 'actif'
 };
 
-// --- Logique Calculée / Classement ---
-const filteredClients = computed(() => {
-    if (!searchQuery.value) {
-        return clients.value;
-    }
-    const query = searchQuery.value.toLowerCase();
-    return clients.value.filter(client => {
-        return (
-            client.nomCli.toLowerCase().includes(query) ||
-            (client.prenomCli && client.prenomCli.toLowerCase().includes(query)) ||
-            (client.emailCli && client.emailCli.toLowerCase().includes(query)) ||
-            (client.telephoneCli && client.telephoneCli.includes(query))
-        );
-    });
-});
-
-// --- Fonctions API ---
-const fetchClients = async () => {
-    try {
-        const clientsData = await ClientService.getAllClients();
-        clients.value = clientsData; 
-    } catch (error) {
-        console.error("Erreur de chargement des clients:", error);
-    } 
-};
-
-const saveClient = async () => {
-    try {
-        if (modalMode.value === 'create') {
-            await ClientService.createClient(currentClient.value);
-            alert("Client créé avec succès!");
-        } else {
-            const clientId = currentClient.value.idCli;
-            const dataToSend = { ...currentClient.value };
-            delete dataToSend.idCli;
-            
-            // 🚨 LOGS DÉTAILLÉS
-            console.log('🔧 DEBUG - Avant mise à jour:');
-            console.log('- clientId:', clientId, '(type:', typeof clientId, ')');
-            console.log('- currentClient:', currentClient.value);
-            console.log('- dataToSend:', dataToSend);
-            
-            // Vérification que l'ID est valide
-            if (!clientId || clientId === 'undefined') {
-                throw new Error('ID client invalide: ' + clientId);
-            }
-            
-            await ClientService.updateClient(clientId, dataToSend); 
-            alert("Client mis à jour avec succès!");
-        }
-        isModalOpen.value = false;
-        fetchClients();
-    } catch (error) {
-        const errorMessage = error.response?.data?.message || error.message || "Erreur inconnue lors de la sauvegarde.";
-        console.error("❌ Erreur de sauvegarde détaillée:", error.response?.data || error); 
-        alert(`Échec de la sauvegarde : ${errorMessage}`); 
-    }
-};
-const deleteClient = async (client) => {
-  const clientName = `${client.nomCli} ${client.prenomCli || ''}`.trim();
-  
-  if (confirm(`⚠️ Êtes-vous sûr de vouloir supprimer définitivement le client "${clientName}" ?\n\nCette action est irréversible et supprimera toutes les données associées.`)) {
-    try {
-      await ClientService.deleteClient(client.idCli);
-      alert(`✅ Client "${clientName}" supprimé avec succès.`);
-      fetchClients(); // Recharger la liste
-    } catch (error) {
-      console.error("❌ Erreur lors de la suppression:", error);
-      const errorMessage = error.response?.data?.message || "Erreur lors de la suppression du client";
-      alert(`❌ Échec de la suppression : ${errorMessage}`);
-    }
-  }
-};
-
-// --- Logique Modale ---
-const openModal = (mode, clientData = null) => {
-    isHistoryModalOpen.value = false;
-    modalMode.value = mode;
-    if (mode === 'create') {
-        currentClient.value = { ...emptyClient, idUti: '' };
-    } else {
-        console.log('📝 Données client reçues pour modification:', clientData);
-        
-        // 🚨 Vérification que clientData contient bien idCli
-        if (!clientData || !clientData.idCli) {
-            console.error('❌ ERREUR: clientData ou clientData.idCli est undefined');
-            alert('Erreur: Données client incomplètes');
-            return;
-        }
-        
-        currentClient.value = { ...clientData }; 
-        console.log('✅ currentClient après copie:', currentClient.value);
-    }
-    isModalOpen.value = true;
-};
-
-const getStatusBadgeClass = (statut) => {
-    switch (statut.toLowerCase()) {
-        case 'actif': return 'badge bg-success';
-        case 'bloqué': return 'badge bg-danger';
-        case 'inactif': return 'badge bg-secondary';
-        case 'désactivé': return 'badge bg-warning text-dark';
-        case 'confirmée': return 'badge bg-primary';
-        case 'en attente': return 'badge bg-info text-dark';
-        default: return 'badge bg-light text-dark';
-    }
-};
-
-const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('fr-FR');
-};
-
-const formatCurrency = (value) => {
-    return new Intl.NumberFormat('fr-MG', { 
-        style: 'currency', 
-        currency: 'MGA',
-        minimumFractionDigits: 0, 
-        maximumFractionDigits: 0
-    }).format(value);
-};
-
+// Métriques
 const topClient = ref({ name: 'N/A', revenue: 0 });
 const activeClient = ref({ name: 'N/A', count: 0 });
 
-const fetchMetrics = async () => {
-    try {
-        console.log('🔄 Chargement des métriques de classement...');
-        
-        const metricsData = await ClientService.getRankingMetrics();
-        console.log('📊 Données reçues:', metricsData);
+// Options pour les selects
+const typeOptions = [
+  { label: 'Particulier', value: 'particulier' },
+  { label: 'Entreprise', value: 'entreprise' },
+  { label: 'ONG', value: 'ONG' },
+  { label: 'Association', value: 'association' },
+  { label: 'Institution Publique', value: 'institution Public' }
+];
 
-        const top = metricsData.topClient || {};
-        const active = metricsData.activeClient || {};
+const statusOptions = [
+  { label: 'Actif', value: 'actif' },
+  { label: 'Inactif', value: 'inactif' },
+  { label: 'Bloqué', value: 'bloqué' }
+];
 
-        const hasTopClient = top && (top.totalRevenue > 0 || top.nomCli);
-        const hasActiveClient = active && (active.totalLocations > 0 || active.nomCli);
-
-        topClient.value = {
-            name: hasTopClient && top.nomCli 
-                ? `${top.nomCli} ${top.prenomCli || ''}`.trim()
-                : 'Aucun client rentable',
-            revenue: parseFloat(top.totalRevenue) || 0
-        };
-
-        activeClient.value = {
-            name: hasActiveClient && active.nomCli
-                ? `${active.nomCli} ${active.prenomCli || ''}`.trim()
-                : 'Aucun client actif',
-            count: parseInt(active.totalLocations) || 0
-        };
-
-        console.log('✅ Métriques mises à jour:', {
-            topClient: topClient.value,
-            activeClient: activeClient.value
-        });
-
-    } catch (error) {
-        console.error("❌ Erreur de chargement des métriques:", error);
-        
-        topClient.value = { 
-            name: 'Données indisponibles', 
-            revenue: 0 
-        };
-        activeClient.value = { 
-            name: 'Données indisponibles', 
-            count: 0 
-        };
-    }
-};
-
-const openHistoryModal = async (client) => {
-    isModalOpen.value = false; 
-    
-    try {
-        console.log('🔄 Chargement historique pour client:', client.idCli);
-        
-        const historyData = await ClientService.getClientHistory(client.idCli);
-        console.log('📊 Données historiques reçues:', historyData);
-
-        historyClient.value = {
-            ...client,
-            locations: Array.isArray(historyData.locations) 
-                ? historyData.locations.map(loc => ({
-                    idLo: loc.idLo,
-                    dateDebut: loc.dateDebut,
-                    dateFin: loc.dateFin,
-                    typeLo: loc.typeLo,
-                    montant: loc.montant
-                }))
-                : [],
-            reservations: Array.isArray(historyData.reservations) 
-                ? historyData.reservations.map(res => ({
-                    idResa: res.idResa,
-                    dateResa: res.dateResa,
-                    dateDebut: res.dateDebut,
-                    dateFin: res.dateFin,
-                    type: res.type,
-                    statut: res.statut
-                }))
-                : [],
-            activityLogs: [
-                { date: '2025-10-15 14:30', description: 'Connexion réussie.' },
-                { date: '2025-09-15 10:00', description: 'Facture payée automatiquement.' },
-            ]
-        };
-
-        console.log('✅ Historique préparé:', historyClient.value);
-        historyTab.value = 'locations';
-        isHistoryModalOpen.value = true;
-
-    } catch (error) {
-        console.error("❌ Erreur de chargement de l'historique:", error);
-        
-        historyClient.value = {
-            ...client,
-            locations: [],
-            reservations: [],
-            activityLogs: []
-        };
-        
-        historyTab.value = 'locations';
-        isHistoryModalOpen.value = true;
-        
-        alert("⚠️ Certaines données d'historique n'ont pas pu être chargées.");
-    }
-};
-
-// Point d'entrée
-onMounted(() => {
-    fetchClients();
-    fetchClientUsers(); // AJOUT: Charger les utilisateurs clients
-    fetchMetrics();
+const clientUserOptions = computed(() => {
+  return clientUsers.value.map(user => ({
+    label: `ID ${user.idUti} - ${user.nom} ${user.prenom}`,
+    value: user.idUti
+  }));
 });
+
+// Règles de validation
+const clientRules = {
+  nomCli: {
+    required: true,
+    message: 'Le nom est requis',
+    trigger: 'blur'
+  },
+  emailCli: {
+    type: 'email',
+    message: 'Format email invalide',
+    trigger: 'blur'
+  }
+};
+
+// Configuration des colonnes du tableau
+const tableColumns = [
+  {
+    title: 'ID',
+    key: 'idCli',
+    width: 80,
+    render: (row) => h('span', { class: 'fw-bold text-muted' }, `#${row.idCli}`)
+  },
+  {
+    title: 'Nom Complet',
+    key: 'nomComplet',
+    ellipsis: true,
+    render: (row) => `${row.nomCli} ${row.prenomCli || ''}`
+  },
+  {
+    title: 'Email',
+    key: 'emailCli',
+    ellipsis: true
+  },
+  {
+    title: 'Téléphone',
+    key: 'telephoneCli',
+    width: 150
+  },
+  {
+    title: 'Type',
+    key: 'typeCli',
+    width: 140,
+    render: (row) => h(NTag, { 
+      type: getClientTypeTagType(row.typeCli),
+      size: 'small',
+      bordered: false
+    }, { default: () => row.typeCli })
+  },
+  {
+    title: 'Statut',
+    key: 'statutCli',
+    width: 120,
+    render: (row) => h(NBadge, {
+      type: getStatusBadgeType(row.statutCli),
+      value: getStatusText(row.statutCli)
+    })
+  },
+  {
+    title: 'Actions',
+    key: 'actions',
+    width: 200,
+    render: (row) => h('div', { class: 'action-buttons' }, [
+      h(NButton, {
+        size: 'small',
+        type: 'info',
+        ghost: true,
+        onClick: () => openHistoryModal(row),
+        class: 'me-1'
+      }, {
+        icon: () => h('i', { class: 'bi bi-clock-history' })
+      }),
+      h(NButton, {
+        size: 'small',
+        type: 'primary',
+        ghost: true,
+        onClick: () => openModal('update', row),
+        class: 'me-1'
+      }, {
+        icon: () => h('i', { class: 'bi bi-pencil' })
+      }),
+      h(NButton, {
+        size: 'small',
+        type: 'error',
+        ghost: true,
+        onClick: () => deleteClient(row)
+      }, {
+        icon: () => h('i', { class: 'bi bi-trash' })
+      })
+    ])
+  }
+];
+
+// Colonnes pour l'historique
+const locationColumns = [
+  { title: 'ID Location', key: 'idLo', width: 100 },
+  { title: 'Date Début', key: 'dateDebut', render: (row) => formatDate(row.dateDebut) },
+  { title: 'Date Fin', key: 'dateFin', render: (row) => formatDate(row.dateFin) },
+  { title: 'Type', key: 'typeLo' },
+  { title: 'Montant', key: 'montant', render: (row) => formatCurrency(row.montant) }
+];
+
+const reservationColumns = [
+  { title: 'ID Réservation', key: 'idResa', width: 120 },
+  { title: 'Date Réservation', key: 'dateResa', render: (row) => formatDate(row.dateResa) },
+  { title: 'Date Début', key: 'dateDebut', render: (row) => formatDate(row.dateDebut) },
+  { title: 'Date Fin', key: 'dateFin', render: (row) => formatDate(row.dateFin) },
+  { title: 'Type', key: 'type' },
+  { 
+    title: 'Statut', 
+    key: 'statut', 
+    render: (row) => h(NTag, { 
+      type: getStatusBadgeType(row.statut),
+      size: 'small'
+    }, { default: () => row.statut })
+  }
+];
+
+// Propriétés calculées
+const filteredClients = computed(() => {
+  if (!searchQuery.value) return clients.value;
+  
+  const query = searchQuery.value.toLowerCase();
+  return clients.value.filter(client => 
+    client.nomCli?.toLowerCase().includes(query) ||
+    client.prenomCli?.toLowerCase().includes(query) ||
+    client.emailCli?.toLowerCase().includes(query) ||
+    client.telephoneCli?.includes(query)
+  );
+});
+
+// Cycle de vie
+onMounted(() => {
+  fetchClients();
+  fetchClientUsers();
+  fetchMetrics();
+});
+
+// Fonctions principales
+async function fetchClients() {
+  try {
+    isLoading.value = true;
+    const clientsData = await ClientService.getAllClients();
+    clients.value = clientsData || [];
+  } catch (error) {
+    console.error("Erreur de chargement des clients:", error);
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function fetchClientUsers() {
+  try {
+    const usersData = await UserServices.getAllClientUsers();
+    clientUsers.value = usersData || [];
+  } catch (error) {
+    console.error("Erreur de chargement des utilisateurs clients:", error);
+  }
+}
+
+async function fetchMetrics() {
+  try {
+    const metricsData = await ClientService.getRankingMetrics();
+    const top = metricsData?.topClient || {};
+    const active = metricsData?.activeClient || {};
+
+    topClient.value = {
+      name: top.nomCli ? `${top.nomCli} ${top.prenomCli || ''}`.trim() : 'Aucun client rentable',
+      revenue: parseFloat(top.totalRevenue) || 0
+    };
+
+    activeClient.value = {
+      name: active.nomCli ? `${active.nomCli} ${active.prenomCli || ''}`.trim() : 'Aucun client actif',
+      count: parseInt(active.totalLocations) || 0
+    };
+  } catch (error) {
+    console.error("Erreur de chargement des métriques:", error);
+  }
+}
+
+async function saveClient() {
+  try {
+    isSubmitting.value = true;
+    
+    if (modalMode.value === 'create') {
+      await ClientService.createClient(currentClient.value);
+    } else {
+      await ClientService.updateClient(currentClient.value.idCli, currentClient.value);
+    }
+    
+    showClientModal.value = false;
+    await fetchClients();
+    await fetchMetrics();
+  } catch (error) {
+    console.error("Erreur de sauvegarde:", error);
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
+async function deleteClient(client) {
+  const clientName = `${client.nomCli} ${client.prenomCli || ''}`.trim();
+  
+  if (!confirm(`Supprimer définitivement le client "${clientName}" ?`)) return;
+  
+  try {
+    await ClientService.deleteClient(client.idCli);
+    await fetchClients();
+    await fetchMetrics();
+  } catch (error) {
+    console.error("Erreur de suppression:", error);
+  }
+}
+
+// Fonctions d'interface
+function openModal(mode, clientData = null) {
+  modalMode.value = mode;
+  
+  if (mode === 'create') {
+    currentClient.value = { ...emptyClient };
+  } else {
+    currentClient.value = { ...clientData };
+  }
+  
+  showClientModal.value = true;
+}
+
+async function openHistoryModal(client) {
+  try {
+    historyLoading.value = true;
+    const historyData = await ClientService.getClientHistory(client.idCli);
+    
+    historyClient.value = {
+      ...client,
+      locations: historyData?.locations || [],
+      reservations: historyData?.reservations || [],
+      activityLogs: [
+        { date: '2025-10-15 14:30', description: 'Connexion réussie', type: 'success' },
+        { date: '2025-09-15 10:00', description: 'Facture payée automatiquement', type: 'info' },
+      ]
+    };
+    
+    historyTab.value = 'locations';
+    showHistoryModal.value = true;
+  } catch (error) {
+    console.error("Erreur de chargement de l'historique:", error);
+    historyClient.value = { ...client, locations: [], reservations: [], activityLogs: [] };
+    showHistoryModal.value = true;
+  } finally {
+    historyLoading.value = false;
+  }
+}
+
+// Utilitaires
+function getClientTypeTagType(type) {
+  const types = {
+    'particulier': 'default',
+    'entreprise': 'info',
+    'ONG': 'success',
+    'association': 'warning',
+    'institution Public': 'error'
+  };
+  return types[type] || 'default';
+}
+
+function getStatusBadgeType(status) {
+  const types = {
+    'actif': 'success',
+    'inactif': 'default',
+    'bloqué': 'error',
+    'confirmée': 'info',
+    'en attente': 'warning'
+  };
+  return types[status?.toLowerCase()] || 'default';
+}
+
+function getStatusText(status) {
+  const texts = {
+    'actif': 'Actif',
+    'inactif': 'Inactif',
+    'bloqué': 'Bloqué'
+  };
+  return texts[status] || status;
+}
+
+function getTimelineType(type) {
+  const types = {
+    'success': 'success',
+    'info': 'info',
+    'warning': 'warning',
+    'error': 'error'
+  };
+  return types[type] || 'default';
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('fr-FR');
+};
+
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('fr-MG', { 
+    style: 'currency', 
+    currency: 'MGA',
+    minimumFractionDigits: 0
+  }).format(value || 0);
+};
 </script>
 
 <style scoped>
-/* Style personnalisé pour les boutons CEDII */
-.cedii-btn-primary {
-    background-color: var(--cedii-primary-light, #5B11EE);
-    border-color: var(--cedii-primary-light, #5B11EE);
-    color: white;
-}
-.cedii-btn-primary:hover {
-    background-color: var(--cedii-primary-dark, #0405BF);
-    border-color: var(--cedii-primary-dark, #0405BF);
-}
-.retour{
-    float: right;
+.client-management-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
 }
 
-/* Styles pour les modales */
-.modal-placeholder {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.6);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1050;
+/* Header */
+.header-section {
+  background: transparent;
 }
-.modal-content-simulated {
-    width: 450px;
-    max-height: 90vh; 
-    overflow-y: auto; 
-    border-radius: 8px;
-    
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
 }
-/* Style spécifique pour la modale d'historique */
-.large-modal {
-    width: 80%; /* Plus large pour l'historique */
-    max-width: 900px;
+
+.page-subtitle {
+  font-size: 1.1rem;
+  opacity: 0.8;
+}
+
+.back-button {
+  min-width: 160px;
+}
+
+/* Cards */
+.main-card, .filters-card, .stat-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e9ecef;
+}
+
+.stat-card {
+  transition: transform 0.2s ease;
+  border-left: 4px solid;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.stat-card.top-client {
+  border-left-color: #faad14;
+}
+
+.stat-card.active-client {
+  border-left-color: #1890ff;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+/* Table */
+.table-scroll-container {
+  max-height: 600px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+:deep(.clients-table .n-data-table-thead) {
+  background-color: #f8f9fa;
+}
+
+:deep(.clients-table .n-data-table-th) {
+  background-color: #f8f9fa !important;
+  font-weight: 600;
+  color: #2c3e50;
+  border-bottom: 2px solid #5B11EE;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+:deep(.clients-table .n-data-table-tr--hover) {
+  background-color: #f8f9ff !important;
+  cursor: pointer;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+/* Modal Historique avec scroll */
+.history-modal-scroll {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.timeline-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Palette CEDII */
+.cedii-text-primary { 
+  color: #5B11EE !important; 
+}
+
+:deep(.n-button--primary-type) {
+  background-color: #5B11EE !important;
+  border-color: #5B11EE !important;
+}
+
+:deep(.n-button--primary-type:hover) {
+  background-color: #04058F !important;
+  border-color: #04058F !important;
+}
+
+/* Scrollbars personnalisées */
+.table-scroll-container::-webkit-scrollbar,
+.history-modal-scroll::-webkit-scrollbar,
+.timeline-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-scroll-container::-webkit-scrollbar-track,
+.history-modal-scroll::-webkit-scrollbar-track,
+.timeline-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb,
+.history-modal-scroll::-webkit-scrollbar-thumb,
+.timeline-scroll::-webkit-scrollbar-thumb {
+  background: #5B11EE;
+  border-radius: 4px;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb:hover,
+.history-modal-scroll::-webkit-scrollbar-thumb:hover,
+.timeline-scroll::-webkit-scrollbar-thumb:hover {
+  background: #04058F;
+}
+
+/* Scroll horizontal pour les tableaux */
+:deep(.n-data-table-base-table-body) {
+  overflow-x: auto !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .client-management-container {
+    padding: 12px;
+  }
+  
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .header-section .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .back-button {
+    align-self: flex-start;
+  }
+  
+  :deep(.n-grid) {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+  }
+  
+  .table-scroll-container {
+    max-height: 500px;
+  }
+}
+
+@media (max-width: 576px) {
+  .table-scroll-container {
+    font-size: 0.8rem;
+  }
+  
+  .stat-value {
+    font-size: 1.25rem;
+  }
 }
 </style>

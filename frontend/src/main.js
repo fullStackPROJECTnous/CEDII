@@ -5,8 +5,10 @@ import { createPinia } from 'pinia';
 import App from './App.vue'
 import router from './router/router.js';
 
+//import 'naive-ui/lib/style.css'
+import { create } from 'naive-ui'
 
-// 🚨 IMPORTEZ ET UTILISEZ LE PLUGIN DE TOASTIFICATION
+
 import Toast from "vue-toastification";
 import "vue-toastification/dist/index.css"; // N'oubliez pas le CSS !
 
@@ -19,11 +21,32 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 //import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
+import { 
+ // create, 
+  NMessageProvider,
+  NNotificationProvider,
+  NDialogProvider,
+  NConfigProvider
+} from 'naive-ui'
+
+const naive = create({
+  components: [
+    NMessageProvider,
+    NNotificationProvider, 
+    NDialogProvider,
+    NConfigProvider
+  ]
+})
+
+// Création de l'instance Naive UI
+
+
 const app = createApp(App);
 const pinia = createPinia();
 
 // Utilisez le plugin ici, AVANT de monter l'application
 app.use(pinia); 
+app.use(naive);
 app.use(router);
 app.use(Toast, {
     // Options de configuration (vous pouvez laisser vide pour les options par défaut)
@@ -41,14 +64,4 @@ app.use(Toast, {
 });
 
 app.mount('#app');
-//import Chart from "chart.js";
 
-//import client from './client.vue'
-
-
-
-/*createApp(App)
-  .use(router) // 🚨 UTILISATION DU ROUTER
-  .mount('#app');
-
-*/

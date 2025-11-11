@@ -1,212 +1,338 @@
-
-
 <template>
-    <div class="d-flex vh-100"> 
-
-        <nav class="sidebar cedii-bg-dark text-white p-3 shadow d-flex flex-column">
-            <div class="logo-title-wrapper d-flex align-items-center justify-content-center mb-5">
-                <img src="/src/logoCEDII.jpeg" alt="Logo CEDII" class="sidebar-logo me-2">
-                <h4 class="cedii-text-primary mb-0">CEDII Patrimoine Plus</h4>
-            </div>
-            
-            <ul class="nav flex-column mb-auto">
-                
-                <li class="nav-item mb-2">
-                    <router-link :to="{ name: 'ReceptionDashboard'}" class="nav-link text-white active">
-                        <i class="bi bi-house-door-fill me-2"></i> Accueil 
-                    </router-link>
-                </li>
-
-                <li class="nav-item mb-2">
-        <router-link :to="{ name: 'NouvelleReservation' }" class="nav-link text-white cedii-btn-primary">
-            <i class="bi bi-calendar-plus-fill me-2"></i> Nouvelle Réservation / Location
-        </router-link>
-    </li>
-
-                <li class="nav-item mb-2">
-                    <router-link :to="{ name: 'DemandesEnAttente' }" class="nav-link text-white">
-                        <i class="bi bi-bell-fill me-2"></i> Demandes à Traiter <span class="badge rounded-pill bg-danger ms-auto">{{ pendingRequestsCount }}</span>
-                    </router-link>
-                </li>
-                
-                <li class="nav-item mb-2">
-                    <router-link :to="{ name: 'CalendrierDisponibilites' }" class="nav-link text-white">
-                        <i class="bi bi-calendar-day me-2"></i> Calendrier & Disponibilités
-                    </router-link>
-                </li>
-
-                <li class="nav-item mb-2">
-                    <router-link :to="{ name: 'InventairePatrimoine' }" class="nav-link text-white">
-                        <i class="bi bi-tools me-2"></i> Inventaire & Patrimoine
-                    </router-link>
-                </li>
-
-                <li class="nav-item mb-2">
-                    <router-link :to="{ name: 'Bureau' }" class="nav-link text-white">
-                        <i class="bi bi-tools me-2"></i> Matériel de Bureau
-                    </router-link>
-                </li>
-
-                <li class="nav-item mb-2">
-                    <router-link :to="{ name: 'ClientManagement' }" class="nav-link text-white">
-                        <i class="bi bi-people-fill me-2"></i> Fiches Clients
-                    </router-link>
-                </li>
-                
-            </ul>
-            
-            <div class="mt-auto pt-3 border-top">
-                <button @click="logout" class="btn btn-sm btn-danger w-100">
-                    <i class="bi bi-box-arrow-right"></i> Déconnexion
-                </button>
-            </div>
-        </nav>
-
-        <main class="main-content flex-grow-1 overflow-auto bg-light"> 
-            
-            <header class="d-flex justify-content-between align-items-center p-4 pb-0">
-                <h1 class="text-secondary mb-0">Tableau de bord Réception</h1>
-                <small class="text-muted">Rôle: {{ userRole }}</small>
-            </header>
-            
-            <div class="p-4">
-                
-                <div class="alert alert-warning shadow-sm border-2 border-warning" role="alert" v-if="pendingRequestsCount > 0">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i> 
-                    Vous avez **{{ pendingRequestsCount }} demandes de location/réservation** en attente de validation. Veuillez les traiter en priorité.
-                </div>
-                
-                <div class="row mb-5">
-                    <div class="col-md-4 mb-4">
-                        <KpiCard 
-                            icon="bi-hourglass-split" 
-                            title="Demandes en Attente" 
-                            :value="kpis.pendingRequests" 
-                            :trend="`Urgent : ${kpis.urgentRequests}`" 
-                            color="cedii-text-primary"
-                            linkName="DemandesEnAttente"
-                        />
+    <div class="dashboard-wrapper"> 
+        <n-layout has-sider class="h-100">
+            <!-- Sidebar Naive UI -->
+            <n-layout-sider
+                bordered
+                collapse-mode="width"
+                :collapsed-width="64"
+                :width="240"
+                :native-scrollbar="false"
+                show-trigger="bar"
+                class="cedii-sidebar"
+            >
+                <div class="sidebar-content d-flex flex-column h-100 p-3">
+                    <!-- Logo et Titre -->
+                    <div class="logo-title-wrapper d-flex align-items-center justify-content-center mb-5">
+                        <img src="/src/logoCEDII.jpeg" alt="Logo CEDII" class="sidebar-logo me-2">
+                        <h4 class="sidebar-title mb-0 fs-6">CEDII Patrimoine Plus</h4>
                     </div>
-                    <div class="col-md-4 mb-4">
-                        <KpiCard 
-                            icon="bi-bell" 
-                            title="Locations du Jour" 
-                            :value="kpis.todayEvents" 
-                            trend="" 
-                            color="text-info"
-                            linkName="Disponibilites"
-                        />
-                    </div>
-                    <div class="col-md-4 mb-4">
-                        <KpiCard 
-                            icon="bi-bricks" 
-                            title="Ressources Indisponibles" 
-                            :value="kpis.unavailableResources" 
-                            trend="Rapport de maintenance" 
-                            color="text-danger"
-                            linkName="InventaireSimple"
-                        />
+                    
+                    <!-- Menu Navigation -->
+                    <n-menu
+                        :options="menuOptions"
+                        :value="activeMenuKey"
+                        @update:value="handleMenuSelect"
+                        class="flex-grow-1 cedii-menu"
+                    />
+                    
+                    <!-- Bouton Déconnexion -->
+                    <div class="mt-auto pt-3 border-top border-white">
+                        <n-button 
+                            @click="logout" 
+                            type="error"
+                            size="small"
+                            class="w-100"
+                            ghost
+                        >
+                            <template #icon>
+                                <n-icon>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-right" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                                        <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                                    </svg>
+                                </n-icon>
+                            </template>
+                            Déconnexion
+                        </n-button>
                     </div>
                 </div>
-                
-                <!-- NOUVEAU CONTENEUR DE STATISTIQUES (Remplace l'Aperçu des Demandes) -->
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-white border-bottom">
-                        <h5 class="card-title mb-0 text-dark">Statistiques des Réservations (Matériel vs. Salle)</h5>
-                    </div>
-                    <div class="card-body d-flex justify-content-center align-items-center" style="height: 350px;">
-                        
-                        <div v-if="loadingStats" class="text-center text-muted">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Chargement...</span>
-                            </div>
-                            <p class="mt-2">Chargement des statistiques...</p>
-                        </div>
-                        <div v-else-if="!hasStats" class="text-center text-muted">
-                            Aucune donnée de réservation disponible pour l'analyse.
-                        </div>
-                        <div v-else style="max-width: 400px; max-height: 400px;">
-                            <canvas ref="statsChartCanvas"></canvas>
+            </n-layout-sider>
+
+            <!-- Contenu Principal -->
+            <n-layout class="main-content">
+                <!-- Header -->
+                <n-layout-header bordered class="d-flex justify-content-between align-items-center p-4 pb-0 bg-white">
+                    <h1 class="text-secondary mb-0 fs-4">Tableau de bord Réception</h1>
+                    <n-tag type="info" size="small">
+                        Rôle: {{ userRole }}
+                    </n-tag>
+                </n-layout-header>
+
+                <!-- Contenu -->
+                <n-layout-content class="p-4 bg-light">
+                    <!-- Alerte Demandes en Attente -->
+                    <n-alert 
+                        v-if="pendingRequestsCount > 0"
+                        type="warning"
+                        title="Demandes en attente"
+                        class="mb-4 shadow-sm"
+                    >
+                        <template #icon>
+                            <n-icon>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
+                                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                                </svg>
+                            </n-icon>
+                        </template>
+                        Vous avez <strong>{{ pendingRequestsCount }} demandes de location/réservation</strong> en attente de validation. Veuillez les traiter en priorité.
+                    </n-alert>
+
+                    <!-- Disposition horizontale compacte -->
+                    <div class="row g-3">
+                        <!-- Colonne KPIs (gauche) - Plus compacte -->
+                        <div class="col-lg-8">
+                            <n-card title="Indicateurs Clés" class="shadow-sm h-100" content-class="p-2">
+                                <div class="kpis-grid">
+                                    <div class="kpi-item">
+                                        <KpiCard 
+                                            icon="bi-hourglass-split" 
+                                            title="Demandes en Attente" 
+                                            :value="kpis.pendingRequests" 
+                                            :trend="`Urgent : ${kpis.urgentRequests}`" 
+                                            color="cedii-text-primary"
+                                            linkName="DemandesEnAttente"
+                                            compact
+                                        />
+                                    </div>
+                                    <div class="kpi-item">
+                                        <KpiCard 
+                                            icon="bi-bell" 
+                                            title="Locations du Jour" 
+                                            :value="kpis.todayEvents" 
+                                            trend="" 
+                                            color="text-info"
+                                            linkName="Disponibilites"
+                                            compact
+                                        />
+                                    </div>
+                                    <div class="kpi-item">
+                                        <KpiCard 
+                                            icon="bi-bricks" 
+                                            title="Ressources Indisponibles" 
+                                            :value="kpis.unavailableResources" 
+                                            trend="Rapport de maintenance" 
+                                            color="text-danger"
+                                            linkName="InventaireSimple"
+                                            compact
+                                        />
+                                    </div>
+                                </div>
+                            </n-card>
                         </div>
 
+                        <!-- Colonne Statistiques (droite) -->
+                        <div class="col-lg-4">
+                            <n-card title="Statistiques des Réservations" class="shadow-sm h-100">
+                                <template #header-extra>
+                                    <n-button 
+                                        text 
+                                        @click="refreshStats" 
+                                        :loading="loadingStats" 
+                                        size="small"
+                                    >
+                                        <template #icon>
+                                            <n-icon>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                                                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                                                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                                                </svg>
+                                            </n-icon>
+                                        </template>
+                                    </n-button>
+                                </template>
+                                
+                                <div class="chart-container d-flex flex-column justify-content-center align-items-center" style="height: 250px;">
+                                    <div v-if="loadingStats" class="text-center text-muted">
+                                        <n-spin size="medium" />
+                                        <p class="mt-2 mb-0 small">Chargement...</p>
+                                    </div>
+                                    <div v-else-if="!hasStats" class="text-center text-muted">
+                                        <n-empty description="Aucune donnée" size="small">
+                                            <template #icon>
+                                                <n-icon>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-bar-chart" viewBox="0 0 16 16">
+                                                        <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
+                                                    </svg>
+                                                </n-icon>
+                                            </template>
+                                        </n-empty>
+                                    </div>
+                                    <div v-else class="w-100 h-100 d-flex flex-column">
+                                        <div class="text-center mb-2">
+                                            <h6 class="mb-1 fw-bold">Matériel vs Salle</h6>
+                                            <small class="text-muted">Total: {{ reservationStats.materiel + reservationStats.salle }} réservations</small>
+                                        </div>
+                                        <div class="flex-grow-1 position-relative">
+                                            <canvas ref="statsChartCanvas" class="w-100 h-100"></canvas>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="row text-center small">
+                                                <div class="col-6">
+                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(94, 94, 94, 0.8); border-radius: 2px;"></span>
+                                                    Matériel: {{ reservationStats.materiel }}
+                                                </div>
+                                                <div class="col-6">
+                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(91, 17, 238, 0.8); border-radius: 2px;"></span>
+                                                    Salle: {{ reservationStats.salle }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </n-card>
+                        </div>
                     </div>
-                </div>
-                <!-- FIN NOUVEAU CONTENEUR -->
-
-            </div>
-        </main>
+                </n-layout-content>
+            </n-layout>
+        </n-layout>
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, computed, nextTick, h } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { 
+    NLayout, 
+    NLayoutSider, 
+    NLayoutContent, 
+    NLayoutHeader, 
+    NMenu, 
+    NButton, 
+    NIcon, 
+    NAlert, 
+    NTag, 
+    NCard, 
+    NSpin, 
+    NEmpty,
+    NBadge
+} from 'naive-ui';
+
 import AuthService from '../services/AuthService'; 
 import LocationService from '../services/LocationService'; 
 import KpiCard from '../views/KpiCard.vue'; 
-import Chart from 'chart.js/auto'; // 🚨 ASSUREZ-VOUS D'AVOIR INSTALLÉ CHART.JS
+import Chart from 'chart.js/auto';
 
+const router = useRouter();
+const route = useRoute();
 const userRole = ref('');
-const router = useRouter(); 
-const kpis = ref({ pendingRequests: 0, urgentRequests: 0, todayEvents: 0, unavailableResources: 0 });
+const kpis = ref({ 
+    pendingRequests: 0, 
+    urgentRequests: 0, 
+    todayEvents: 0, 
+    unavailableResources: 0
+});
 const allRequests = ref([]);
-const statsChartCanvas = ref(null); // Référence au canvas
+const statsChartCanvas = ref(null);
 const chartInstance = ref(null);
-const reservationStats = ref({ materiel: 0, salle: 0 }); // NOUVEL ÉTAT
-const loadingStats = ref(true); // NOUVEL ÉTAT
+const reservationStats = ref({ materiel: 0, salle: 0 });
+const loadingStats = ref(true);
+const activeMenuKey = ref('accueil');
+
+// Options du menu avec texte blanc
+const menuOptions = [
+    {
+        label: () => h('span', { style: 'color: white;' }, 'Accueil'),
+        key: 'accueil',
+        icon: renderIcon('bi-house-door-fill')
+    },
+    {
+        label: () => h('span', { style: 'color: white;' }, 'Nouvelle Réservation / Location'),
+        key: 'nouvelle-reservation',
+        icon: renderIcon('bi-calendar-plus-fill')
+    },
+    {
+        label: () => h('div', {
+            class: 'd-flex justify-content-between align-items-center w-100'
+        }, [
+            h('span', { style: 'color: white;' }, 'Demandes à Traiter'),
+            kpis.value.pendingRequests > 0 ? h(NBadge, {
+                value: kpis.value.pendingRequests,
+                type: 'error',
+                max: 99,
+                class: 'ms-2',
+                style: 'color: black !important;'
+            }) : null
+        ]),
+        key: 'demandes-attente',
+        icon: renderIcon('bi-bell-fill')
+    },
+    {
+        label: () => h('span', { style: 'color: white;' }, 'Calendrier & Disponibilités'),
+        key: 'calendrier',
+        icon: renderIcon('bi-calendar-day')
+    },
+    {
+        label: () => h('span', { style: 'color: white;' }, 'Inventaire & Patrimoine'),
+        key: 'inventaire',
+        icon: renderIcon('bi-tools')
+    },
+    {
+        label: () => h('span', { style: 'color: white;' }, 'Matériel de Bureau'),
+        key: 'bureau',
+        icon: renderIcon('bi-briefcase-fill')
+    },
+    {
+        label: () => h('span', { style: 'color: white;' }, 'Fiches Clients'),
+        key: 'clients',
+        icon: renderIcon('bi-people-fill')
+    }
+];
+
+// Fonction pour rendre les icônes
+function renderIcon(iconClass) {
+    return () => h(NIcon, null, {
+        default: () => h('i', { class: iconClass, style: 'color: white;' })
+    });
+}
+
+// Gestion de la sélection du menu
+const handleMenuSelect = (key) => {
+    const routeMap = {
+        'accueil': 'ReceptionDashboard',
+        'nouvelle-reservation': 'NouvelleReservation',
+        'demandes-attente': 'DemandesEnAttente',
+        'calendrier': 'CalendrierDisponibilites',
+        'inventaire': 'InventairePatrimoine',
+        'bureau': 'Bureau',
+        'clients': 'ClientManagement'
+    };
+    
+    if (routeMap[key]) {
+        router.push({ name: routeMap[key] });
+    }
+};
 
 // Propriétés calculées
 const pendingRequestsCount = computed(() => kpis.value.pendingRequests);
 const hasStats = computed(() => reservationStats.value.materiel > 0 || reservationStats.value.salle > 0);
 
-
-// 🚨 NOUVELLE LOGIQUE POUR LES STATISTIQUES 🚨
+// Fonctions de données
 const fetchReservationStats = async () => {
     loadingStats.value = true;
-    console.log("STATUT LOG 1: Début du chargement."); 
-
     try {
-        // --- 1. CHARGEMENT DES DONNÉES ---
-
-        // 💡 REMPLACER PAR VOTRE VRAI APPEL API (DECOMMENTER)
-        // const response = await LocationService.getReservationStatistics(); 
-        // reservationStats.value = response.data;
-        
-        // Simule le chargement des données (Si vous le laissez temporairement)
-        await new Promise(resolve => setTimeout(resolve, 800)); 
         reservationStats.value.materiel = 120; 
         reservationStats.value.salle = 80;
-        // -----------------------------------------------------
-
-        console.log("STATUT LOG 2: Données chargées (simulées ou réelles).", reservationStats.value); 
-
     } catch (error) {
         console.error("Erreur de chargement des statistiques:", error);
     } finally {
-        // --- 2. RENDU DU GRAPHIQUE APRÈS CHARGEMENT ---
-
-        // A. Désactiver le chargement. Ceci déclenche le rendu du <canvas> via v-else.
         loadingStats.value = false;
-        
-        // B. Attendre que Vue ait rendu le <canvas> dans le DOM.
         if (hasStats.value) {
-            // ✅ CORRECTION CRITIQUE : Utiliser await nextTick() après que loadingStats = false
-            await nextTick(); 
-            
-            // C. Rendre le graphique. Le canvas est maintenant garanti d'exister.
+            await nextTick();
             renderChart();
-            console.log("STATUT LOG 3: Graphique rendu via await nextTick.");
         }
-        
-        console.log("STATUT LOG 4: Chargement désactivé (loadingStats = false)."); 
     }
 };
+
+const refreshStats = () => {
+    fetchReservationStats();
+};
+
 const renderChart = () => {
     if (chartInstance.value) {
         chartInstance.value.destroy();
     }
     
-    // Ajout d'une vérification pour s'assurer que le canvas existe
     if (!statsChartCanvas.value) {
         console.error("Erreur de rendu: Le canvas n'est pas disponible.");
         return;
@@ -214,30 +340,29 @@ const renderChart = () => {
 
     const total = reservationStats.value.materiel + reservationStats.value.salle;
     
-    // ✅ CORRECTION : Si le total est zéro, nous arrêtons le rendu pour éviter NaN.
     if (total === 0) {
         console.warn("Rendu annulé : Aucune réservation (total est zéro).");
         return; 
     }
 
-    // Fonction d'aide pour calculer le pourcentage en toute sécurité
     const safePercentage = (value) => {
         return ((value / total) * 100).toFixed(1);
     };
 
     const data = {
         labels: [
-            // Utilisation de la fonction safePercentage
             `Matériel (${safePercentage(reservationStats.value.materiel)}%)`, 
             `Salle (${safePercentage(reservationStats.value.salle)}%)`
         ],
         datasets: [{
             data: [reservationStats.value.materiel, reservationStats.value.salle],
             backgroundColor: [
-                'rgba(94, 94, 94, 0.8)', // Gris foncé pour le matériel
-                'rgba(91, 17, 238, 0.8)' // Violet CEDII pour la salle
+                'rgba(94, 94, 94, 0.8)',
+                'rgba(91, 17, 238, 0.8)'
             ],
-            hoverOffset: 10
+            borderWidth: 2,
+            borderColor: '#fff',
+            hoverOffset: 15
         }]
     };
 
@@ -247,27 +372,26 @@ const renderChart = () => {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            cutout: '60%',
             plugins: {
                 legend: {
                     position: 'bottom',
                     labels: {
                         font: {
-                            size: 14
-                        }
+                            size: 11
+                        },
+                        color: '#333',
+                        usePointStyle: true,
+                        padding: 10
                     }
-                },
-                title: {
-                    display: false,
                 }
             }
         }
     });
-};// 🚨 FIN NOUVELLE LOGIQUE 🚨
-
+};
 
 const fetchReceptionData = async () => {
     try {
-        // Le service devrait retourner un objet { data: { ... KPIs et listes ... } }
         const response = await LocationService.getReceptionDashboardData(); 
         const data = response.data;
         
@@ -276,82 +400,218 @@ const fetchReceptionData = async () => {
         kpis.value.todayEvents = data.todayEvents || 0;
         kpis.value.unavailableResources = data.unavailableResources || 0;
         
-        allRequests.value = data.latestRequests || []; // Reste pour d'autres usages futurs
+        allRequests.value = data.latestRequests || [];
         
     } catch (error) {
         console.error("Erreur de chargement des données de réception:", error.response?.data || error);
     }
 };
 
-
-
-// La fonction formatDate est conservée mais n'est plus utilisée dans le template
-// const formatDate = (dateString) => {
-//     const options = { year: 'numeric', month: 'short', day: 'numeric' };
-//     return new Date(dateString).toLocaleDateString(undefined, options);
-// };
-
-
-// CONSOLIDATION de onMounted
+// Lifecycle
 onMounted(() => {
     const user = AuthService.getCurrentUser();
     
     if (user && user.roleUti && user.roleUti.toLowerCase() === 'reception') {
         userRole.value = user.roleUti.toUpperCase();
         fetchReceptionData();
-        fetchReservationStats(); // 💡 Déclenchement du chargement des stats
+        fetchReservationStats();
+        
+        // Définir l'élément de menu actif basé sur la route actuelle
+        const routeToKeyMap = {
+            'ReceptionDashboard': 'accueil',
+            'NouvelleReservation': 'nouvelle-reservation',
+            'DemandesEnAttente': 'demandes-attente',
+            'CalendrierDisponibilites': 'calendrier',
+            'InventairePatrimoine': 'inventaire',
+            'Bureau': 'bureau',
+            'ClientManagement': 'clients'
+        };
+        
+        activeMenuKey.value = routeToKeyMap[route.name] || 'accueil';
     } else {
         router.push('/'); 
     }
 });
 
 function logout() {
-    // 1. Afficher la boîte de dialogue de confirmation native du navigateur.
-    // confirm() retourne true si l'utilisateur clique sur "OK" ou "Oui", et false si "Annuler" ou "Non".
     const isConfirmed = window.confirm("Êtes-vous sûr de vouloir vous déconnecter ?");
-
-    // 2. Vérifier la réponse de l'utilisateur.
     if (isConfirmed) {
-        console.log("Déconnexion confirmée. Exécution de la déconnexion...");
-        
-        // 3. Exécuter l'action de déconnexion
         AuthService.logout();
-        
-        // 4. Rediriger l'utilisateur vers la page de connexion
         router.push('/');
-    } else {
-        console.log("Déconnexion annulée.");
-        // Optionnel : ne rien faire, l'utilisateur reste sur la page actuelle.
     }
 }
-
 </script>
 
 <style scoped>
-/* Styles existants */
-.cedii-bg-dark { background-color: var(--cedii-dark, #5E5E5E) !important; }
-.cedii-text-primary { color: var(--cedii-primary-light, white) !important; }
-.cedii-btn-primary { 
-   
-    color: #b3bae2;
+.dashboard-wrapper {
+    height: 100vh;
+}
+
+/* Sidebar en bleu nuit identique à la navbar */
+.cedii-sidebar {
+    background-color: #02061E !important; /* Même bleu nuit que la navbar */
+}
+
+.sidebar-content {
+    background: transparent;
+}
+
+.sidebar-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3); /* Bordure similaire à la navbar */
+    object-fit: cover;
+}
+
+.sidebar-title {
+    color: white !important;
+    font-weight: 600;
+    font-size: 0.9rem; /* Taille similaire à la navbar */
+}
+
+/* Styles pour le menu - Texte blanc */
+:deep(.cedii-menu) {
+    background-color: transparent !important;
+}
+
+:deep(.cedii-menu .n-menu-item) {
+    border-radius: 8px;
+    margin-bottom: 4px;
+}
+
+:deep(.cedii-menu .n-menu-item .n-menu-item-content) {
+    color: white !important;
+    transition: all 0.3s ease;
+    background-color: transparent !important;
+}
+
+/* HOVER COMPLÈTEMENT SUPPRIMÉ - AUCUN CHANGEMENT AU SURVOL */
+:deep(.cedii-menu .n-menu-item .n-menu-item-content:hover) {
+    /* RIEN - HOVER SUPPRIMÉ */
+    background-color: transparent !important;
+    color: white !important;
+}
+
+/* Élément actif avec soulignage bleu comme la navbar */
+:deep(.cedii-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected) {
+    background-color: transparent !important;
+    color: white !important;
+    font-weight: 600;
+    border-bottom: 2px solid #04058F; /* Même bleu que la navbar active */
+    border-radius: 0;
+}
+
+:deep(.cedii-menu .n-menu-item .n-menu-item-content .n-menu-item-content__icon) {
+    color: white !important;
+}
+
+/* HOVER DES ICÔNES SUPPRIMÉ */
+:deep(.cedii-menu .n-menu-item .n-menu-item-content:hover .n-menu-item-content__icon) {
+    color: white !important; /* Reste blanc au hover */
+}
+
+:deep(.cedii-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected .n-menu-item-content__icon) {
+    color: white !important;
+}
+
+:deep(.cedii-menu .n-menu-item .n-menu-item-content .n-menu-item-content__arrow) {
+    color: white !important;
+}
+
+/* HOVER DES FLÈCHES SUPPRIMÉ */
+:deep(.cedii-menu .n-menu-item .n-menu-item-content:hover .n-menu-item-content__arrow) {
+    color: white !important; /* Reste blanc au hover */
+}
+
+/* Style pour le bouton de déconnexion cohérent avec la navbar */
+:deep(.n-button.n-button--error-type.n-button--ghost) {
+    color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    background-color: transparent;
+}
+
+:deep(.n-button.n-button--error-type.n-button--ghost:hover) {
+    background-color: #dc3545 !important;
+    color: white !important;
+}
+
+/* Style pour le badge */
+:deep(.cedii-menu .n-badge .n-badge-sup) {
+    color: white !important;
+    background-color: #dc3545;
+    font-weight: bold;
+}
+
+:deep(.n-layout-header) {
+    background-color: white !important;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* Disposition KPIs en grille compacte */
+.kpis-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+}
+
+.kpi-item {
+    min-height: 80px;
+}
+
+.chart-container {
+    min-height: 250px;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .row {
+        flex-direction: column;
+    }
     
-}
-.cedii-btn-primary:hover {
-    background-color: var(--cedii-primary-dark, #0671b6);
-    border-color: var(--cedii-primary-dark, #0671b6);
-}
-
-.sidebar { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; }
-.sidebar-logo { width: 60px; height: 60px; border-radius: 50%; border: 2px solid white; object-fit: cover; }
-.sidebar .nav-link { transition: background-color 0.3s; border-radius: 5px; }
-.sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: var(--cedii-primary-dark, white); }
-.sidebar .nav-link { 
-    color: #02061E !important; /* Cette ligne change la couleur du texte en Bleu Nuit */
-    font-weight: 600; 
+    .col-lg-8, .col-lg-4 {
+        width: 100%;
+    }
+    
+    .kpis-grid {
+        gap: 0.5rem;
+    }
 }
 
-.sidebar .nav-link.active { 
-    color: purple !important; /* Cette ligne change la couleur du texte en Bleu Nuit */
-    font-weight: 600; 
+@media (min-width: 1200px) {
+    .kpis-grid {
+        grid-template-columns: 1fr;
+        gap: 0.8rem;
+    }
+}
+
+/* Animation de chargement */
+:deep(.n-spin-container) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Bordure de séparation */
+.border-top.border-white {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Styles pour les cartes compactes */
+:deep(.n-card .n-card-header) {
+    padding: 12px 16px;
+}
+
+:deep(.n-card .n-card-content) {
+    padding: 12px 16px;
+}
+
+/* Amélioration de l'espacement général */
+.main-content {
+    overflow-y: auto;
+}
+
+.bg-light {
+    background-color: #f8f9fa !important;
 }
 </style>

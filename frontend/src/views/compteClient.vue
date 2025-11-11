@@ -1,110 +1,199 @@
 <template>
-  <div class="vh-100 d-flex flex-column"> 
+  <div class="vh-100 d-flex flex-column">
     <ClientNavbar />
-    <main class="main-content flex-grow-1 overflow-auto bg-light p-4"> 
-      
-      <header class="pb-3 border-bottom d-flex justify-content-between align-items-center">
-        <h1 class="text-secondary">Mon Compte Client 👤</h1>
-        <p class="text-muted mb-0">Bienvenue, {{ clientName }} !</p>
-      </header>
-      
-      <div class="mt-4">
-        <div class="alert alert-info shadow-sm border-0 mb-5" role="alert">
-          <i class="bi bi-info-circle-fill me-2"></i> 
+    <main class="main-content flex-grow-1 overflow-auto bg-white">
+      <div class="container-fluid py-3">
+        <!-- En-tête de page -->
+        <n-card class="mb-3 border-0" content-style="padding: 0;">
+          <div class="d-flex justify-content-between align-items-center p-3">
+            <div>
+              <n-h1 class="mb-1 fs-4" style="color: #02061E;">Mon Compte Client</n-h1>
+              <n-text class="text-muted small">Gérez vos informations personnelles et vos réservations</n-text>
+            </div>
+            <n-tag type="info" size="medium">
+              <template #icon>
+                <n-icon>
+                  <i class="bi bi-person-circle"></i>
+                </n-icon>
+              </template>
+              Bienvenue, {{ clientName }} !
+            </n-tag>
+          </div>
+        </n-card>
+
+        <!-- Bannière d'information -->
+        <n-alert title="Informations du compte" type="info" class="mb-3" :bordered="false" size="small">
+          <template #icon>
+            <i class="bi bi-info-circle-fill"></i>
+          </template>
           Vous pouvez consulter vos informations et votre historique ci-dessous.
-        </div>
+        </n-alert>
 
-        <div class="row mb-5">
-          <div class="col-lg-5 mb-4">
-            <h2 class="h4 mb-3 text-dark"><i class="bi bi-person-badge me-2"></i> Mes Coordonnées</h2>
-            <div class="card shadow-sm h-100 p-3">
-              <ul class="list-group list-group-flush" v-if="clientInfo.name">
-                <li class="list-group-item"><strong>Nom complet :</strong> {{ clientInfo.name }}</li>
-                <li class="list-group-item"><strong>Email :</strong> {{ clientInfo.email }}</li>
-                <li class="list-group-item"><strong>Téléphone :</strong> {{ clientInfo.phone }}</li>
-                <li class="list-group-item"><strong>Adresse :</strong> {{ clientInfo.address }}</li>
-                <li class="list-group-item"><strong>Type :</strong> {{ clientInfo.type }}</li>
-                <li class="list-group-item"><strong>Statut :</strong> {{ clientInfo.status }}</li>
-              </ul>
-              <div class="text-center p-4" v-else>
-                <div class="spinner-border text-primary" role="status">
-                  <span class="visually-hidden">Chargement...</span>
+        <!-- Section principale -->
+        <div class="row g-3">
+          <!-- Colonne gauche - Coordonnées -->
+          <div class="col-lg-5">
+            <n-card title="Mes Coordonnées" size="small" class="h-100 shadow-sm" :bordered="false">
+              <template #header-extra>
+                <n-icon size="18" color="#5811EE">
+                  <i class="bi bi-person-badge"></i>
+                </n-icon>
+              </template>
+              
+              <n-spin :show="isLoading">
+                <n-list v-if="clientInfo.name" bordered size="small">
+                  <n-list-item class="py-2">
+                    <n-thing title="Nom complet" :description="clientInfo.name" />
+                  </n-list-item>
+                  <n-list-item class="py-2">
+                    <n-thing title="Email" :description="clientInfo.email" />
+                  </n-list-item>
+                  <n-list-item class="py-2">
+                    <n-thing title="Téléphone" :description="clientInfo.phone" />
+                  </n-list-item>
+                  <n-list-item class="py-2">
+                    <n-thing title="Adresse" :description="clientInfo.address" />
+                  </n-list-item>
+                  <n-list-item class="py-2">
+                    <n-thing title="Type de client">
+                      <n-tag :type="clientInfo.type === 'Particulier' ? 'info' : 'warning'" size="small">
+                        {{ clientInfo.type }}
+                      </n-tag>
+                    </n-thing>
+                  </n-list-item>
+                  <n-list-item class="py-2">
+                    <n-thing title="Statut du compte">
+                      <n-tag :type="clientInfo.status === 'Actif' ? 'success' : 'error'" size="small">
+                        {{ clientInfo.status }}
+                      </n-tag>
+                    </n-thing>
+                  </n-list-item>
+                </n-list>
+                
+                <div v-else class="text-center p-3">
+                  <n-empty description="Chargement des données..." size="small">
+                    <template #icon>
+                      <n-spin size="small" />
+                    </template>
+                  </n-empty>
                 </div>
-                <p class="mt-2 text-muted">Chargement des données...</p>
-              </div>
-             
-            </div>
+              </n-spin>
+            </n-card>
           </div>
 
-          <div class="col-lg-7 mb-4">
-            <h2 class="h4 mb-3 cedii-text-primary"><i class="bi bi-arrow-right-circle-fill me-2"></i> Ma Prochaine Location</h2>
-            <div class="card shadow border-2 h-100" :class="nextReservation.etatRes === 'Confirmée' ? 'border-success' : 'border-warning'">
-              <div class="card-body d-flex flex-column justify-content-between">
-                <h5 class="card-title text-dark">{{ nextReservation.idRes ? `Réservation #${nextReservation.idRes}` : 'Aucune réservation à venir.' }}</h5>
-                <p class="card-text text-muted" v-if="nextReservation.idRes">
-                  <strong>Type :</strong> {{ nextReservation.typeRes }}<br>
-                  <strong>Date début :</strong> {{ formatDate(nextReservation.debRes) }}<br>
-                  <strong>Date fin :</strong> {{ formatDate(nextReservation.finRes) }}<br>
-                  <strong>Statut :</strong> <span class="fw-bold" :class="getStatusClass(nextReservation.etatRes)">{{ nextReservation.etatRes }}</span>
-                </p>
-                <div class="mt-auto">
-                  <button v-if="nextReservation.idRes" class="btn cedii-btn-primary btn-sm me-2">
-                    <i class="bi bi-search"></i> Détails
-                  </button>
-                  <router-link v-else :to="{ name: 'ReservationForm'}" class="btn cedii-btn-primary">
-                    <i class="bi bi-calendar-plus"></i> Réserver Maintenant
-                  </router-link>
+          <!-- Colonne droite - Prochaine location -->
+          <div class="col-lg-7">
+            <n-card title="Ma Prochaine Location" size="small" class="h-100" :bordered="false"
+                    :class="nextReservation.etatRes === 'Confirmée' ? 'border-success-subtle' : 'border-warning-subtle'"
+                    style="border: 1px solid; border-radius: 6px;">
+              <template #header-extra>
+                <n-icon size="18" color="#5811EE">
+                  <i class="bi bi-arrow-right-circle-fill"></i>
+                </n-icon>
+              </template>
+
+              <div class="d-flex flex-column h-100 p-3">
+                <div v-if="nextReservation.idRes" class="flex-grow-1">
+                  <n-h3 class="text-dark mb-3 fs-5">{{ `Réservation #${nextReservation.idRes}` }}</n-h3>
+                  
+                  <!-- Affichage vertical des informations -->
+                  <div class="reservation-details-vertical">
+                    <div class="detail-item mb-3">
+                      <div class="detail-label text-muted small">Type de réservation</div>
+                      <div class="detail-value fw-semibold">{{ nextReservation.typeRes }}</div>
+                    </div>
+                    
+                    <div class="detail-item mb-3">
+                      <div class="detail-label text-muted small">Date de début</div>
+                      <div class="detail-value">{{ formatDate(nextReservation.debRes) }}</div>
+                    </div>
+                    
+                    <div class="detail-item mb-3">
+                      <div class="detail-label text-muted small">Date de fin</div>
+                      <div class="detail-value">{{ formatDate(nextReservation.finRes) }}</div>
+                    </div>
+                    
+                    <div class="detail-item mb-3">
+                      <div class="detail-label text-muted small">Statut</div>
+                      <div class="detail-value">
+                        <n-tag :type="getStatusType(nextReservation.etatRes)" size="small">
+                          {{ nextReservation.etatRes }}
+                        </n-tag>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div v-else class="text-center flex-grow-1 d-flex flex-column justify-content-center py-3">
+                  <n-empty description="Aucune réservation à venir" size="medium">
+                    <template #icon>
+                      <i class="bi bi-calendar-x" style="font-size: 2rem; color: #55555E;"></i>
+                    </template>
+                  </n-empty>
+                </div>
+
+                <div class="mt-auto pt-3">
+                  
                 </div>
               </div>
-            </div>
+            </n-card>
           </div>
         </div>
 
-        <h2 class="h4 mb-4 text-secondary"><i class="bi bi-clock-history me-2"></i> Historique des Locations</h2>
-        
-        <div class="card shadow">
-          <div class="card-body">
-            <table class="table table-striped table-hover">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Type</th>
-                  <th>Date Début</th>
-                  <th>Date Fin</th>
-                  <th>Statut</th>
-                  <th>Tarif</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="reservation in pastReservations" :key="reservation.idRes">
-                  <td>{{ reservation.idRes }}</td>
-                  <td>{{ reservation.typeRes }}</td>
-                  <td>{{ formatDate(reservation.debRes) }}</td>
-                  <td>{{ formatDate(reservation.finRes) }}</td>
-                  <td>
-                    <span :class="getStatusClass(reservation.etatRes)">
-                      {{ reservation.etatRes }}
-                    </span>
-                  </td>
-                  <td>{{ formatCurrency(reservation.tarifTot) }}</td>
-                </tr>
-                <tr v-if="pastReservations.length === 0">
-                  <td colspan="6" class="text-center text-muted py-4">
-                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                    Aucune réservation dans votre historique
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <!-- Historique des locations -->
+        <n-card title="Historique des Locations" class="mt-3 shadow-sm" :bordered="false" size="small">
+          <template #header-extra>
+            <n-icon size="18" color="#02061E">
+              <i class="bi bi-clock-history"></i>
+            </n-icon>
+          </template>
+
+          <n-data-table
+            :columns="columns"
+            :data="pastReservations"
+            :bordered="false"
+            :striped="true"
+            :loading="isLoading"
+            flex-height
+            :min-height="250"
+            size="small"
+          />
+          
+          <template #footer v-if="pastReservations.length === 0 && !isLoading">
+            <div class="text-center py-3">
+              <n-empty description="Aucune réservation dans votre historique" size="medium">
+                <template #icon>
+                  <i class="bi bi-inbox" style="font-size: 2rem; color: #55555E;"></i>
+                </template>
+              </n-empty>
+            </div>
+          </template>
+        </n-card>
       </div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, h } from 'vue';
+import { 
+  NCard, 
+  NH1, 
+  NText, 
+  NTag, 
+  NAlert, 
+  NList, 
+  NListItem, 
+  NThing, 
+  NSpin, 
+  NEmpty, 
+  NButton, 
+  NIcon, 
+  NDescriptions, 
+  NDescriptionsItem,
+  NDataTable,
+  NH3
+} from 'naive-ui';
 import ClientNavbar from '../components/clientNavbar.vue'; 
 import ClientService from '../services/ClientService'; 
 
@@ -114,6 +203,53 @@ const nextReservation = ref({});
 const pastReservations = ref([]);
 const isLoading = ref(true);
 
+// Configuration des colonnes du tableau
+const columns = [
+  {
+    title: 'ID',
+    key: 'idRes',
+    width: 70,
+    align: 'center'
+  },
+  {
+    title: 'Type',
+    key: 'typeRes',
+    width: 100
+  },
+  {
+    title: 'Date Début',
+    key: 'debRes',
+    width: 120,
+    render: (row) => formatDate(row.debRes)
+  },
+  {
+    title: 'Date Fin',
+    key: 'finRes',
+    width: 120,
+    render: (row) => formatDate(row.finRes)
+  },
+  {
+    title: 'Statut',
+    key: 'etatRes',
+    width: 100,
+    render: (row) => h(
+      NTag,
+      {
+        type: getStatusType(row.etatRes),
+        size: 'small'
+      },
+      { default: () => row.etatRes }
+    )
+  },
+  {
+    title: 'Tarif',
+    key: 'tarifTot',
+    width: 120,
+    align: 'right',
+    render: (row) => formatCurrency(row.tarifTot)
+  }
+];
+
 const fetchClientData = async () => {
   try {
     console.log("🔍 Chargement des données client...");
@@ -121,10 +257,8 @@ const fetchClientData = async () => {
     const clientData = await ClientService.getMyProfile(); 
     console.log("✅ Données client reçues:", clientData);
     
-    // 🚨 CORRECTION: Plus de .utilisateur puisque l'association est supprimée
     clientName.value = `${clientData.prenomCli || ''} ${clientData.nomCli || ''}`.trim() || 'Client';
     
-    // Mise à jour des coordonnées
     clientInfo.value = {
       name: `${clientData.nomCli || ''} ${clientData.prenomCli || ''}`.trim(),
       email: clientData.emailCli || 'Non spécifié',
@@ -135,7 +269,6 @@ const fetchClientData = async () => {
       memberSince: clientData.createdAt ? new Date(clientData.createdAt).toLocaleDateString('fr-FR') : 'Non spécifiée'
     };
 
-    // Charger les réservations
     await fetchReservations(clientData.idCli);
     
   } catch (error) {
@@ -151,7 +284,6 @@ const fetchReservations = async (clientId) => {
     const response = await ClientService.getClientReservations(clientId);
     const reservations = response.reservations || [];
     
-    // Trouver la prochaine réservation
     const now = new Date();
     const upcoming = reservations
       .filter(res => new Date(res.debRes) > now)
@@ -159,7 +291,6 @@ const fetchReservations = async (clientId) => {
     
     nextReservation.value = upcoming || {};
     
-    // Historique
     pastReservations.value = reservations
       .filter(res => res !== upcoming)
       .sort((a, b) => new Date(b.debRes) - new Date(a.debRes));
@@ -190,13 +321,13 @@ const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-const getStatusClass = (status) => {
+const getStatusType = (status) => {
   switch (status) {
-    case 'Confirmée': return 'text-success';
-    case 'En attente': return 'text-warning';
-    case 'Annulée': return 'text-danger';
-    case 'Terminée': return 'text-info';
-    default: return 'text-muted';
+    case 'Confirmée': return 'success';
+    case 'En attente': return 'warning';
+    case 'Annulée': return 'error';
+    case 'Terminée': return 'info';
+    default: return 'default';
   }
 };
 
@@ -206,14 +337,58 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.cedii-text-primary { color: #5B11EE !important; }
-.cedii-btn-primary { 
-  background-color: #5B11EE;
-  color: white;
-  border-color: #5B11EE;
+.main-content {
+  background-color: #ffffff;
 }
+
+.cedii-btn-primary { 
+  background-color: #5811EE;
+  color: white;
+  border-color: #5811EE;
+}
+
 .cedii-btn-primary:hover {
-  background-color: #0405BF;
-  border-color: #0405BF;
+  background-color: #04058F;
+  border-color: #04058F;
+}
+
+/* Style pour l'affichage vertical des détails de réservation */
+.reservation-details-vertical .detail-item {
+  border-left: 3px solid #5811EE;
+  padding-left: 12px;
+}
+
+.reservation-details-vertical .detail-label {
+  font-size: 0.8rem;
+  margin-bottom: 2px;
+}
+
+.reservation-details-vertical .detail-value {
+  font-size: 0.9rem;
+  color: #02061E;
+}
+
+:deep(.n-card__content) {
+  padding: 0;
+}
+
+:deep(.n-list) {
+  padding: 0;
+}
+
+:deep(.n-thing .n-thing-main .n-thing-header .n-thing-header__title) {
+  font-weight: 600;
+  color: #02061E;
+  font-size: 0.9rem;
+}
+
+:deep(.n-thing .n-thing-main .n-thing-header .n-thing-header__description) {
+  color: #55555E;
+  font-size: 0.85rem;
+}
+
+:deep(.n-card-header__main) {
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 </style>
