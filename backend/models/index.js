@@ -40,15 +40,29 @@ db.paiement = require("./paiement.js")(sequelize, DataTypes);
 
 
 
+// --- SECTION CRITIQUE : MISE EN PLACE DES ASSOCIATIONS ---
 Object.keys(db).forEach(modelName => {
-  // 💡 Vérifie si l'élément existe ET qu'il a une fonction associate
   if (db[modelName] && db[modelName].associate) { 
-    // Exclure les clés internes de Sequelize
     if (modelName !== 'Sequelize' && modelName !== 'sequelize') {
-      db[modelName].associate(db);
+      db[modelName].associate(db); // ⬅️ CETTE LIGNE EST CRITIQUE
     }
   }
 });
+
+// 🚨 CORRECTION DÉFINITIVE : FORCER L'ASSOCIATION BELONGS TO
+// Ceci contourne tout problème de casse ou d'exécution dans la boucle forEach.
+/*if (db.Client && db.utilisateur) {
+    db.Client.belongsTo(db.utilisateur, {
+        foreignKey: 'idUti',
+        as: 'utilisateur' // ⬅️ L'alias utilisé dans le contrôleur clientController.js
+    });
+
+    db.utilisateur.hasOne(db.Client, {
+        foreignKey: 'idUti',
+        as: 'clientProfile'
+    });
+}*/
+// --- FIN DE LA MISE EN PLACE DES ASSOCIATIONS ---
 
 // --- FIN DU CHARGEMENT DES MODÈLES ---
 

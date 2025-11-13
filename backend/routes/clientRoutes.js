@@ -9,6 +9,10 @@ const { verifyToken } = require('../middleware/authJwt'); // Supposons que le ch
 // 1. ROUTES SPÉCIFIQUES (DOIVENT VENIR EN PREMIER)
 // ===============================================
 
+// 1. ROUTE DE PROFIL DE L'UTILISATEUR CONNECTÉ (GET /api/clients/profile)
+// Elle doit être placée avant la route générique /:id
+router.get('/profile', verifyToken, clientController.getMyProfile);
+
 // [GET] /api/clients/rankings (Ne nécessite probablement pas d'authentification pour un classement public)
 router.get('/rankings', clientController.getRankings);
 router.get('/me', clientController.getCurrentClient);
@@ -16,7 +20,7 @@ router.get('/me', clientController.getCurrentClient);
 
 // [GET] /api/clients/profile (CRITIQUE : Récupère le profil de l'utilisateur connecté via TOKEN)
 // Doit être PROTÉGÉE par le middleware
-router.get('/profile', clientController.getMyProfile);
+//router.get('/profile', clientController.getMyProfile);
 // 🚨 AJOUTEZ CETTE ROUTE POUR LES RÉSERVATIONS
 router.get('/:id/reservations', clientController.getClientReservations);
 

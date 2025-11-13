@@ -4,7 +4,18 @@ const sequelize = require('./config/db');
 require('dotenv').config();
 const ReminderService = require('./routes/ReminderService');
 const app = express();
-app.use(cors());
+
+// --- 1. CONFIGURATION CORS (Pour résoudre le 403 Forbidden) ---
+const corsOptions = {
+    // 🚨 Remplacez par l'URL exacte de votre front-end (souvent 5173, 3000, ou autre)
+    origin: 'http://localhost:5173', 
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true, // IMPORTANT: Autorise l'envoi du token Bearer
+    optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions)); // Utilisez la configuration CORS
+//app.use(cors());//
 app.use(express.json());
 app.use(express.urlencoded({ extended: true}));
 

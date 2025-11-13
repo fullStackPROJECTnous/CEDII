@@ -17,6 +17,17 @@ async function checkAndSendReminders() {
                 [Op.lte]: reminderDate 
             }
         },
+
+        // 🚨 CORRECTION CRITIQUE 🚨
+            attributes: [
+                'idLo', 
+                'idRes', 
+                'debLo', 
+                'finLo', 
+                'etatLo' 
+                // N'INCLUEZ PAS 'idCli' ici
+            ],
+            
         include: [{
             model: Reservation,
             as: 'reservation',

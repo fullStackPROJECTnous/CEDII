@@ -122,8 +122,11 @@ async getProfile() {
     
      async getMyProfile() {
     try {
-      console.log("🔍 ClientService - appel profile");
-      const response = await axios.get(`${API_BASE_URL}/profile`);
+      console.log("🔍 ClientService - appel profile avec token...");
+      
+      // 🚨 CORRECTION : AJOUT DE L'EN-TÊTE D'AUTORISATION
+      const response = await axios.get(`${API_BASE_URL}/profile`, { headers: authHeader() }); 
+      
       return response.data;
     } catch (error) {
       console.error("Erreur lors de la récupération du profil:", error.response?.data || error);

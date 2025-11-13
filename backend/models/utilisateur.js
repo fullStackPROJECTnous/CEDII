@@ -27,11 +27,13 @@ module.exports = (sequelize, DataTypes) => {
     });
 
 
-       Utilisateur.associate = (models) => {
+      // 🚨 CORRECTION DES ASSOCIATIONS SEQUELIZE (Inverse)
+    Utilisateur.associate = (models) => {
+        // Un Utilisateur a une Fiche Client
         Utilisateur.hasOne(models.Client, {
-            foreignKey: 'idUti',
-            as: 'client'
+            foreignKey: 'idUti', 
+            as: 'clientProfile'
         });
-    };
+    };    
     return Utilisateur;
 };

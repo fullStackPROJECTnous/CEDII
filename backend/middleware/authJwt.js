@@ -7,58 +7,49 @@ const Utilisateur = db.utilisateur; // Assurez-vous que le modèle est correct
 // ======================================================
 
 const verifyToken = (req, res, next) => {
-    // 1. Récupérer le token (utilise 'Authorization: Bearer <token>' ou 'x-access-token')
-    let token = req.headers['x-access-token'] || req.headers['authorization'];
+    let token = req.headers['authorization'] || req.headers['x-access-token'];
 
     if (!token) {
         return res.status(403).send({
-            message: "Accès refusé. Aucun token fourni!"
+            message: "Accès refusé. Aucun token fourni dans les en-têtes."
         });
     }
 
-    // Retirer 'Bearer ' si présent
+    // Nettoyer le jeton : retirer "Bearer " s'il est présent
+    token = token.trim();
     if (token.startsWith('Bearer ')) {
-        token = token.slice(7, token.length);
+        token = token.slice(7);
     }
     
-    // 2. Vérifier et décoder le token
-    jwt.verify(token, process.env.JWT_SECRET || 'votre_cle_secrete', (err, decoded) => {
+    // 1. VÉRIFICATION ET DÉCODAGE DU JETON
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
         if (err) {
-            // Token expiré ou invalide
+            // Loggez l'erreur exacte dans le terminal du backend
+            console.error("Échec de la vérification JWT. Erreur :", err.name, ":", err.message); 
+            
+            // Renvoie une erreur 401 avec le message d'erreur exact du JWT
             return res.status(401).send({
-                message: "Non autorisé! Le token est invalide ou expiré."
+                message: "Non autorisé! Le token est invalide ou expiré.",
+                // Ceci vous montrera la raison exacte dans Postman (ex: 'invalid signature')
+                debug: err.message 
             });
         }
         
-        // 🚨 CORRECTION MAJEURE: Prioriser les clés 'idUti' ou 'id' du payload du token
-        const rawId = decoded.idUti || decoded.id; 
+        // 🚨 AJOUTEZ CE LOG CRITIQUE
+        console.log("Contenu du token décodé:", decoded);
 
-        if (rawId) {
-            // Conversion forcée en entier pour prévenir le 'NaN'
-            const idUtiNumber = parseInt(rawId, 10); 
-
-            if (isNaN(idUtiNumber)) {
-                // Si la valeur est bien là mais non numérique
-                 return res.status(401).send({
-                    message: "Authentification requise. ID utilisateur non disponible ou invalide."
-                });
-            }
-            
-            // 3. Stocker l'ID sous le nom ATTENDU par le contrôleur
-            req.idUti = idUtiNumber; 
-            
-            // Stocker le rôle
-            req.userRole = decoded.role; 
-
-            next(); // Succès
-        } else {
-             // Si le token est valide mais ne contient pas l'ID
-             return res.status(401).send({
-                message: "Authentification requise. ID utilisateur non disponible ou invalide."
-            });
-        }
+        // 2. 🚨 INJECTION DE L'ID (Correction basée sur le payload réel)
+        // Le token contient { idUti: 14, loginUti: 'Daniella', ... }
+        req.idUti = decoded.id; // ⬅️ Utilisez la clé idUti du payload
+        req.userRole = decoded.roleUti; 
+        
+        // Log de vérification (à retirer en production)
+        console.log("Token décodé avec succès. ID injecté dans req.idUti:", req.idUti);
+        
+        next(); // Passe au contrôleur (clientController.getMyProfile)
     });
 };
+
 // Le reste du fichier 'middleware/auth.js' reste inchangé (exports, isAdmin, etc.)
 // ======================================================
 // 2. Middleware de Vérification du Rôle (Admin Check)
