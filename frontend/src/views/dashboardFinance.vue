@@ -78,13 +78,13 @@
                         <strong>{{ litigeCount }}</strong> dossiers de pénalités ou dégradations requièrent votre action. Traitez-les pour déclencher les calculs de jours de retard.
                     </n-alert>
 
-                    <!-- Disposition horizontale compacte -->
+                    <!-- Disposition horizontale compacte - MODIFIÉE -->
                     <div class="row g-3">
-                        <!-- Colonne KPIs (gauche) - Plus compacte -->
-                        <div class="col-lg-8">
+                        <!-- Colonne KPIs (gauche) - RÉDUITE -->
+                        <div class="col-lg-6">
                             <n-card title="Indicateurs Financiers" class="shadow-sm h-100" content-class="p-2">
-                                <div class="kpis-grid">
-                                    <div class="kpi-item">
+                                <div class="kpis-grid-compact">
+                                    <div class="kpi-item-compact">
                                         <KpiCard 
                                             icon="bi-file-earmark-plus" 
                                             title="Factures à Générer" 
@@ -95,34 +95,34 @@
                                             compact
                                         />
                                     </div>
-                                    <div class="kpi-item">
+                                    <div class="kpi-item-compact">
                                         <KpiCard 
                                             icon="bi-hourglass-split" 
                                             title="Paiements en Attente" 
                                             :value="pendingPaymentsCount" 
-                                            :trend="`Montant: ${formatCurrency(kpis.pendingAmount)}`" 
+                                            :trend="`${formatCurrency(kpis.pendingAmount)}`" 
                                             color="text-warning"
                                             linkName="SuiviPaiements"
                                             compact
                                         />
                                     </div>
-                                    <div class="kpi-item">
+                                    <div class="kpi-item-compact">
                                         <KpiCard 
                                             icon="bi-receipt" 
-                                            title="Jours de Retard (Moy.)" 
+                                            title="Jours Retard (Moy)" 
                                             :value="kpis.avgDaysLate" 
-                                            trend="Tendance : -2 jours" 
+                                            trend="-2 jours" 
                                             color="text-danger"
                                             linkName="PenalitesLitiges"
                                             compact
                                         />
                                     </div>
-                                    <div class="kpi-item">
+                                    <div class="kpi-item-compact">
                                         <KpiCard 
                                             icon="bi-currency-euro" 
-                                            title="Paiements Automatisés" 
+                                            title="Paiements Auto" 
                                             :value="kpis.autoPaymentRate" 
-                                            trend="Taux de réussite email 98%" 
+                                            trend="98% réussite" 
                                             color="text-success"
                                             linkName="SuiviPaiements"
                                             compact
@@ -132,8 +132,8 @@
                             </n-card>
                         </div>
 
-                        <!-- Colonne Statistiques (droite) -->
-                        <div class="col-lg-4">
+                        <!-- Colonne Synthèse Cashflow (droite) - AGRANDIE -->
+                        <div class="col-lg-6">
                             <n-card title="Synthèse Cashflow" class="shadow-sm h-100">
                                 <template #header-extra>
                                     <n-button 
@@ -153,7 +153,7 @@
                                     </n-button>
                                 </template>
                                 
-                                <div class="chart-container d-flex flex-column justify-content-center align-items-center" style="height: 250px;">
+                                <div class="cashflow-container-expanded">
                                     <div v-if="loadingCashflow" class="text-center text-muted">
                                         <n-spin size="medium" />
                                         <p class="mt-2 mb-0 small">Calcul des indicateurs...</p>
@@ -170,14 +170,14 @@
                                         </n-empty>
                                     </div>
                                     <div v-else class="w-100 h-100 d-flex flex-column">
-                                        <div class="text-center mb-2">
+                                        <div class="text-center mb-3">
                                             <h6 class="mb-1 fw-bold">État Financier</h6>
                                             <small class="text-muted">Solde: {{ formatCurrency(cashflowData.kpis.soldeNet) }}</small>
                                         </div>
-                                        <div class="flex-grow-1 position-relative">
+                                        <div class="cashflow-chart-expanded">
                                             <canvas ref="cashflowChartCanvas" class="w-100 h-100"></canvas>
                                         </div>
-                                        <div class="mt-2">
+                                        <div class="mt-3">
                                             <div class="row text-center small">
                                                 <div class="col-6">
                                                     <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(24, 160, 88, 0.8); border-radius: 2px;"></span>
@@ -609,7 +609,7 @@ onMounted(() => {
 
 /* Sidebar en bleu nuit identique à la navbar */
 .cedii-sidebar {
-    background-color: #02061E !important; /* Même bleu nuit que la navbar */
+    background-color: #02061E !important;
 }
 
 .sidebar-content {
@@ -620,71 +620,62 @@ onMounted(() => {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.3); /* Bordure similaire à la navbar */
+    border: 2px solid rgba(255, 255, 255, 0.3);
     object-fit: cover;
 }
 
 .sidebar-title {
     color: white !important;
     font-weight: 600;
-    font-size: 0.9rem; /* Taille similaire à la navbar */
+    font-size: 0.9rem;
 }
 
-/* Styles pour le menu - Texte blanc */
+/* Styles pour le menu */
 :deep(.cedii-menu) {
     background-color: transparent !important;
 }
 
-:deep(.cedii-menu .n-menu-item) {
-    border-radius: 8px;
-    margin-bottom: 4px;
-}
-
 :deep(.cedii-menu .n-menu-item .n-menu-item-content) {
     color: white !important;
-    transition: all 0.3s ease;
-    background-color: transparent !important;
 }
 
-/* HOVER COMPLÈTEMENT SUPPRIMÉ - AUCUN CHANGEMENT AU SURVOL */
-:deep(.cedii-menu .n-menu-item .n-menu-item-content:hover) {
-    /* RIEN - HOVER SUPPRIMÉ */
-    background-color: transparent !important;
-    color: white !important;
-}
-
-/* Élément actif avec soulignage bleu comme la navbar */
 :deep(.cedii-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected) {
     background-color: transparent !important;
     color: white !important;
     font-weight: 600;
-    border-bottom: 2px solid #04058F; /* Même bleu que la navbar active */
+    border-bottom: 2px solid #04058F;
     border-radius: 0;
 }
 
-:deep(.cedii-menu .n-menu-item .n-menu-item-content .n-menu-item-content__icon) {
-    color: white !important;
+/* INDICATEURS CLÉS COMPACT */
+.kpis-grid-compact {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
 }
 
-/* HOVER DES ICÔNES SUPPRIMÉ */
-:deep(.cedii-menu .n-menu-item .n-menu-item-content:hover .n-menu-item-content__icon) {
-    color: white !important; /* Reste blanc au hover */
+.kpi-item-compact {
+    min-height: 60px;
 }
 
-:deep(.cedii-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected .n-menu-item-content__icon) {
-    color: white !important;
+/* SYNTHÈSE CASHFLOW AGRANDIE */
+.cashflow-container-expanded {
+    height: 300px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
-:deep(.cedii-menu .n-menu-item .n-menu-item-content .n-menu-item-content__arrow) {
-    color: white !important;
+.cashflow-chart-expanded {
+    flex-grow: 1;
+    min-height: 180px;
+    position: relative;
+    width: 100%;
 }
 
-/* HOVER DES FLÈCHES SUPPRIMÉ */
-:deep(.cedii-menu .n-menu-item .n-menu-item-content:hover .n-menu-item-content__arrow) {
-    color: white !important; /* Reste blanc au hover */
-}
-
-/* Style pour le bouton de déconnexion cohérent avec la navbar */
+/* Style pour le bouton de déconnexion */
 :deep(.n-button.n-button--error-type.n-button--ghost) {
     color: #dc3545 !important;
     border-color: #dc3545 !important;
@@ -696,31 +687,9 @@ onMounted(() => {
     color: white !important;
 }
 
-/* Style pour le badge */
-:deep(.cedii-menu .n-badge .n-badge-sup) {
-    color: white !important;
-    background-color: #dc3545;
-    font-weight: bold;
-}
-
 :deep(.n-layout-header) {
     background-color: white !important;
     border-bottom: 1px solid #e0e0e0;
-}
-
-/* Disposition KPIs en grille compacte */
-.kpis-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
-}
-
-.kpi-item {
-    min-height: 80px;
-}
-
-.chart-container {
-    min-height: 250px;
 }
 
 /* Responsive */
@@ -729,20 +698,29 @@ onMounted(() => {
         flex-direction: column;
     }
     
-    .col-lg-8, .col-lg-4 {
+    .col-lg-6, .col-lg-7, .col-lg-5 {
         width: 100%;
     }
     
-    .kpis-grid {
+    .kpis-grid-compact {
         grid-template-columns: 1fr;
-        gap: 0.5rem;
+        gap: 0.4rem;
+    }
+    
+    .cashflow-container-expanded {
+        height: 250px;
+        min-height: 250px;
     }
 }
 
 @media (min-width: 1200px) {
-    .kpis-grid {
+    .kpis-grid-compact {
         grid-template-columns: 1fr 1fr;
-        gap: 0.8rem;
+        gap: 0.6rem;
+    }
+    
+    .cashflow-container-expanded {
+        height: 320px;
     }
 }
 
@@ -760,11 +738,11 @@ onMounted(() => {
 
 /* Styles pour les cartes compactes */
 :deep(.n-card .n-card-header) {
-    padding: 12px 16px;
+    padding: 10px 14px;
 }
 
 :deep(.n-card .n-card-content) {
-    padding: 12px 16px;
+    padding: 10px 14px;
 }
 
 /* Amélioration de l'espacement général */

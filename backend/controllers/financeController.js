@@ -789,3 +789,1145 @@ exports.getCashflowSynthese = async (req, res) => {
         res.status(200).send(responseSecours);
     }
 };
+
+
+exports.getConfirmedLocationsToInvoice = async (req, res) => {
+    try {
+        const sqlConfirmedLocations = `
+            SELECT 
+                l.idLo,
+                l.idRes,
+                l.debLo,
+                l.finLo,
+                l.typeLo,
+                l.tarifTot,
+                l.etatLo,
+                l.qteMat,
+                l.nbPersp,
+                c.idCli,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,  -- ⬅️ ASSUREZ-VOUS QUE CETTE COLONNE EST BIEN PRÉSENTE
+                c.telephoneCli,
+                r.typeRes,
+                r.qteMat as reservationQteMat,
+                m.codeMat,
+                m.designationMat,
+                m.tarifHeure as materielTarifHeure,
+                m.tarifDemiJournee as materielTarifDemiJournee,
+                m.tarifJour as materielTarifJour,
+                s.idSalle,
+                s.nomSalle,
+                s.tarifHeure as salleTarifHeure,
+                s.tarifDemiJournee as salleTarifDemiJournee,
+                s.tarifJour as salleTarifJour,
+                DATEDIFF(DATE(l.debLo), CURDATE()) AS joursAvantDebut
+            FROM 
+                location l
+            JOIN 
+                reservation r ON l.idRes = r.idRes
+            JOIN 
+                client c ON r.idCli = c.idCli  -- ⬅️ CETTE JOINTURE DOIT FONCTIONNER
+            LEFT JOIN 
+                materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN 
+                salle s ON r.idSalle = s.idSalle
+            LEFT JOIN 
+                paiement p ON l.idLo = p.idLo AND p.statutPaie = 'Effectué'
+            WHERE 
+                l.etatLo = 'Confirmée'
+                AND p.idPaie IS NULL
+            ORDER BY 
+                l.debLo ASC;
+        `;
+
+        const confirmedLocations = await sequelize.query(sqlConfirmedLocations, { 
+            type: sequelize.QueryTypes.SELECT 
+        });
+
+        console.log('📍 Données récupérées:', confirmedLocations.length, 'locations');
+        console.log('📍 Premier élément:', confirmedLocations[0] ? {
+            idLo: confirmedLocations[0].idLo,
+            nomCli: confirmedLocations[0].nomCli,
+            emailCli: confirmedLocations[0].emailCli  // Vérifiez cette valeur
+        } : 'Aucune donnée');
+
+        const formattedLocations = confirmedLocations.map(location => ({
+            idLo: location.idLo,
+            idRes: location.idRes,
+            client: {
+                nomCli: location.nomCli,
+                prenomCli: location.prenomCli,
+                emailCli: location.emailCli,  // ⬅️ ICI AUSSI
+                telephoneCli: location.telephoneCli
+            },
+            debLo: location.debLo,
+            finLo: location.finLo,
+            typeLo: location.typeLo,
+            tarifTot: location.tarifTot,
+            etatLo: location.etatLo,
+            qteMat: location.qteMat,
+            nbPersp: location.nbPersp,
+            materiel: location.codeMat ? {
+                codeMat: location.codeMat,
+                designationMat: location.designationMat,
+                tarifs: {
+                    heure: location.materielTarifHeure,
+                    demiJournee: location.materielTarifDemiJournee,
+                    jour: location.materielTarifJour
+                }
+            } : null,
+            salle: location.idSalle ? {
+                idSalle: location.idSalle,
+                nomSalle: location.nomSalle,
+                tarifs: {
+                    heure: location.salleTarifHeure,
+                    demiJournee: location.salleTarifDemiJournee,
+                    jour: location.salleTarifJour
+                }
+            } : null,
+            joursAvantDebut: location.joursAvantDebut,
+            statutFacturation: 'À facturer'
+        }));
+
+        res.status(200).send(formattedLocations);
+
+    } catch (error) {
+        console.error("Erreur getConfirmedLocationsToInvoice:", error);
+        res.status(500).send({ 
+            message: "Échec de la récupération des locations confirmées à facturer.",
+            error: error.message 
+        });
+    }
+};
+
+// Fonction pour créer une facture à partir d'une location confirmée
+exports.createInvoiceFromLocation = async (req, res) => {
+    const { idLo } = req.params;
+
+    try {
+        // 1. Récupérer les données de la location
+        const sqlLocationData = `
+            SELECT 
+                l.*,
+                c.nomCli, c.prenomCli, c.emailCli,
+                r.typeRes,
+                m.designationMat as materielDesignation,
+                s.nomSalle as salleNom
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN salle s ON r.idSalle = s.idSalle
+            WHERE l.idLo = :idLo
+        `;
+
+        const [locationData] = await sequelize.query(sqlLocationData, {
+            replacements: { idLo },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        if (!locationData) {
+            return res.status(404).send({ message: "Location non trouvée." });
+        }
+
+        // 2. Calculer le montant de la facture
+        let montantFacture = parseFloat(locationData.tarifTot);
+        
+        // Si pas de tarif défini, calculer basé sur la durée
+        if (!montantFacture || montantFacture === 0) {
+            const debut = new Date(locationData.debLo);
+            const fin = new Date(locationData.finLo);
+            const dureeHeures = (fin - debut) / (1000 * 60 * 60);
+            
+            let tarifUnitaire = 0;
+            
+            if (locationData.typeLo === 'Materiel' && locationData.materielDesignation) {
+                // Logique de calcul pour matériel
+                if (dureeHeures <= 4) {
+                    tarifUnitaire = 5000; // Exemple
+                } else if (dureeHeures <= 8) {
+                    tarifUnitaire = 8000;
+                } else {
+                    tarifUnitaire = 1000 * Math.ceil(dureeHeures);
+                }
+            } else if (locationData.typeLo === 'Salle' && locationData.salleNom) {
+                // Logique de calcul pour salle
+                if (dureeHeures <= 4) {
+                    tarifUnitaire = 25000;
+                } else if (dureeHeures <= 8) {
+                    tarifUnitaire = 40000;
+                } else {
+                    tarifUnitaire = 5000 * Math.ceil(dureeHeures);
+                }
+            }
+            
+            montantFacture = tarifUnitaire * (locationData.qteMat || 1);
+        }
+
+        // 3. Créer l'enregistrement de paiement (simule la facture)
+        const paiementData = {
+            idLo: idLo,
+            dateCre: new Date(),
+            modePaie: 'À définir',
+            montantPaie: montantFacture,
+            statutPaie: 'En attente',
+            libellePaie: `Facture location ${locationData.typeLo} - ${locationData.materielDesignation || locationData.salleNom || 'Non spécifié'}`
+        };
+
+        const [paiementId] = await sequelize.query(
+            `INSERT INTO paiement SET ?`,
+            { replacements: [paiementData] }
+        );
+
+        // 4. Préparer les données pour l'email
+        const factureData = {
+            idFacture: paiementId,
+            idLocation: idLo,
+            client: {
+                nom: locationData.nomCli,
+                prenom: locationData.prenomCli,
+                email: locationData.emailCli
+            },
+            location: {
+                type: locationData.typeLo,
+                designation: locationData.materielDesignation || locationData.salleNom,
+                dateDebut: locationData.debLo,
+                dateFin: locationData.finLo,
+                quantite: locationData.qteMat || 1
+            },
+            montant: montantFacture,
+            dateEmission: new Date()
+        };
+
+        res.status(201).send({
+            message: "Facture créée avec succès",
+            facture: factureData,
+            emailReady: true
+        });
+
+    } catch (error) {
+        console.error("Erreur createInvoiceFromLocation:", error);
+        res.status(500).send({ 
+            message: "Échec de la création de la facture.",
+            error: error.message 
+        });
+    }
+};
+
+// =========================================================================
+// A. NOUVELLES FONCTIONS POUR LA GESTION DES FACTURES AVANCÉE
+// =========================================================================
+
+/**
+ * Récupère les locations confirmées à facturer (pour la nouvelle interface)
+ */
+exports.getConfirmedLocationsToInvoice = async (req, res) => {
+    try {
+        const sqlConfirmedLocations = `
+            SELECT 
+                l.idLo,
+                l.idRes,
+                l.debLo,
+                l.finLo,
+                l.typeLo,
+                l.tarifTot,
+                l.etatLo,
+                l.qteMat,
+                l.nbPersp,
+                c.idCli,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                c.telephoneCli,
+                r.typeRes,
+                r.qteMat as reservationQteMat,
+                m.codeMat,
+                m.designationMat,
+                m.tarifHeure as materielTarifHeure,
+                m.tarifDemiJournee as materielTarifDemiJournee,
+                m.tarifJour as materielTarifJour,
+                s.idSalle,
+                s.nomSalle,
+                s.tarifHeure as salleTarifHeure,
+                s.tarifDemiJournee as salleTarifDemiJournee,
+                s.tarifJour as salleTarifJour,
+                DATEDIFF(DATE(l.debLo), CURDATE()) AS joursAvantDebut
+            FROM 
+                location l
+            JOIN 
+                reservation r ON l.idRes = r.idRes
+            JOIN 
+                client c ON r.idCli = c.idCli
+            LEFT JOIN 
+                materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN 
+                salle s ON r.idSalle = s.idSalle
+            LEFT JOIN 
+                paiement p ON l.idLo = p.idLo AND p.statutPaie = 'Effectué'
+            WHERE 
+                l.etatLo = 'Confirmée'
+                AND p.idPaie IS NULL
+            ORDER BY 
+                l.debLo ASC;
+        `;
+
+        const confirmedLocations = await sequelize.query(sqlConfirmedLocations, { 
+            type: sequelize.QueryTypes.SELECT 
+        });
+
+        const formattedLocations = confirmedLocations.map(location => ({
+            idLo: location.idLo,
+            idRes: location.idRes,
+            client: {
+                nomCli: location.nomCli,
+                prenomCli: location.prenomCli,
+                emailCli: location.emailCli,
+                telephoneCli: location.telephoneCli
+            },
+            debLo: location.debLo,
+            finLo: location.finLo,
+            typeLo: location.typeLo,
+            tarifTot: location.tarifTot,
+            etatLo: location.etatLo,
+            qteMat: location.qteMat,
+            nbPersp: location.nbPersp,
+            materiel: location.codeMat ? {
+                codeMat: location.codeMat,
+                designationMat: location.designationMat,
+                tarifs: {
+                    heure: location.materielTarifHeure,
+                    demiJournee: location.materielTarifDemiJournee,
+                    jour: location.materielTarifJour
+                }
+            } : null,
+            salle: location.idSalle ? {
+                idSalle: location.idSalle,
+                nomSalle: location.nomSalle,
+                tarifs: {
+                    heure: location.salleTarifHeure,
+                    demiJournee: location.salleTarifDemiJournee,
+                    jour: location.salleTarifJour
+                }
+            } : null,
+            joursAvantDebut: location.joursAvantDebut,
+            statutFacturation: 'À facturer'
+        }));
+
+        res.status(200).send(formattedLocations);
+
+    } catch (error) {
+        console.error("Erreur getConfirmedLocationsToInvoice:", error);
+        res.status(500).send({ 
+            message: "Échec de la récupération des locations confirmées à facturer.",
+            error: error.message 
+        });
+    }
+};
+
+/**
+ * Crée une facture et envoie par email
+ */
+/*exports.createAndSendInvoice = async (req, res) => {
+    const { locationId, clientEmail } = req.body;
+
+    try {
+        // 1. Récupérer les données de la location
+        const sqlLocationData = `
+            SELECT 
+                l.*,
+                c.nomCli, c.prenomCli, c.emailCli,
+                r.typeRes,
+                m.designationMat as materielDesignation,
+                m.tarifHeure as materielTarifHeure,
+                m.tarifDemiJournee as materielTarifDemiJournee,
+                m.tarifJour as materielTarifJour,
+                s.nomSalle as salleNom,
+                s.tarifHeure as salleTarifHeure,
+                s.tarifDemiJournee as salleTarifDemiJournee,
+                s.tarifJour as salleTarifJour
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN salle s ON r.idSalle = s.idSalle
+            WHERE l.idLo = :locationId
+        `;
+
+        const [locationData] = await sequelize.query(sqlLocationData, {
+            replacements: { locationId },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        if (!locationData) {
+            return res.status(404).send({ message: "Location non trouvée." });
+        }
+
+        // 2. Calculer le montant de la facture
+        let montantFacture = parseFloat(locationData.tarifTot);
+        
+        // Si pas de tarif défini, calculer basé sur la durée
+        if (!montantFacture || montantFacture === 0) {
+            const debut = new Date(locationData.debLo);
+            const fin = new Date(locationData.finLo);
+            const dureeHeures = (fin - debut) / (1000 * 60 * 60);
+            
+            let tarifUnitaire = 0;
+            
+            if (locationData.typeLo === 'Materiel' && locationData.materielDesignation) {
+                const materiel = locationData;
+                if (dureeHeures <= 4) {
+                    tarifUnitaire = parseFloat(materiel.materielTarifDemiJournee) || 0;
+                } else if (dureeHeures <= 8) {
+                    tarifUnitaire = parseFloat(materiel.materielTarifJour) || 0;
+                } else {
+                    tarifUnitaire = (parseFloat(materiel.materielTarifHeure) || 0) * dureeHeures;
+                }
+            } else if (locationData.typeLo === 'Salle' && locationData.salleNom) {
+                const salle = locationData;
+                if (dureeHeures <= 4) {
+                    tarifUnitaire = parseFloat(salle.salleTarifDemiJournee) || 0;
+                } else if (dureeHeures <= 8) {
+                    tarifUnitaire = parseFloat(salle.salleTarifJour) || 0;
+                } else {
+                    tarifUnitaire = (parseFloat(salle.salleTarifHeure) || 0) * dureeHeures;
+                }
+            }
+            
+            montantFacture = tarifUnitaire * (locationData.qteMat || 1);
+        }
+
+        // 3. Générer un numéro de facture unique
+        const numeroFacture = await generateInvoiceNumber();
+
+        // 4. Créer l'enregistrement de paiement/facture
+        const paiementData = {
+            idLo: locationId,
+            dateCre: new Date(),
+            dateFacture: new Date(),
+            modePaie: 'À définir',
+            montantPaie: montantFacture,
+            statutPaie: 'En attente',
+            numeroFacture: numeroFacture,
+            libellePaie: `Facture location ${locationData.typeLo} - ${locationData.materielDesignation || locationData.salleNom || 'Non spécifié'}`
+        };
+
+        const [paiementId] = await sequelize.query(
+            `INSERT INTO paiement SET ?`,
+            { replacements: [paiementData] }
+        );
+
+        // 5. Préparer les données pour l'email
+        const factureData = {
+            idFacture: paiementId,
+            numeroFacture: numeroFacture,
+            idLocation: locationId,
+            client: {
+                nom: locationData.nomCli,
+                prenom: locationData.prenomCli,
+                email: clientEmail || locationData.emailCli
+            },
+            location: {
+                type: locationData.typeLo,
+                designation: locationData.materielDesignation || locationData.salleNom,
+                dateDebut: locationData.debLo,
+                dateFin: locationData.finLo,
+                quantite: locationData.qteMat || 1
+            },
+            montant: montantFacture,
+            dateEmission: new Date()
+        };
+
+        // 6. Envoyer l'email (simulation)
+        const emailResult = await sendInvoiceEmail(factureData);
+
+        // 7. Marquer l'email comme envoyé
+        await sequelize.query(
+            `UPDATE paiement SET emailEnvoye = TRUE, dateEnvoiEmail = NOW() WHERE idPaie = ?`,
+            { replacements: [paiementId] }
+        );
+
+        res.status(201).send({
+            message: "Facture créée et envoyée avec succès",
+            facture: factureData,
+            emailSent: true,
+            paiementId: paiementId
+        });
+
+    } catch (error) {
+        console.error("Erreur createAndSendInvoice:", error);
+        res.status(500).send({ 
+            message: "Échec de la création et envoi de la facture.",
+            error: error.message 
+        });
+    }
+};
+*/
+
+// Dans financeController.js - AMÉLIORATION DE createAndSendInvoice
+
+/**
+ * Crée et envoie une facture par email + met à jour tous les indicateurs
+ */
+// Dans financeController.js - CORRECTION DE LA REQUÊTE SQL
+
+/**
+ * Crée et envoie une facture par email (VERSION CORRIGÉE)
+ */
+exports.createAndSendInvoice = async (req, res) => {
+    console.log('📍 DÉBUT createAndSendInvoice - Corps de la requête:', req.body);
+    
+    const { locationId, clientEmail } = req.body;
+
+    // Validation des données
+    if (!locationId) {
+        console.error('❌ Erreur: locationId manquant');
+        return res.status(400).send({ message: "ID de location manquant." });
+    }
+
+    const transaction = await sequelize.transaction();
+    
+    try {
+        // 1. Récupérer les données de base de la location
+        const sqlLocationData = `
+            SELECT 
+                l.idLo,
+                l.tarifTot,
+                l.debLo,
+                l.finLo,
+                l.typeLo,
+                l.qteMat,
+                l.nbPersp,
+                c.idCli,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                c.telephoneCli,
+                r.typeRes,
+                m.designationMat as materielDesignation,
+                s.nomSalle as salleNom
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN salle s ON r.idSalle = s.idSalle
+            WHERE l.idLo = ?
+        `;
+
+        console.log('📍 Exécution requête location data pour ID:', locationId);
+        
+        const [locationData] = await sequelize.query(sqlLocationData, {
+            replacements: [locationId],
+            type: sequelize.QueryTypes.SELECT,
+            transaction
+        });
+
+        if (!locationData) {
+            await transaction.rollback();
+            console.error('❌ Location non trouvée pour ID:', locationId);
+            return res.status(404).send({ message: "Location non trouvée." });
+        }
+
+        console.log('📍 Données location récupérées:', locationData);
+
+        // 2. Calculer le montant
+        let montantFacture = parseFloat(locationData.tarifTot) || 0;
+        
+        if (montantFacture === 0) {
+            // Calcul basique si pas de tarif défini
+            const debut = new Date(locationData.debLo);
+            const fin = new Date(locationData.finLo);
+            const dureeHeures = (fin - debut) / (1000 * 60 * 60);
+            
+            // Tarifs par défaut
+            if (locationData.typeLo === 'Materiel') {
+                montantFacture = dureeHeures * 5000 * (locationData.qteMat || 1);
+            } else if (locationData.typeLo === 'Salle') {
+                montantFacture = dureeHeures * 10000 * (locationData.nbPersp || 1);
+            } else {
+                montantFacture = dureeHeures * 7500;
+            }
+        }
+
+        // 3. Générer un numéro de facture simple
+        const numeroFacture = `FACT-${new Date().getFullYear()}-${Date.now()}`;
+
+        // 4. Créer l'enregistrement de paiement - CORRECTION ICI
+        const paiementData = {
+            idLo: locationId,
+            dateCre: new Date(),
+            dateFacture: new Date(),
+            modePaie: 'À définir',
+            montantPaie: montantFacture,
+            statutPaie: 'En attente',
+            numeroFacture: numeroFacture,
+            emailEnvoye: true,
+            dateEnvoiEmail: new Date(),
+            libellePaie: `Facture location ${locationData.typeLo} - ${locationData.materielDesignation || locationData.salleNom || 'Non spécifié'}`
+        };
+
+        console.log('📍 Données paiement à insérer:', paiementData);
+
+        // CORRECTION : Utiliser la syntaxe correcte pour l'insertion
+        const [paiementId] = await sequelize.query(
+            `INSERT INTO paiement (idLo, dateCre, dateFacture, modePaie, montantPaie, statutPaie, numeroFacture, emailEnvoye, dateEnvoiEmail, libellePaie) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            {
+                replacements: [
+                    paiementData.idLo,
+                    paiementData.dateCre,
+                    paiementData.dateFacture,
+                    paiementData.modePaie,
+                    paiementData.montantPaie,
+                    paiementData.statutPaie,
+                    paiementData.numeroFacture,
+                    paiementData.emailEnvoye,
+                    paiementData.dateEnvoiEmail,
+                    paiementData.libellePaie
+                ],
+                transaction
+            }
+        );
+
+        console.log('📍 Paiement créé avec ID:', paiementId);
+
+        // 5. Envoyer l'email de confirmation (simulation)
+        const emailResult = await sendInvoiceEmail({
+            numeroFacture: numeroFacture,
+            client: {
+                nom: locationData.nomCli,
+                prenom: locationData.prenomCli,
+                email: clientEmail || locationData.emailCli
+            },
+            location: {
+                type: locationData.typeLo,
+                designation: locationData.materielDesignation || locationData.salleNom,
+                dateDebut: locationData.debLo,
+                dateFin: locationData.finLo,
+                quantite: locationData.qteMat || 1
+            },
+            montant: montantFacture
+        });
+
+        // 6. Récupérer les nouveaux indicateurs mis à jour
+         const newStats = await getUpdatedDashboardStats(transaction);
+
+        await transaction.commit();
+
+        console.log(`✅ Facture ${numeroFacture} créée et envoyée à ${clientEmail || locationData.emailCli}`);
+
+        // 7. ENVOYER LES NOUVELLES STATISTIQUES dans la réponse
+        res.status(201).send({
+            message: "Facture créée et envoyée avec succès",
+            facture: {
+                idFacture: paiementId,
+                numeroFacture: numeroFacture,
+                idLocation: locationId,
+                montant: montantFacture,
+                clientEmail: clientEmail || locationData.emailCli
+            },
+            emailSent: true,
+            newStats: newStats // 🔥 IMPORTANT: Envoyer les stats mises à jour
+        });
+
+    } catch (error) {
+        await transaction.rollback();
+        console.error("❌ ERREUR createAndSendInvoice:", error);
+        res.status(500).send({ 
+            message: "Échec de la création et envoi de la facture.",
+            error: error.message
+        });
+    }
+};
+
+// 🔥 NOUVELLE FONCTION POUR RÉCUPÉRER LES STATS ACTUALISÉES
+async function getUpdatedDashboardStats(transaction = null) {
+    try {
+        const options = transaction ? { transaction } : {};
+
+        // 1. Locations confirmées à facturer (restantes)
+        const [confirmedCount] = await sequelize.query(`
+            SELECT COUNT(*) as count
+            FROM location l
+            WHERE l.etatLo = 'Confirmée'
+            AND l.idLo NOT IN (SELECT idLo FROM paiement WHERE statutPaie = 'Effectué')
+        `, { 
+            type: sequelize.QueryTypes.SELECT,
+            ...options 
+        });
+
+        // 2. Factures envoyées (total)
+        const [invoicesSentCount] = await sequelize.query(`
+            SELECT COUNT(*) as count
+            FROM paiement 
+            WHERE emailEnvoye = TRUE
+        `, { 
+            type: sequelize.QueryTypes.SELECT,
+            ...options 
+        });
+
+        // 3. Chiffre d'affaires total
+        const [revenueData] = await sequelize.query(`
+            SELECT COALESCE(SUM(montantPaie), 0) as totalRevenue
+            FROM paiement 
+            WHERE statutPaie = 'Effectué'
+        `, { 
+            type: sequelize.QueryTypes.SELECT,
+            ...options 
+        });
+
+        // 4. Paiements en attente
+        const [pendingData] = await sequelize.query(`
+            SELECT 
+                COUNT(*) as pendingCount,
+                COALESCE(SUM(montantPaie), 0) as pendingAmount
+            FROM paiement 
+            WHERE statutPaie = 'En attente'
+        `, { 
+            type: sequelize.QueryTypes.SELECT,
+            ...options 
+        });
+
+        return {
+            confirmedLocationsCount: parseInt(confirmedCount?.count) || 0,
+            invoicesSentCount: parseInt(invoicesSentCount?.count) || 0,
+            totalRevenue: parseFloat(revenueData?.totalRevenue) || 0,
+            pendingPaymentsCount: parseInt(pendingData?.pendingCount) || 0,
+            pendingAmount: parseFloat(pendingData?.pendingAmount) || 0
+        };
+
+    } catch (error) {
+        console.error("Erreur getUpdatedDashboardStats:", error);
+        return {
+            confirmedLocationsCount: 0,
+            invoicesSentCount: 0,
+            totalRevenue: 0,
+            pendingPaymentsCount: 0,
+            pendingAmount: 0
+        };
+    }
+}
+
+/**
+ * Simule l'envoi d'email de confirmation de facture
+ */
+async function sendInvoiceEmail(factureData) {
+    try {
+        const emailContent = {
+            to: factureData.client.email,
+            subject: `🎉 Votre Facture ${factureData.numeroFacture} - CEDII`,
+            body: `
+                Bonjour ${factureData.client.prenom} ${factureData.client.nom},
+
+                Votre facture a été créée avec succès !
+
+                📋 Détails de la facture:
+                • Numéro: ${factureData.numeroFacture}
+                • Location: ${factureData.location.type} - ${factureData.location.designation}
+                • Période: ${new Date(factureData.location.dateDebut).toLocaleDateString('fr-FR')} au ${new Date(factureData.location.dateFin).toLocaleDateString('fr-FR')}
+                • Montant: ${parseFloat(factureData.montant).toLocaleString('fr-FR')} Ar
+
+                💳 Mode de paiement:
+                Vous pouvez effectuer le paiement par:
+                - Virement bancaire
+                - Mobile Money
+                - Espèces à notre agence
+
+                📞 Contact:
+                Pour toute question, contactez-nous au +261 XX XX XXX XX
+
+                Cordialement,
+                L'équipe Finance CEDII
+                📧 finance@cedii.mg
+                🌐 www.cedii.mg
+            `
+        };
+
+        // Simulation d'envoi d'email
+        console.log(`[EMAIL ENVOYÉ] Facture ${factureData.numeroFacture} à ${factureData.client.email}`);
+        console.log(`Sujet: ${emailContent.subject}`);
+        
+        return { 
+            success: true, 
+            message: "Email envoyé avec succès",
+            emailDetails: emailContent
+        };
+        
+    } catch (error) {
+        console.error("Erreur envoi email:", error);
+        return { 
+            success: false, 
+            message: "Erreur lors de l'envoi de l'email",
+            error: error.message 
+        };
+    }
+}
+/**
+ * Récupère les indicateurs mis à jour après facturation
+ */
+async function getUpdatedStats() {
+    try {
+        // Locations confirmées à facturer
+        const [confirmedCount] = await sequelize.query(`
+            SELECT COUNT(*) as count
+            FROM location l
+            WHERE l.etatLo = 'Confirmée'
+            AND l.idLo NOT IN (SELECT idLo FROM paiement WHERE statutPaie = 'Effectué')
+        `, { type: sequelize.QueryTypes.SELECT });
+
+        // Factures envoyées (paiements avec email envoyé)
+        const [invoicesSentCount] = await sequelize.query(`
+            SELECT COUNT(*) as count
+            FROM paiement 
+            WHERE emailEnvoye = TRUE
+        `, { type: sequelize.QueryTypes.SELECT });
+
+        // Chiffre d'affaires total (paiements effectués)
+        const [revenueData] = await sequelize.query(`
+            SELECT COALESCE(SUM(montantPaie), 0) as totalRevenue
+            FROM paiement 
+            WHERE statutPaie = 'Effectué'
+        `, { type: sequelize.QueryTypes.SELECT });
+
+        return {
+            confirmedLocationsCount: parseInt(confirmedCount?.count) || 0,
+            invoicesSentCount: parseInt(invoicesSentCount?.count) || 0,
+            totalRevenue: parseFloat(revenueData?.totalRevenue) || 0
+        };
+
+    } catch (error) {
+        console.error("Erreur getUpdatedStats:", error);
+        return {
+            confirmedLocationsCount: 0,
+            invoicesSentCount: 0,
+            totalRevenue: 0
+        };
+    }
+}
+
+/**
+ * Télécharge une facture en PDF
+ */
+exports.downloadInvoice = async (req, res) => {
+    const { locationId } = req.params;
+
+    try {
+        console.log('📍 Téléchargement facture pour location:', locationId);
+        
+        // Récupérer les données de base
+        const sqlInvoiceData = `
+            SELECT 
+                l.idLo,
+                l.tarifTot,
+                c.nomCli,
+                c.prenomCli,
+                l.debLo,
+                l.finLo,
+                l.typeLo
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            WHERE l.idLo = :locationId
+        `;
+
+        const [invoiceData] = await sequelize.query(sqlInvoiceData, {
+            replacements: { locationId },
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        if (!invoiceData) {
+            return res.status(404).send({ message: "Location non trouvée." });
+        }
+
+        // Générer un PDF simple (simulation)
+        const pdfContent = `
+            FACTURE CEDII
+            =============
+            
+            Référence: #${invoiceData.idLo}
+            Date: ${new Date().toLocaleDateString('fr-FR')}
+            
+            Client: ${invoiceData.prenomCli} ${invoiceData.nomCli}
+            Location: ${invoiceData.typeLo}
+            Période: ${new Date(invoiceData.debLo).toLocaleDateString('fr-FR')} 
+                     au ${new Date(invoiceData.finLo).toLocaleDateString('fr-FR')}
+            
+            Montant: ${parseFloat(invoiceData.tarifTot).toLocaleString('fr-FR')} Ar
+            
+            Merci pour votre confiance!
+            CEDII - Centre d'Échange, de Documentation et d'Information Inter-Institutionnelles
+        `;
+
+        const pdfBuffer = Buffer.from(pdfContent, 'utf-8');
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=facture-${locationId}.pdf`);
+        res.send(pdfBuffer);
+
+    } catch (error) {
+        console.error("Erreur downloadInvoice:", error);
+        res.status(500).send({ 
+            message: "Échec du téléchargement de la facture.",
+            error: error.message 
+        });
+    }
+};
+
+/**
+ * Exporte toutes les factures en ZIP
+ */
+exports.exportInvoices = async (req, res) => {
+    try {
+        // Récupérer toutes les factures
+        const sqlAllInvoices = `
+            SELECT 
+                p.numeroFacture,
+                p.dateFacture,
+                p.montantPaie,
+                l.idLo,
+                c.nomCli,
+                c.prenomCli
+            FROM paiement p
+            JOIN location l ON p.idLo = l.idLo
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            WHERE p.numeroFacture IS NOT NULL
+            ORDER BY p.dateFacture DESC
+        `;
+
+        const invoices = await sequelize.query(sqlAllInvoices, {
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        // Générer les PDFs et créer un ZIP (simulation)
+        const zipBuffer = await generateInvoicesZip(invoices);
+
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', 'attachment; filename=factures-cedii.zip');
+        res.send(zipBuffer);
+
+    } catch (error) {
+        console.error("Erreur exportInvoices:", error);
+        res.status(500).send({ 
+            message: "Échec de l'export des factures.",
+            error: error.message 
+        });
+    }
+};
+
+// =========================================================================
+// B. FONCTIONS UTILITAIRES
+// =========================================================================
+
+/**
+ * Génère un numéro de facture unique
+ */
+async function generateInvoiceNumber() {
+    const year = new Date().getFullYear();
+    const prefix = `FACT-${year}-`;
+    
+    const [lastInvoice] = await sequelize.query(
+        `SELECT numeroFacture FROM paiement WHERE numeroFacture LIKE ? ORDER BY idPaie DESC LIMIT 1`,
+        {
+            replacements: [`${prefix}%`],
+            type: sequelize.QueryTypes.SELECT
+        }
+    );
+
+    let nextNumber = 1;
+    if (lastInvoice) {
+        const lastNumber = parseInt(lastInvoice.numeroFacture.split('-').pop());
+        nextNumber = lastNumber + 1;
+    }
+
+    return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+}
+
+/**
+ * Simule l'envoi d'email
+ */
+// Dans financeController.js - FONCTION D'ENVOI D'EMAIL AMÉLIORÉE
+
+/**
+ * Simule l'envoi d'email de confirmation de facture
+ */
+async function sendInvoiceEmail(factureData) {
+  try {
+    const emailContent = {
+      to: factureData.client.email,
+      subject: `🎉 Votre Facture ${factureData.numeroFacture} - CEDII`,
+      body: `
+        Bonjour ${factureData.client.prenom} ${factureData.client.nom},
+
+        Votre facture a été créée avec succès !
+
+        📋 Détails de la facture:
+        • Numéro: ${factureData.numeroFacture}
+        • Location: ${factureData.location.type} - ${factureData.location.designation}
+        • Période: ${new Date(factureData.location.dateDebut).toLocaleDateString('fr-FR')} au ${new Date(factureData.location.dateFin).toLocaleDateString('fr-FR')}
+        • Montant: ${parseFloat(factureData.montant).toLocaleString('fr-FR')} Ar
+
+        💳 Mode de paiement:
+        Vous pouvez effectuer le paiement par:
+        - Espèces à notre agence
+
+        📞 Contact:
+        Pour toute question, contactez-nous au +261 XX XX XXX XX
+
+        Cordialement,
+        L'équipe Finance CEDII
+        📧 finance@cedii.mg
+        
+      `
+    };
+
+    // Simulation d'envoi d'email
+    console.log(`[EMAIL ENVOYÉ] Facture ${factureData.numeroFacture} à ${factureData.client.email}`);
+    console.log(`Sujet: ${emailContent.subject}`);
+    
+    // Intégration réelle avec Nodemailer
+    /*
+    const nodemailer = require('nodemailer');
+    let transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: 'votre-email@gmail.com',
+        pass: 'votre-mot-de-passe'
+      }
+    });
+    
+    await transporter.sendMail({
+      from: 'CEDII Finance <finance@cedii.mg>',
+      to: emailContent.to,
+      subject: emailContent.subject,
+      text: emailContent.body,
+      html: generateEmailHTML(factureData) // Version HTML
+    });
+    */
+    
+    return { 
+      success: true, 
+      message: "Email envoyé avec succès",
+      emailDetails: emailContent
+    };
+    
+  } catch (error) {
+    console.error("Erreur envoi email:", error);
+    return { 
+      success: false, 
+      message: "Erreur lors de l'envoi de l'email",
+      error: error.message 
+    };
+  }
+}
+/**
+ * Génère un PDF (simulation)
+ */
+async function generatePDF(invoiceData) {
+    // Simulation de génération PDF
+    // En production, utiliser pdfkit, puppeteer, ou autre librairie
+    const pdfContent = `
+        FACTURE: ${invoiceData.numeroFacture}
+        Date: ${new Date(invoiceData.dateFacture).toLocaleDateString('fr-FR')}
+        Client: ${invoiceData.prenomCli} ${invoiceData.nomCli}
+        Location: ${invoiceData.typeLo} - ${invoiceData.materielDesignation || invoiceData.salleNom}
+        Période: ${new Date(invoiceData.debLo).toLocaleDateString('fr-FR')} au ${new Date(invoiceData.finLo).toLocaleDateString('fr-FR')}
+        Montant: ${parseFloat(invoiceData.montantPaie).toLocaleString('fr-FR')} Ar
+        Statut: ${invoiceData.statutPaie}
+    `;
+    
+    return Buffer.from(pdfContent, 'utf-8');
+}
+
+/**
+ * Génère un ZIP avec toutes les factures (simulation)
+ */
+async function generateInvoicesZip(invoices) {
+    // Simulation de génération ZIP
+    const zipContent = `Archive contenant ${invoices.length} factures`;
+    return Buffer.from(zipContent, 'utf-8');
+}
+
+// =========================================================================
+// C. CONSERVER LES FONCTIONS EXISTANTES (avec améliorations si nécessaire)
+// =========================================================================
+
+exports.getFinanceDashboardData = async (req, res) => {
+    try {
+        // Votre code existant...
+        const sqlPendingPayments = `
+            SELECT 
+                COUNT(idPaie) AS pendingPaymentsCount,
+                SUM(montantPaie) AS pendingAmount
+            FROM 
+                paiement
+            WHERE 
+                statutPaie = 'En attente';
+        `;
+        const [paymentData] = await sequelize.query(sqlPendingPayments, { 
+            type: sequelize.QueryTypes.SELECT 
+        });
+
+        // Ajouter le compteur des factures à envoyer
+        const sqlInvoicesToSend = `
+            SELECT COUNT(*) as count
+            FROM location l
+            WHERE l.etatLo = 'Confirmée'
+            AND l.idLo NOT IN (SELECT idLo FROM paiement WHERE statutPaie = 'Effectué')
+        `;
+        const [invoicesCount] = await sequelize.query(sqlInvoicesToSend, {
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        res.status(200).send({
+            pendingPaymentsCount: parseInt(paymentData.pendingPaymentsCount) || 0,
+            pendingAmount: parseFloat(paymentData.pendingAmount) || 0,
+            invoicesToSendCount: parseInt(invoicesCount.count) || 0,
+            // ... autres données
+        });
+
+    } catch (error) {
+        console.error("Erreur getFinanceDashboardData:", error);
+        res.status(500).send({ message: "Erreur lors de la récupération des données du tableau de bord Finance." });
+    }
+};
+
+
+// Dans financeController.js - FONCTION POUR L'HISTORIQUE
+exports.getPaymentHistory = async (req, res) => {
+    try {
+        const sqlPaymentHistory = `
+            SELECT 
+                p.idPaie,
+                p.numeroFacture,
+                p.dateFacture,
+                p.montantPaie,
+                p.statutPaie,
+                p.modePaie,
+                l.idLo,
+                l.typeLo,
+                CONCAT(c.nomCli, ' ', c.prenomCli) AS client,
+                c.emailCli
+            FROM paiement p
+            JOIN location l ON p.idLo = l.idLo
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            WHERE p.emailEnvoye = TRUE
+            ORDER BY p.dateFacture DESC
+        `;
+
+        const paymentHistory = await sequelize.query(sqlPaymentHistory, {
+            type: sequelize.QueryTypes.SELECT
+        });
+
+        res.status(200).send(paymentHistory);
+
+    } catch (error) {
+        console.error("Erreur getPaymentHistory:", error);
+        res.status(500).send({ 
+            message: "Échec de la récupération de l'historique des paiements.",
+            error: error.message 
+        });
+    }
+};
+

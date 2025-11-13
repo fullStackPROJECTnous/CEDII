@@ -35,6 +35,17 @@
       <!-- En-tête de la carte -->
       <template #header>
         <div class="card-header-content">
+          <!-- Message de succès/erreur pour les actions -->
+          <n-alert
+            v-if="actionMessage"
+            :type="actionMessageType"
+            :title="actionMessageType === 'success' ? 'Succès' : 'Erreur'"
+            class="m-4"
+            closable
+            @close="actionMessage = ''"
+          >
+            {{ actionMessage }}
+          </n-alert>
           <div class="d-flex justify-content-between align-items-center">
             <div>
               <h3 class="card-title mb-1">
@@ -85,16 +96,20 @@
           </n-empty>
         </div>
 
-        <!-- Tableau des demandes -->
-        <div v-else class="table-container">
-          <n-data-table
-            :columns="columns"
-            :data="pendingRequests"
-            :bordered="false"
-            class="demandes-table"
-            size="small"
-            :single-line="false"
-          />
+        <!-- Tableau des demandes avec scroll -->
+        <div v-else class="table-scroll-container">
+          <div class="table-container">
+            <n-data-table
+              :columns="columns"
+              :data="pendingRequests"
+              :bordered="false"
+              class="demandes-table"
+              size="small"
+              :single-line="false"
+              :max-height="500"
+              virtual-scroll
+            />
+          </div>
         </div>
 
         <!-- Message d'erreur -->
@@ -107,18 +122,6 @@
           @close="errorMessage = null"
         >
           {{ errorMessage }}
-        </n-alert>
-
-        <!-- Message de succès/erreur pour les actions -->
-        <n-alert
-          v-if="actionMessage"
-          :type="actionMessageType"
-          :title="actionMessageType === 'success' ? 'Succès' : 'Erreur'"
-          class="m-4"
-          closable
-          @close="actionMessage = ''"
-        >
-          {{ actionMessage }}
         </n-alert>
       </div>
     </n-card>
@@ -162,7 +165,6 @@
     </n-modal>
   </div>
 </template>
-
 <script setup>
 import { ref, computed, onMounted, h } from 'vue';
 import { useRouter } from 'vue-router';
@@ -224,7 +226,7 @@ const columns = [
   {
     title: 'Demandeur',
     key: 'client',
-    width: 200, // Largeur fixe pour éviter l'espace blanc
+    width: 200,
     render: (row) => {
       return h('div', { class: 'client-info' }, [
         h('div', { class: 'client-name fw-bold' }, 
@@ -270,7 +272,7 @@ const columns = [
     width: 180,
     render: (row) => {
       return h('div', { class: 'date-info' }, [
-        h('div', { class: 'fw-bold' }, formatDate(row.debRes)),
+        h('div', { class: 'fw-bold' }, formatDateTime(row.debRes)),
         h('div', { class: 'small text-muted' }, 'Début prévu')
       ]);
     }
@@ -278,11 +280,12 @@ const columns = [
   {
     title: 'Soumission',
     key: 'dateCre',
-    width: 150,
+    width: 180,
     render: (row) => {
-      return h('div', { class: 'text-muted small' }, 
-        formatDate(row.dateCre)
-      );
+      return h('div', { class: 'submission-info' }, [
+        h('div', { class: 'fw-medium' }, formatDateOnly(row.dateCre)),
+        h('div', { class: 'small text-muted' }, 'Date de soumission')
+      ]);
     }
   },
   {
@@ -324,22 +327,110 @@ const columns = [
 ];
 
 // ------------------------------------
-// MÉTHODES
+// MÉTHODES DE FORMATAGE DES DATES CORRIGÉES
 // ------------------------------------
-const formatDate = (dateString) => {
+const formatDateTime = (dateString) => {
   if (!dateString) return 'N/A';
-  const options = { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric', 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  };
+  
   try {
-    return new Date(dateString).toLocaleDateString('fr-FR', options);
-  } catch {
-    return dateString.substring(0, 16).replace('T', ' ');
+    const date = parseDate(dateString);
+    
+    if (isNaN(date.getTime())) {
+      return 'Date invalide';
+    }
+    
+    // Formater en français : JJ/MM/AAAA HH:MM
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    // Si c'est une date sans heure (minuit), afficher seulement la date
+    if (hours === '00' && minutes === '00') {
+      return `${day}/${month}/${year}`;
+    }
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  } catch (error) {
+    console.error('Erreur formatage date:', error, dateString);
+    return 'N/A';
   }
+};
+
+const formatDateOnly = (dateString) => {
+  if (!dateString) return 'N/A';
+  
+  try {
+    const date = parseDate(dateString);
+    
+    if (isNaN(date.getTime())) {
+      return 'Date invalide';
+    }
+    
+    // Formater seulement la date : JJ/MM/AAAA
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
+  } catch (error) {
+    console.error('Erreur formatage date:', error, dateString);
+    return 'N/A';
+  }
+};
+
+const formatTimeAgo = (dateString) => {
+  if (!dateString) return '';
+  
+  try {
+    const date = parseDate(dateString);
+    
+    if (isNaN(date.getTime())) {
+      return '';
+    }
+    
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "Aujourd'hui";
+    if (diffDays === 1) return 'Hier';
+    if (diffDays < 7) return `Il y a ${diffDays} jours`;
+    if (diffDays < 30) return `Il y a ${Math.floor(diffDays / 7)} semaines`;
+    
+    return `Il y a ${Math.floor(diffDays / 30)} mois`;
+  } catch (error) {
+    return '';
+  }
+};
+
+const parseDate = (dateString) => {
+  if (!dateString) return new Date(NaN);
+  
+  // Si c'est déjà un objet Date
+  if (dateString instanceof Date) return dateString;
+  
+  // Gérer les différents formats de date
+  if (typeof dateString === 'string') {
+    // Format MySQL datetime : '2025-11-05 00:00:00'
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateString)) {
+      return new Date(dateString.replace(' ', 'T'));
+    }
+    
+    // Format date seule : '2025-11-05'
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return new Date(dateString + 'T00:00:00');
+    }
+    
+    // Format ISO
+    if (dateString.includes('T')) {
+      return new Date(dateString);
+    }
+  }
+  
+  // Fallback
+  return new Date(dateString);
 };
 
 const getRessourceType = (request) => {
@@ -405,17 +496,21 @@ onMounted(() => {
 });
 </script>
 
+
 <style scoped>
 .demandes-container {
   max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Header Section */
 .header-section {
   background: transparent;
+  flex-shrink: 0;
 }
 
 .page-title {
@@ -438,10 +533,14 @@ onMounted(() => {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border: 1px solid #e9ecef;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .card-header-content {
   padding: 1.5rem 1.5rem 0.5rem 1.5rem;
+  flex-shrink: 0;
 }
 
 .card-title {
@@ -455,22 +554,44 @@ onMounted(() => {
 }
 
 .card-body-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   min-height: 400px;
 }
 
 /* Loading State */
 .loading-state {
   padding: 3rem 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Empty State */
 .empty-state {
   padding: 4rem 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Table Scroll Container */
+.table-scroll-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 /* Table Container */
 .table-container {
-  padding: 0.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 /* Modal Content */
@@ -479,8 +600,34 @@ onMounted(() => {
 }
 
 /* Custom Table Styles */
+:deep(.demandes-table) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.demandes-table .n-data-table-base) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.demandes-table .n-data-table-base-table) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.demandes-table .n-data-table-base-table-body) {
+  flex: 1;
+  overflow-y: auto !important;
+}
+
 :deep(.demandes-table .n-data-table-thead) {
   background-color: #f8f9fa;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 :deep(.demandes-table .n-data-table-th) {
@@ -489,6 +636,8 @@ onMounted(() => {
   color: #2c3e50;
   border-bottom: 2px solid var(--cedii-primary-light, #5B11EE);
   padding: 12px 16px;
+  position: sticky;
+  top: 0;
 }
 
 :deep(.demandes-table .n-data-table-td) {
@@ -500,6 +649,26 @@ onMounted(() => {
 :deep(.demandes-table .n-data-table-tr:hover) {
   background-color: #f8f9ff !important;
   transition: background-color 0.2s ease;
+}
+
+/* Scrollbar personnalisée */
+:deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar) {
+  width: 8px;
+  height: 8px;
+}
+
+:deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-track) {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+:deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-thumb) {
+  background: var(--cedii-primary-light, #5B11EE);
+  border-radius: 4px;
+}
+
+:deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-thumb:hover) {
+  background: var(--cedii-primary-dark, #0671b6);
 }
 
 /* Supprimer la pagination et les outils */
@@ -528,6 +697,10 @@ onMounted(() => {
 /* Date Info */
 .date-info {
   line-height: 1.4;
+}
+
+.submission-info {
+  line-height: 1.3;
 }
 
 /* Palette CEDII */
@@ -564,14 +737,14 @@ onMounted(() => {
   .back-button {
     align-self: flex-start;
   }
+  
+  .table-scroll-container {
+    overflow-x: auto;
+  }
 }
 
 @media (max-width: 576px) {
   .table-container {
-    overflow-x: auto;
-  }
-  
-  :deep(.demandes-table) {
     min-width: 600px;
   }
 }

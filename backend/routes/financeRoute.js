@@ -53,7 +53,18 @@ router.post(
     financeController.sendPaymentReminder
 );
 
-// ... (autres routes) ...
+
+// NOUVELLES ROUTES CORRIGÉES
+router.get('/confirmed-locations', financeController.getConfirmedLocationsToInvoice);
+router.post('/create-and-send-invoice', financeController.createAndSendInvoice);
+router.get('/download-invoice/:locationId', financeController.downloadInvoice); // ✅ CORRIGÉ
+router.get('/export-invoices', financeController.exportInvoices);
+
+// Routes pour l'envoi de factures
+router.post('/send-invoice', financeController.createAndSendInvoice); // ✅ NOUVELLE ROUTE POST
+router.post('/send-invoice/:id', financeController.sendInvoice); // ✅ CONSERVER L'ANCIENNE
+
+router.get('/payment-history', financeController.getPaymentHistory);
 
 // Route pour obtenir le compte des litiges pour l'affichage dans la sidebar
 router.get(
@@ -100,6 +111,10 @@ router.get(
     '/reports', 
     financeController.getRapportsSyntheseData
 );
+
+// Dans financeRoutes.js
+router.get('/confirmed-locations', financeController.getConfirmedLocationsToInvoice);
+router.post('/create-invoice/:idLo', financeController.createInvoiceFromLocation);
 
 
 module.exports = router;

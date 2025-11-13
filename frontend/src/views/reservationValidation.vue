@@ -178,20 +178,51 @@
               Le système a vérifié la disponibilité. Vous confirmez le transfert vers une location active.
             </n-alert>
 
-            <n-button 
-              type="primary" 
-              ghost 
-              @click="simulerContrat"
-              class="me-3"
-              :disabled="contractReady"
-            >
-              <template #icon>
-                <n-icon>
-                  <i class="bi bi-file-earmark-text"></i>
-                </n-icon>
-              </template>
-              Générer le Contrat PDF
-            </n-button>
+            <div class="button-group">
+              <n-button 
+                type="primary" 
+                ghost 
+                @click="genererContrat"
+                class="me-3"
+                :loading="generatingPdf"
+                :disabled="contractReady"
+              >
+                <template #icon>
+                  <n-icon>
+                    <i class="bi bi-file-earmark-text"></i>
+                  </n-icon>
+                </template>
+                Générer le Contrat PDF
+              </n-button>
+
+              <n-button 
+                v-if="pdfUrl"
+                type="success" 
+                @click="ouvrirPDF"
+                class="me-3"
+              >
+                <template #icon>
+                  <n-icon>
+                    <i class="bi bi-eye"></i>
+                  </n-icon>
+                </template>
+                Voir le PDF
+              </n-button>
+
+              <n-button 
+                v-if="pdfUrl"
+                type="warning" 
+                ghost 
+                @click="telechargerPDF"
+              >
+                <template #icon>
+                  <n-icon>
+                    <i class="bi bi-download"></i>
+                  </n-icon>
+                </template>
+                Télécharger
+              </n-button>
+            </div>
 
             <n-alert v-if="contractReady" type="success" class="mt-3">
               <template #icon>
@@ -256,8 +287,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { jsPDF } from 'jspdf';
 import {
   NButton,
   NIcon,
@@ -288,6 +320,11 @@ const successMessage = ref(null);
 const isProcessing = ref(false);
 const contractReady = ref(false);
 const signatureData = ref('');
+
+// Nouveaux états pour la gestion PDF
+const generatingPdf = ref(false);
+const pdfUrl = ref(null);
+const pdfBlob = ref(null);
 
 // ------------------------------------
 // PROPRIÉTÉS CALCULÉES
@@ -325,7 +362,146 @@ const signatureForm = computed(() => ({
 }));
 
 // ------------------------------------
-// MÉTHODES
+// MÉTHODES PDF CORRIGÉES
+// ------------------------------------
+const genererContrat = async () => {
+  generatingPdf.value = true;
+  errorMessage.value = null;
+  
+  try {
+    await genererVraiPDF();
+  } catch (error) {
+    console.error("Erreur génération PDF:", error);
+    errorMessage.value = "Erreur lors de la génération du PDF";
+  } finally {
+    generatingPdf.value = false;
+  }
+};
+
+const genererVraiPDF = () => {
+  return new Promise((resolve) => {
+    // Créer un nouveau document PDF
+    const doc = new jsPDF();
+    
+    // Titre
+    doc.setFontSize(20);
+    doc.setTextColor(40, 40, 40);
+    doc.text('CONTRAT DE LOCATION', 105, 20, { align: 'center' });
+    
+    // Numéro de contrat
+    doc.setFontSize(12);
+    doc.text(`N° ${idRes.value}`, 105, 30, { align: 'center' });
+    
+    // Ligne séparatrice
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, 35, 190, 35);
+    
+    // Informations du contrat
+    let yPosition = 50;
+    
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text('ENTRE LES SOUSSIGNÉS :', 20, yPosition);
+    yPosition += 15;
+    
+    doc.setFontSize(11);
+    doc.text('Le CEDII, représenté par son responsable,', 25, yPosition);
+    yPosition += 8;
+    doc.text(`ET`, 25, yPosition);
+    yPosition += 8;
+    doc.text(`${reservation.value?.client.nomCli} ${reservation.value?.client.prenomCli}`, 25, yPosition);
+    yPosition += 15;
+    
+    // Détails de la location
+    doc.setFontSize(14);
+    doc.text('DÉTAILS DE LA LOCATION :', 20, yPosition);
+    yPosition += 12;
+    
+    doc.setFontSize(11);
+    doc.text(`Type : ${getRessourceType(reservation.value)}`, 25, yPosition);
+    yPosition += 8;
+    doc.text(`Période : Du ${formatDate(reservation.value?.debRes)} au ${formatDate(reservation.value?.finRes)}`, 25, yPosition);
+    yPosition += 8;
+    doc.text(`Quantité/Personnes : ${reservation.value?.qteMat || reservation.value?.nbPerso}`, 25, yPosition);
+    yPosition += 8;
+    doc.text(`Tarif Total : ${reservation.value?.tarifTot} MGA`, 25, yPosition);
+    yPosition += 15;
+    
+    // Conditions générales
+    doc.setFontSize(14);
+    doc.text('CONDITIONS GÉNÉRALES :', 20, yPosition);
+    yPosition += 12;
+    
+    doc.setFontSize(10);
+    const conditions = [
+      '1. Le présent contrat est valable pour la période convenue',
+      '2. Toute annulation doit être notifiée 48h à l\'avance',
+      '3. Le client est responsable du matériel pendant la durée de location',
+      '4. Tout dommage sera facturé au client',
+      '5. Le non-respect des horaires peut entraîner des frais supplémentaires'
+    ];
+    
+    conditions.forEach(condition => {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      doc.text(condition, 25, yPosition);
+      yPosition += 7;
+    });
+    
+    // Signatures
+    yPosition = Math.max(yPosition + 20, 200);
+    doc.setFontSize(12);
+    doc.text('Fait à Fianarantsoa, le ' + new Date().toLocaleDateString('fr-FR'), 105, yPosition, { align: 'center' });
+    yPosition += 20;
+    
+    doc.text('___________________', 50, yPosition);
+    doc.text('___________________', 140, yPosition);
+    yPosition += 8;
+    
+    doc.setFontSize(10);
+    doc.text('Signature Client', 50, yPosition);
+    doc.text('Signature CEDII', 140, yPosition);
+    
+    // Générer le blob PDF
+    const pdfBlobData = doc.output('blob');
+    pdfUrl.value = URL.createObjectURL(pdfBlobData);
+    pdfBlob.value = pdfBlobData;
+    contractReady.value = true;
+    successMessage.value = "Contrat PDF généré avec succès";
+    
+    resolve();
+  });
+};
+
+const ouvrirPDF = () => {
+  if (pdfUrl.value) {
+    // Ouvrir dans un nouvel onglet
+    window.open(pdfUrl.value, '_blank');
+  }
+};
+
+const telechargerPDF = () => {
+  if (pdfBlob.value) {
+    const link = document.createElement('a');
+    link.href = pdfUrl.value;
+    link.download = `contrat-location-${idRes.value}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+};
+
+// Nettoyer les URLs créées
+const cleanup = () => {
+  if (pdfUrl.value) {
+    URL.revokeObjectURL(pdfUrl.value);
+  }
+};
+
+// ------------------------------------
+// MÉTHODES EXISTANTES
 // ------------------------------------
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
@@ -400,10 +576,6 @@ const fetchReservationDetails = async () => {
   }
 };
 
-const simulerContrat = () => {
-  contractReady.value = true;
-};
-
 const handleValidation = async () => {
   if (!isReadyToValidate.value) return;
 
@@ -440,6 +612,11 @@ onMounted(() => {
     loading.value = false;
     errorMessage.value = "Erreur: L'identifiant de la réservation est introuvable.";
   }
+});
+
+// Nettoyage quand le composant est détruit
+onUnmounted(() => {
+  cleanup();
 });
 </script>
 
@@ -551,6 +728,14 @@ onMounted(() => {
   font-size: 16px;
 }
 
+/* Groupe de boutons PDF */
+.button-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 /* Palette CEDII */
 .cedii-text-primary { 
   color: var(--cedii-primary-light, #5B11EE) !important; 
@@ -602,6 +787,16 @@ onMounted(() => {
 
   .scrollable-content {
     padding-right: 4px;
+  }
+
+  .button-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .button-group .n-button {
+    width: 100%;
+    margin-bottom: 8px;
   }
 }
 

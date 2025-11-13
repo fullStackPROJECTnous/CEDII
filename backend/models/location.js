@@ -58,6 +58,11 @@ module.exports = (sequelize, DataTypes) => {
             foreignKey: 'idRes', 
             as: 'reservation' // Alias utilisé pour l'inclusion dans le contrôleur
         });
+           Location.hasMany(models.Paiement, {
+            foreignKey: 'idLo',
+            as: 'paiements',
+            onDelete: 'CASCADE'
+        });
     // 🚨 N'oubliez pas les associations ici si nécessaire (ex: Location.belongsTo(db.client))
         // Une location appartient à un client.
        /* Location.belongsTo(models.Client, {

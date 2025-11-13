@@ -150,10 +150,22 @@
             </div>
 
             <div class="col-4">
-              <n-form-item label="Stock" path="qteActuelStock">
+              <n-form-item label="Stock total" path="qteTotDispo">
+                <n-input-number
+                  v-model:value="currentMateriel.qteTotDispo"
+                  :min="1"
+                  :show-button="false"
+                  @update:value="onQuantityInput"
+                />
+              </n-form-item>
+            </div>
+
+            <div class="col-4">
+              <n-form-item label="Stock actuel" path="qteActuelStock">
                 <n-input-number
                   v-model:value="currentMateriel.qteActuelStock"
-                  :min="1"
+                  :min="0"
+                  :max="currentMateriel.qteTotDispo"
                   :show-button="false"
                   @update:value="onQuantityInput"
                 />
@@ -168,17 +180,6 @@
                   :max="currentMateriel.qteActuelStock"
                   :show-button="false"
                   @update:value="onQuantityInput"
-                />
-              </n-form-item>
-            </div>
-
-            <div class="col-4">
-              <n-form-item label="Disponible">
-                <n-input-number
-                  v-model:value="currentMateriel.qteTotDispo"
-                  :min="0"
-                  :show-button="false"
-                  disabled
                 />
               </n-form-item>
             </div>
@@ -413,11 +414,18 @@ const statistiques = computed(() => {
 // Règles de validation
 const rules = {
   designationMat: { required: true, message: 'La désignation est requise', trigger: 'blur' },
-  qteActuelStock: { 
+  qteTotDispo: { 
     required: true, 
     type: 'number', 
     min: 1, 
-    message: 'Le stock doit être au moins de 1', 
+    message: 'Le stock total doit être au moins de 1', 
+    trigger: 'blur' 
+  },
+  qteActuelStock: { 
+    required: true, 
+    type: 'number', 
+    min: 0, 
+    message: 'Le stock actuel ne peut pas être négatif', 
     trigger: 'blur' 
   },
   qteEnLocation: { 
@@ -434,24 +442,32 @@ const rules = {
   dateAcquisition: { required: true, message: "La date d'acquisition est requise", trigger: 'change' }
 };
 
-// Colonnes du tableau principal
+// Colonnes du tableau principal - CORRIGÉES
 const columns = [
   {
     title: 'Code',
     key: 'codeMat',
-    width: 140,
+    width: 160,
     render: (row) => h('span', { class: 'fw-bold text-primary' }, row.codeMat)
   },
   {
     title: 'Désignation',
     key: 'designationMat',
-    ellipsis: { tooltip: true }
+    ellipsis: { tooltip: true },
+    width: 150
   },
   {
     title: 'Catégorie',
     key: 'categorieMat',
     width: 120,
     render: (row) => row.categorieMat || '-'
+  },
+  {
+    title: 'Description',
+    key: 'descriptionMat',
+    width: 150,
+    ellipsis: { tooltip: true },
+    render: (row) => row.descriptionMat || '-'
   },
   {
     title: 'État',
@@ -465,16 +481,20 @@ const columns = [
   {
     title: 'Quantités',
     key: 'quantites',
-    width: 120,
+    width: 140,
     render: (row) => h('div', { class: 'text-center' }, [
       h('div', { class: 'd-flex justify-content-between small' }, [
-        h('span', { class: 'text-muted' }, 'S:'),
+        h('span', { class: 'text-muted' }, 'Total:'),
+        h('span', row.qteTotDispo)
+      ]),
+      h('div', { class: 'd-flex justify-content-between small' }, [
+        h('span', { class: 'text-muted' }, 'Stock:'),
         h('span', { 
           class: row.qteActuelStock <= 2 ? 'text-danger fw-bold' : '' 
         }, row.qteActuelStock)
       ]),
       h('div', { class: 'd-flex justify-content-between small' }, [
-        h('span', { class: 'text-muted' }, 'L:'),
+        h('span', { class: 'text-muted' }, 'Loc:'),
         h('span', { 
           class: row.qteEnLocation > 0 ? 'text-warning fw-bold' : '' 
         }, row.qteEnLocation)
@@ -482,10 +502,19 @@ const columns = [
     ])
   },
   {
-    title: 'Tarif Jour',
-    key: 'tarifJour',
-    width: 100,
-    render: (row) => h('span', formatCurrency(row.tarifJour))
+    title: 'Tarifs',
+    key: 'tarifs',
+    width: 120,
+    render: (row) => h('div', { class: 'text-center' }, [
+      h('div', { class: 'small' }, `H: ${formatCurrency(row.tarifHeure)}`),
+      h('div', { class: 'small' }, `J: ${formatCurrency(row.tarifJour)}`)
+    ])
+  },
+  {
+    title: 'Date Acquis.',
+    key: 'dateAcquisition',
+    width: 110,
+    render: (row) => h('span', { class: 'small' }, formatDate(row.dateAcquisition))
   },
   {
     title: 'Actions',
@@ -556,7 +585,8 @@ const filteredMateriel = computed(() => {
     const searchLower = filters.value.search.toLowerCase();
     filtered = filtered.filter(mat => 
       (mat.codeMat && mat.codeMat.toLowerCase().includes(searchLower)) ||
-      (mat.designationMat && mat.designationMat.toLowerCase().includes(searchLower))
+      (mat.designationMat && mat.designationMat.toLowerCase().includes(searchLower)) ||
+      (mat.descriptionMat && mat.descriptionMat.toLowerCase().includes(searchLower))
     );
   }
 
@@ -592,12 +622,23 @@ async function saveMateriel() {
 
   isLoading.value = true;
   try {
+    // Préparer les données selon votre structure de base de données
+    const materielData = {
+      ...currentMateriel.value,
+      // S'assurer que les quantités sont cohérentes
+      qteTotDispo: Number(currentMateriel.value.qteTotDispo) || 0,
+      qteActuelStock: Number(currentMateriel.value.qteActuelStock) || 0,
+      qteEnLocation: Number(currentMateriel.value.qteEnLocation) || 0,
+      // qteMat est présent dans votre table mais semble redondant - à adapter selon vos besoins
+      qteMat: Number(currentMateriel.value.qteActuelStock) || 0
+    };
+
     if (isEditMode.value) {
-      await MaterielService.updateMateriel(currentMateriel.value.codeMat, currentMateriel.value);
+      await MaterielService.updateMateriel(currentMateriel.value.codeMat, materielData);
       showMessage('Matériel modifié avec succès', false);
     } else {
-      const { codeMat, ...materielData } = currentMateriel.value;
-      await MaterielService.createMateriel(materielData);
+      const { codeMat, ...newMaterielData } = materielData;
+      await MaterielService.createMateriel(newMaterielData);
       showMessage('Matériel ajouté avec succès', false);
     }
     await fetchMateriel();
@@ -645,25 +686,27 @@ async function updateEtatMateriel() {
   }
 }
 
-// Gestion des quantités
-function updateQteTotDispo() {
+// Gestion des quantités - CORRIGÉE
+function updateQuantities() {
+  const total = Number(currentMateriel.value.qteTotDispo) || 0;
   const stock = Number(currentMateriel.value.qteActuelStock) || 0;
   const location = Number(currentMateriel.value.qteEnLocation) || 0;
-  const disponible = stock - location;
   
-  if (disponible < 0) {
-    currentMateriel.value.qteTotDispo = 0;
-    quantityWarning.value = 'Erreur: Quantité en location > stock total';
+  // Validation de cohérence
+  if (stock > total) {
+    quantityWarning.value = 'Erreur: Stock actuel > Stock total';
+    hasQuantityError.value = true;
+  } else if (location > stock) {
+    quantityWarning.value = 'Erreur: En location > Stock actuel';
     hasQuantityError.value = true;
   } else {
-    currentMateriel.value.qteTotDispo = disponible;
     quantityWarning.value = '';
     hasQuantityError.value = false;
   }
 }
 
 const onQuantityInput = () => {
-  updateQteTotDispo();
+  updateQuantities();
 };
 
 function resetFilters() {
@@ -682,7 +725,7 @@ function updateCategories() {
   ];
 }
 
-// Fonctions utilitaires
+// Fonctions utilitaires - AJOUTÉES
 function getEtatType(etat) {
   const types = {
     'Neuf': 'success',
@@ -731,7 +774,7 @@ function openModal(mode, materielData = null) {
     if (currentMateriel.value.dateAcquisition) {
       currentMateriel.value.dateAcquisition = new Date(currentMateriel.value.dateAcquisition).getTime();
     }
-    updateQteTotDispo();
+    updateQuantities();
   } else {
     currentMateriel.value = {
       designationMat: '',
@@ -752,10 +795,28 @@ function openModal(mode, materielData = null) {
   showMaterielModal.value = true;
 }
 
+function openEtatModal(materiel) {
+  currentMateriel.value = { ...materiel };
+  etatData.value = {
+    etatMat: materiel.etatMat,
+    notes: ''
+  };
+  showEtatModal.value = true;
+}
+
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return '0 Ar';
   const num = typeof value === 'string' ? parseFloat(value) : value;
   return isNaN(num) ? '0 Ar' : new Intl.NumberFormat('fr-MG').format(num) + ' Ar';
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  try {
+    return new Date(dateString).toLocaleDateString('fr-FR');
+  } catch {
+    return dateString;
+  }
 };
 
 const formatDateTime = (datetime) => {
@@ -775,6 +836,7 @@ const formatDateTime = (datetime) => {
 </script>
 
 <style scoped>
+/* Votre CSS existant reste inchangé */
 :root {
   --cedii-primary: #5811EE;
   --cedii-primary-dark: #04058F;
@@ -804,7 +866,6 @@ const formatDateTime = (datetime) => {
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
-/* Statistiques */
 .stat-item {
   min-width: 50px;
 }
@@ -821,7 +882,6 @@ const formatDateTime = (datetime) => {
   font-weight: 500;
 }
 
-/* Tableau compact */
 .compact-table-container {
   border-radius: 6px;
   overflow: hidden;
@@ -851,7 +911,6 @@ const formatDateTime = (datetime) => {
   background-color: #d1ecf1 !important;
 }
 
-/* Formulaires compacts */
 :deep(.n-form-item .n-form-item-label) {
   font-size: 0.8rem;
   font-weight: 500;
@@ -861,7 +920,6 @@ const formatDateTime = (datetime) => {
   font-size: 0.8rem;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .container-fluid {
     padding-left: 8px;

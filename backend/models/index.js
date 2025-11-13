@@ -35,7 +35,8 @@ db.Reservation = require('./reservation.js')(sequelize, DataTypes);
 db.Materiel = require("./materiel.js")(sequelize, DataTypes); 
 db.Salle = require("./salle.js")(sequelize, DataTypes); 
 db.MaterielBureau = require('./materielModel.js')(sequelize, DataTypes) ;
-db.paiement = require("./paiement.js")(sequelize, DataTypes); 
+db.HistoriqueEmail = require('./historiqueEmail.js')(sequelize, DataTypes);
+db.Paiement = require("./paiement.js")(sequelize, DataTypes); 
 
 
 

@@ -152,10 +152,13 @@ const tableData = computed(() => {
     type: event.typeLo,
     dateDebut: new Date(event.debLo).toLocaleString('fr-FR'),
     dateFin: new Date(event.finLo).toLocaleString('fr-FR'),
-    tarif: `${parseFloat(event.tarifTot).toLocaleString('fr-FR')} Ar`,
+    tarifTot: event.tarifTot, // Garder la valeur originale pour debug
     statut: event.etatLo,
     materiel: event.reservation?.codeMat || 'N/A',
-    salle: event.reservation?.idSalle || 'N/A'
+    salle: event.reservation?.idSalle || 'N/A',
+    // Ajouter les données nécessaires pour le calcul
+    reservation: event.reservation,
+    location: event
   }));
 });
 
@@ -166,6 +169,75 @@ const pendingCount = computed(() => {
 const completedCount = computed(() => {
   return confirmedEvents.value.filter(event => event.etatLo === 'Terminée').length;
 });
+
+// Fonction pour calculer le tarif basé sur la durée
+const calculateTarif = (event) => {
+  try {
+    // Si le tarif existe déjà dans la location, l'utiliser
+    if (event.tarifTot && event.tarifTot > 0) {
+      return event.tarifTot;
+    }
+
+    // Sinon, calculer basé sur la réservation
+    if (event.reservation) {
+      // Utiliser le tarif de la réservation
+      if (event.reservation.tarifTot && event.reservation.tarifTot > 0) {
+        return event.reservation.tarifTot;
+      }
+
+      // Calculer basé sur la durée et les tarifs du matériel/salle
+      const debut = new Date(event.debLo || event.reservation.debRes);
+      const fin = new Date(event.finLo || event.reservation.finRes);
+      
+      const dureeHeures = (fin - debut) / (1000 * 60 * 60);
+      
+      let tarifUnitaire = 0;
+      
+      // Si c'est une location de matériel
+      if (event.reservation.codeMat && event.reservation.materiel) {
+        const materiel = event.reservation.materiel;
+        if (dureeHeures <= 4) {
+          tarifUnitaire = materiel.tarifDemiJournee || 0;
+        } else if (dureeHeures <= 8) {
+          tarifUnitaire = materiel.tarifJour || 0;
+        } else {
+          // Calcul proportionnel
+          tarifUnitaire = (materiel.tarifHeure || 0) * dureeHeures;
+        }
+      }
+      
+      // Si c'est une location de salle
+      if (event.reservation.idSalle && event.reservation.salle) {
+        const salle = event.reservation.salle;
+        if (dureeHeures <= 4) {
+          tarifUnitaire = salle.tarifDemiJournee || 0;
+        } else if (dureeHeures <= 8) {
+          tarifUnitaire = salle.tarifJour || 0;
+        } else {
+          tarifUnitaire = (salle.tarifHeure || 0) * dureeHeures;
+        }
+      }
+      
+      // Multiplier par la quantité
+      const quantite = event.reservation.qteMat || 1;
+      return tarifUnitaire * quantite;
+    }
+    
+    return 0;
+  } catch (error) {
+    console.error('Erreur calcul tarif:', error);
+    return 0;
+  }
+};
+
+// Fonction pour formater le tarif
+const formatTarif = (montant) => {
+  if (montant === null || montant === undefined || isNaN(montant)) {
+    return '0 Ar';
+  }
+  const numericValue = typeof montant === 'number' ? montant : parseFloat(montant);
+  return `${numericValue.toLocaleString('fr-FR')} Ar`;
+};
 
 // Configuration du tableau
 const columns = [
@@ -202,7 +274,10 @@ const columns = [
     title: 'Tarif',
     key: 'tarif',
     align: 'right',
-    render: (row) => h('strong', { class: 'text-primary' }, row.tarif)
+    render: (row) => {
+      const tarifCalcule = calculateTarif(row.location || row);
+      return h('strong', { class: 'text-primary' }, formatTarif(tarifCalcule));
+    }
   },
   {
     title: 'Statut',
@@ -232,6 +307,13 @@ const fetchConfirmedEvents = async () => {
   try {
     const response = await LocationService.getConfirmedEvents();
     confirmedEvents.value = response.data;
+    
+    // Debug: vérifier les données
+    console.log('Événements chargés:', response.data);
+    if (response.data.length > 0) {
+      console.log('Premier événement complet:', response.data[0]);
+      console.log('Tarif calculé pour le premier:', calculateTarif(response.data[0]));
+    }
   } catch (error) {
     console.error("Erreur lors du chargement des événements confirmés:", error);
   } finally {
@@ -246,7 +328,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Variables CSS avec votre palette CEDII */
+/* Votre CSS existant */
 :root {
   --cedii-primary: #5811EE;
   --cedii-primary-dark: #04058F;
@@ -255,7 +337,6 @@ onMounted(() => {
   --cedii-secondary: #55555E;
 }
 
-/* Styles personnalisés */
 .custom-btn-outline {
   border-color: var(--cedii-primary);
   color: var(--cedii-primary);
@@ -265,17 +346,6 @@ onMounted(() => {
 .custom-btn-outline:hover {
   background-color: var(--cedii-primary);
   color: white;
-}
-
-.custom-nav-link {
-  color: var(--cedii-secondary);
-  font-weight: 500;
-  transition: color 0.3s ease;
-}
-
-.custom-nav-link:hover,
-.custom-nav-link.router-link-active {
-  color: var(--cedii-primary);
 }
 
 .custom-divider {

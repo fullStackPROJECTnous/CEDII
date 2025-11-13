@@ -395,6 +395,8 @@ const fetchReceptionData = async () => {
         const response = await LocationService.getReceptionDashboardData(); 
         const data = response.data;
         
+        console.log("📊 Données reçues du backend:", data); // 🎯 AJOUTEZ CE LOG
+        
         kpis.value.pendingRequests = data.pendingRequests || 0;
         kpis.value.urgentRequests = data.urgentRequests || 0;
         kpis.value.todayEvents = data.todayEvents || 0;
@@ -406,7 +408,6 @@ const fetchReceptionData = async () => {
         console.error("Erreur de chargement des données de réception:", error.response?.data || error);
     }
 };
-
 // Lifecycle
 onMounted(() => {
     const user = AuthService.getCurrentUser();
