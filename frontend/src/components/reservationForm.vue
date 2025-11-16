@@ -230,7 +230,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue'; //ajouter "watch" --14/11/21
+import { useRoute } from 'vue-router'; // 👈 NOUVEAU: Import de useRoute --14/11/21
 import { 
   NCard, 
   NH1, 
@@ -255,6 +256,9 @@ import {
 import ClientNavbar from '../components/clientNavbar.vue';
 import LocationService from '../services/LocationService'; 
 
+// 1. Initialisation de la route 14/11/21
+const route = useRoute();
+
 const isSubmitting = ref(false);
 const loading = reactive({
   catalogue: true
@@ -262,9 +266,14 @@ const loading = reactive({
 
 const catalogueData = ref([]);
 
+// Conversion de 'Immobilier' en 'Salle' pour le modèle du formulaire --14/11/21
+const urlCategory = route.query.category;
+const initialTypeRes = urlCategory === 'Matériel' ? 'Materiel' : (urlCategory === 'Immobilier' ? 'Salle' : 'Salle');
+
+// 2. Utilisation des paramètres de l'URL pour l'état initial --14/11/21
 const initialFormState = {
-  typeRes: 'Salle',
-  idCatalogue: '', 
+  typeRes: initialTypeRes, // Utilise la catégorie passée
+  idCatalogue: route.query.resourceId ? parseInt(route.query.resourceId) : '', // Utilise l'ID passé (converti en nombre)
   dateCre: new Date().toISOString().split('T')[0], 
   qteMat: 1, 
   typeDuree: 'Jour', 
@@ -276,6 +285,25 @@ const initialFormState = {
 };
 
 const form = reactive({ ...initialFormState });
+
+// Fonctions de réinitialisation pour garantir la cohérence --14/11/21
+const resetQuantities = (newType) => {
+    if (newType === 'Materiel') {
+        form.nbPerso = 0;
+        if (form.qteMat < 1) form.qteMat = 1;
+    } else { // Salle
+        form.qteMat = 0;
+        if (form.nbPerso < 1) form.nbPerso = 1;
+    }
+    // Réinitialiser la sélection de ressource si le type change --14/11/21
+    form.idCatalogue = '';
+};
+
+// Watcher pour le type de ressource pour garantir que les champs spécifiques sont propres --14/11/21
+watch(() => form.typeRes, (newType) => {
+    resetQuantities(newType);
+});
+
 
 // Computed properties
 const resourceOptions = computed(() => {
@@ -386,6 +414,7 @@ const calculateTarif = () => {
 const fetchInitialData = async () => {
   loading.catalogue = true;
   try {
+    // Simuler le chargement des données (remplacez par votre vrai appel API)
     const sallesData = await LocationService.getSalles();
     const materielsData = await LocationService.getMateriels();
 
@@ -409,6 +438,21 @@ const fetchInitialData = async () => {
     
     catalogueData.value = [...mappedSalles, ...mappedMateriels];
     
+    // 3. Mise à jour de la sélection si l'ID est dans l'URL et les données sont chargées
+    if (route.query.resourceId) {
+        const resourceIdNum = parseInt(route.query.resourceId);
+        
+        // Trouver le type réel de la ressource dans les données chargées
+        const resource = catalogueData.value.find(item => item.id === resourceIdNum);
+
+        if (resource) {
+            // Mettre à jour le typeRes (au cas où il y aurait une incohérence entre URL et données)
+            form.typeRes = resource.type; 
+            form.idCatalogue = resourceIdNum;
+            resetQuantities(resource.type); // Initialise qteMat/nbPerso
+        }
+    }
+
   } catch (error) {
     console.error("Erreur de chargement des données:", error);
   } finally {
@@ -443,7 +487,8 @@ const submitForm = async () => {
       alert(`✅ Demande #${resId} enregistrée avec succès !`);
     }
     
-    Object.assign(form, { ...initialFormState, typeRes: 'Salle' });
+    // Réinitialisation du formulaire après succès, en conservant le comportement initial par défaut
+    Object.assign(form, { ...initialFormState, typeRes: 'Salle', idCatalogue: '' });
     
   } catch (error) {
     console.error("Erreur lors de l'enregistrement:", error);

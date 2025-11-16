@@ -24,9 +24,9 @@ const AuthService = {
             });
             
             // Stocke les données utilisateur (y compris le token) dans le Local Storage
-            if (response.data.token) { // ANCIEN : response.data.accessToken
-            localStorage.setItem('user', JSON.stringify(response.data));
-        }
+            if (response.data.accessToken) {
+                localStorage.setItem('user', JSON.stringify(response.data));
+            }
             
             return response.data; // Contient le token et les infos utilisateur
         } catch (error) {

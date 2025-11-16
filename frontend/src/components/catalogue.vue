@@ -4,7 +4,6 @@
     
     <main class="main-content flex-grow-1 overflow-auto bg-white">
       <div class="container-fluid py-4">
-        <!-- En-tête avec filtre et recherche -->
         <n-card class="mb-4 border-0" content-style="padding: 0;">
           <div class="d-flex justify-content-between align-items-center p-4">
             <div>
@@ -36,7 +35,6 @@
           </div>
         </n-card>
 
-        <!-- Statistiques rapides -->
         <n-grid :cols="4" :x-gap="16" class="mb-4">
           <n-gi>
             <n-statistic label="Total des biens" :value="catalogItems.length">
@@ -68,7 +66,6 @@
           </n-gi>
         </n-grid>
 
-        <!-- Grille des biens -->
         <n-grid :cols="1" :y-gap="16" v-if="filteredItems.length === 0">
           <n-gi>
             <n-card class="text-center py-5">
@@ -98,20 +95,46 @@
                   class="card-img-top" 
                   :alt="item.name"
                 />
-                <div class="card-badges">
-                  <n-tag 
-                    :type="item.category === 'Immobilier' ? 'info' : 'warning'" 
-                    size="small"
-                    class="me-2"
+                <div class="card-header-overlay">
+                  <div class="card-badges">
+                    <n-tag 
+                      :type="item.category === 'Immobilier' ? 'info' : 'warning'" 
+                      size="small"
+                      :class="item.category === 'Immobilier' ? 'badge-immobilier' : 'badge-materiel'"
+                    >
+                      {{ item.category }}
+                    </n-tag>
+                    <n-tag 
+                      :type="item.isAvailable ? 'success' : 'error'" 
+                      size="small"
+                      :class="item.isAvailable ? 'badge-disponible' : 'badge-occupe'"
+                    >
+                      {{ item.isAvailable ? 'Disponible' : 'Occupé' }}
+                    </n-tag>
+                  </div>
+                  
+                  <router-link 
+                    :to="{ 
+                      name: 'ReservationForm', 
+                      query: { 
+                        resourceId: item.id, 
+                        category: item.category // 🚀 AJOUT DE LA CATÉGORIE
+                      } 
+                    }" 
+                    class="text-decoration-none ms-auto"
                   >
-                    {{ item.category }}
-                  </n-tag>
-                  <n-tag 
-                    :type="item.isAvailable ? 'success' : 'error'" 
-                    size="small"
-                  >
-                    {{ item.isAvailable ? 'Disponible' : 'Occupé' }}
-                  </n-tag>
+                    <n-button 
+                      type="primary" 
+                      class="cedii-btn-primary reservation-button-top"
+                      :disabled="!item.isAvailable"
+                      size="small"
+                    >
+                      <template #icon>
+                        <i class="bi bi-calendar-plus"></i>
+                      </template>
+                      Réserver
+                    </n-button>
+                  </router-link>
                 </div>
               </div>
               
@@ -132,22 +155,9 @@
                     ID: {{ item.id }}
                   </n-text>
                   
-                  <router-link 
-                    :to="{ name: 'ReservationForm', query: { resourceId: item.id } }" 
-                    class="text-decoration-none"
-                  >
-                    <n-button 
-                      type="primary" 
-                      class="cedii-btn-primary"
-                      :disabled="!item.isAvailable"
-                      size="small"
-                    >
-                      <template #icon>
-                        <i class="bi bi-calendar-plus"></i>
-                      </template>
-                      {{ item.isAvailable ? 'Réserver' : 'Indisponible' }}
-                    </n-button>
-                  </router-link>
+                  <n-text v-if="!item.isAvailable" type="error" class="small fw-semibold">
+                    Indisponible à la réservation
+                  </n-text>
                 </div>
               </div>
             </n-card>
@@ -272,6 +282,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* --- Styles Personnalisés pour Naive UI (couleurs) --14/11/21 --- */
 .main-content {
   background-color: #ffffff;
 }
@@ -291,8 +302,46 @@ onMounted(() => {
   background-color: #55555E;
   border-color: #55555E;
   cursor: not-allowed;
+  opacity: 0.8;
 }
 
+/* 🚀 NOUVELLES COULEURS DE BADGES POUR MEILLEUR CONTRASTE --14/11/21 🚀 */
+
+/* Catégorie : Immobilier */
+:deep(.badge-immobilier) {
+    background-color: #04058F !important; /* Bleu foncé */
+    color: white !important;
+    border-color: #04058F !important;
+    font-weight: 600;
+}
+
+/* Catégorie : Matériel */
+:deep(.badge-materiel) {
+    background-color: #FFC107 !important; /* Jaune vif */
+    color: #333 !important;
+    border-color: #FFC107 !important;
+    font-weight: 600;
+}
+
+/* Statut : Disponible */
+:deep(.badge-disponible) {
+    background-color: #198754 !important; /* Vert foncé */
+    color: white !important;
+    border-color: #198754 !important;
+    font-weight: 600;
+}
+
+/* Statut : Occupé */
+:deep(.badge-occupe) {
+    background-color: #DC3545 !important; /* Rouge foncé */
+    color: white !important;
+    border-color: #DC3545 !important;
+    font-weight: 600;
+}
+/* FIN DES NOUVELLES COULEURS DE BADGES */
+
+
+/* --- Styles pour la Carte de Catalogue --14/11/21 --- */
 .card-image-container {
   position: relative;
   height: 250px;
@@ -310,12 +359,26 @@ onMounted(() => {
   transform: scale(1.05);
 }
 
-.card-badges {
+.card-header-overlay {
   position: absolute;
-  top: 12px;
-  left: 12px;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px;
+  z-index: 10;
+}
+
+.card-badges {
   display: flex;
   gap: 8px;
+}
+
+/* --- Styles couleur reservation  --14/11/21 --- */
+.reservation-button-top {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .card-body {
