@@ -13,6 +13,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     Catalogue: typeof import('./src/components/catalogue.vue')['default']
     ClientNavbar: typeof import('./src/components/clientNavbar.vue')['default']
+    copy: typeof import('./src/components/reservationForm copy.vue')['default']
     Login: typeof import('./src/components/Login.vue')['default']
     NAlert: typeof import('naive-ui')['NAlert']
     NButton: typeof import('naive-ui')['NButton']

@@ -85,7 +85,6 @@
             </n-card>
           </n-gi>
         </n-grid>
-
         <n-grid :cols="2" :x-gap="24" :y-gap="24" v-else>
           <n-gi v-for="item in filteredItems" :key="item.id">
             <n-card class="catalog-card h-100" :bordered="false" content-style="padding: 0;">
@@ -117,8 +116,10 @@
                     :to="{ 
                       name: 'ReservationForm', 
                       query: { 
+                        // 🎯 CORRECTION: Utiliser l'ID unique pour la sélection interne (CLE NECESSAIRE)
                         resourceId: item.id, 
-                        category: item.category // 🚀 AJOUT DE LA CATÉGORIE
+                        // Clé 2: Passage de la CATÉGORIE pour initialiser le type de formulaire
+                        category: item.category 
                       } 
                     }" 
                     class="text-decoration-none ms-auto"
@@ -171,27 +172,12 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { 
-  NCard, 
-  NH1, 
-  NText, 
-  NGrid, 
-  NGi, 
-  NStatistic, 
-  NTag, 
-  NButton, 
-  NDivider,
-  NEmpty,
-  NSelect,
-  NInput,
-  NSpace
+  NCard, NH1, NText, NGrid, NGi, NStatistic, NTag, NButton, NDivider,
+  NEmpty, NSelect, NInput, NSpace
 } from 'naive-ui';
 import ClientNavbar from '../components/clientNavbar.vue';
 
-// Import des images locales
-import salleImage from '@/assets/images/salle-reunion.jpg';
-import bureauImage from '@/assets/images/bureau.jpg';
-import projecteurImage from '@/assets/images/projecteur.jpg';
-import chapiteauImage from '@/assets/images/chapiteau.jpg';
+const API_BASE_URL = 'http://localhost:5000';
 
 const catalogItems = ref([]);
 const selectedCategory = ref(null);
@@ -235,40 +221,62 @@ const equipmentCount = computed(() =>
 );
 
 const fetchCatalog = async () => {
-  catalogItems.value = [
-    { 
-      id: 45, 
-      name: 'Salle de Réunion', 
-      description: 'Grande salle pour événements et réunions, capacité 50 personnes. Équipée de matériel audiovisuel moderne et connexion internet haut débit.', 
-      category: 'Immobilier', 
-      isAvailable: true, 
-      image: salleImage
-    },
-    { 
-      id: 46, 
-      name: 'Salle de Documentation', 
-      description: 'Salle pour des réunions, idéal pour le travail au calme. Espace lumineux avec bibliothèque intégrée et postes de travail individuels.', 
-      category: 'Immobilier', 
-      isAvailable: false, 
-      image: bureauImage
-    },
-    { 
-      id: 47, 
-      name: 'Projecteur HD', 
-      description: 'Projecteur haute définition et écran mobile pour vos présentations. Résolution 4K, compatible avec tous les appareils modernes.', 
-      category: 'Matériel', 
-      isAvailable: true, 
-      image: projecteurImage
-    },
-    { 
-      id: 48, 
-      name: 'Chapiteau Événementiel', 
-      description: 'Grand chapiteau pour les événements extérieurs. Structure robuste, installation facile, capacité jusqu\'à 100 personnes.', 
-      category: 'Matériel', 
-      isAvailable: true, 
-      image: chapiteauImage
-    },
-  ];
+    // ----------------------------------------------------------------------
+    // REMPLACER CECI PAR L'APPEL À VOTRE API BACKEND !
+    // ----------------------------------------------------------------------
+
+    // --- Données simulées basées sur VOS informations ---
+    const sallesDataFromApi = [
+        { 
+          // ID interne BDD
+          idSalle: 1, 
+          nomSalle: 'Salle de Conférence', // 🎯 Nom utilisé pour la recherche dans ReservationForm
+          descriptionSalle: 'Grande salle pour événements et réunions, capacité 50 personnes.', 
+          isAvailable: true, 
+          // 🎯 Chemin exact dans backend/public/uploads/
+          imageUrl: '/uploads/salle-de-conference.jpg' 
+        },
+        /* ... autres salles ... */
+    ];
+
+    const materielsDataFromApi = [
+        { 
+          // ID interne BDD
+          codeMat: 'MAT-A2025-CEDII/003', 
+          // Désignation affichée
+          designationMat: 'Projecteur', // Mise en majuscule pour l'exemple
+          descriptionMat: 'Projecteur haute définition et écran mobile pour vos présentations.', 
+          isAvailable: true, 
+          // 🎯 Chemin exact dans backend/public/uploads/
+          imageUrl: '/uploads/projecteur.jpg' 
+        },
+        /* ... autres matériels ... */
+    ];
+    // --------------------------------------------------
+
+    const mappedSalles = sallesDataFromApi.map(s => ({
+        // Conversion en String pour uniformité avec le codeMat
+        id: String(s.idSalle), 
+        name: s.nomSalle, 
+        description: s.descriptionSalle, 
+        category: 'Immobilier', // Correspond à typeRes: 'Salle'
+        categoryType: 'Salle', 
+        isAvailable: s.isAvailable,
+        image: API_BASE_URL + s.imageUrl 
+    }));
+    
+    const mappedMateriels = materielsDataFromApi.map(m => ({
+        // L'ID est déjà une String
+        id: m.codeMat, 
+        name: m.designationMat, 
+        description: m.descriptionMat, 
+        category: 'Matériel', // Correspond à typeRes: 'Materiel'
+        categoryType: 'Materiel', 
+        isAvailable: m.isAvailable,
+        image: API_BASE_URL + m.imageUrl
+    }));
+
+    catalogItems.value = [...mappedSalles, ...mappedMateriels];
 };
 
 const clearFilters = () => {

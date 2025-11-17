@@ -230,282 +230,294 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'; //ajouter "watch" --14/11/21
-import { useRoute } from 'vue-router'; // 👈 NOUVEAU: Import de useRoute --14/11/21
+import { ref, reactive, computed, onMounted, watch } from 'vue'; 
+import { useRoute } from 'vue-router'; 
 import { 
-  NCard, 
-  NH1, 
-  NH3, 
-  NText, 
-  NButton, 
-  NIcon, 
-  NRadioGroup, 
-  NRadio,
-  NSelect,
-  NFormItem,
-  NInputNumber,
-  NGrid,
-  NGi,
-  NDatePicker,
-  NDescriptions,
-  NDescriptionsItem,
-  NTag,
-  NSpace,
-  NDivider
+  NCard, 
+  NH1, 
+  NH3, 
+  NText, 
+  NButton, 
+  NIcon, 
+  NRadioGroup, 
+  NRadio,
+  NSelect,
+  NFormItem,
+  NInputNumber,
+  NGrid,
+  NGi,
+  NDatePicker,
+  NDescriptions,
+  NDescriptionsItem,
+  NTag,
+  NSpace,
+  NDivider,
+  useMessage // 💡 Ajout pour les messages
 } from 'naive-ui';
 import ClientNavbar from '../components/clientNavbar.vue';
 import LocationService from '../services/LocationService'; 
 
-// 1. Initialisation de la route 14/11/21
+// 💡 Initialisation de useMessage
+// Note: Dans un environnement Naive UI correctement configuré, vous pouvez utiliser useMessage() directement
+// en enlevant le fallback `(window.$message || console)`. Je le laisse pour la robustesse.
+const message = (window.$message || console); 
+
 const route = useRoute();
 
 const isSubmitting = ref(false);
 const loading = reactive({
-  catalogue: true
+  catalogue: true
 });
 
 const catalogueData = ref([]);
 
-// Conversion de 'Immobilier' en 'Salle' pour le modèle du formulaire --14/11/21
 const urlCategory = route.query.category;
+const urlResourceId = route.query.resourceId; 
+
 const initialTypeRes = urlCategory === 'Matériel' ? 'Materiel' : (urlCategory === 'Immobilier' ? 'Salle' : 'Salle');
 
-// 2. Utilisation des paramètres de l'URL pour l'état initial --14/11/21
 const initialFormState = {
-  typeRes: initialTypeRes, // Utilise la catégorie passée
-  idCatalogue: route.query.resourceId ? parseInt(route.query.resourceId) : '', // Utilise l'ID passé (converti en nombre)
-  dateCre: new Date().toISOString().split('T')[0], 
-  qteMat: 1, 
-  typeDuree: 'Jour', 
-  nbPerso: 1, 
-  debRes: null, 
-  finRes: null,
-  tarifTot: 0, 
-  etatRes: 'En attente', 
+  typeRes: initialTypeRes, 
+  idCatalogue: '', 
+  dateCre: new Date().toISOString().split('T')[0], 
+  qteMat: 1, 
+  typeDuree: 'Jour', 
+  nbPerso: 1, 
+  debRes: null, 
+  finRes: null,
+  tarifTot: 0, 
+  etatRes: 'En attente', 
 };
 
 const form = reactive({ ...initialFormState });
 
-// Fonctions de réinitialisation pour garantir la cohérence --14/11/21
+// 🎯 CORRECTION: Ne réinitialise PAS l'idCatalogue ici.
 const resetQuantities = (newType) => {
-    if (newType === 'Materiel') {
-        form.nbPerso = 0;
-        if (form.qteMat < 1) form.qteMat = 1;
-    } else { // Salle
-        form.qteMat = 0;
-        if (form.nbPerso < 1) form.nbPerso = 1;
-    }
-    // Réinitialiser la sélection de ressource si le type change --14/11/21
-    form.idCatalogue = '';
+    if (newType === 'Materiel') {
+        form.nbPerso = 0;
+        if (form.qteMat < 1) form.qteMat = 1;
+    } else { // Salle
+        form.qteMat = 0;
+        if (form.nbPerso < 1) form.nbPerso = 1;
+    }
 };
 
-// Watcher pour le type de ressource pour garantir que les champs spécifiques sont propres --14/11/21
-watch(() => form.typeRes, (newType) => {
-    resetQuantities(newType);
+// Watcher pour le type de ressource pour garantir que les champs spécifiques sont propres 
+watch(() => form.typeRes, (newType, oldType) => {
+    // Si l'utilisateur change de type, on vide la sélection de ressource pour forcer un nouveau choix
+    if (newType !== oldType) {
+        form.idCatalogue = ''; 
+    }
+    resetQuantities(newType);
 });
 
 
-// Computed properties
+// Computed properties 
 const resourceOptions = computed(() => {
-  return catalogueData.value
-    .filter(item => item.type === form.typeRes)
-    .map(item => ({
-      label: `${item.nom} - ${item.tarifJour?.toFixed(2) || '0.00'} MGA/jour`,
-      value: item.id,
-      ...item
-    }));
+  return catalogueData.value
+    .filter(item => item.type === form.typeRes)
+    .map(item => ({
+      // L'utilisateur ne voit que le Nom et le Tarif (confidentiel)
+      label: `${item.nom} - ${item.tarifJour?.toFixed(2) || '0.00'} MGA/jour`,
+      value: item.id,
+      ...item
+    }));
 });
 
 const selectedResource = computed(() => {
-  return catalogueData.value.find(item => item.id === form.idCatalogue);
+  return catalogueData.value.find(item => item.id === form.idCatalogue);
 });
 
 const isFormValid = computed(() => {
-  return form.typeRes && 
-         form.idCatalogue && 
-         form.debRes && 
-         form.finRes && 
-         new Date(form.debRes) < new Date(form.finRes);
+    return form.typeRes && 
+           form.idCatalogue && 
+           form.debRes && 
+           form.finRes && 
+           new Date(form.debRes) < new Date(form.finRes);
 });
 
 const formattedTarif = computed(() => {
-  calculateTarif();
-  return form.tarifTot.toFixed(2) + ' MGA';
+    calculateTarif();
+    return form.tarifTot.toFixed(2) + ' MGA';
 });
 
 const tarifDetails = computed(() => {
-  if (!selectedResource.value) return '';
-  
-  const resource = selectedResource.value;
-  let base = '';
-  
-  if (form.typeDuree === 'heure') {
-    base = `${resource.tarifHeure?.toFixed(2) || '0.00'} MGA/heure`;
-  } else if (form.typeDuree === 'demi-journee') {
-    base = `${resource.tarifDemiJournee?.toFixed(2) || '0.00'} MGA/demi-journée`;
-  } else {
-    base = `${resource.tarifJour?.toFixed(2) || '0.00'} MGA/jour`;
-  }
-  
-  if (form.typeRes === 'Materiel') {
-    return `${base} × ${form.qteMat} unités`;
-  }
-  
-  return base;
-});
-
-const durationLabel = computed(() => {
-  const labels = {
-    'heure': 'Par heure',
-    'demi-journee': 'Demi-journée',
-    'Jour': 'Journée complète',
-    'plus-jours': 'Plusieurs jours'
-  };
-  return labels[form.typeDuree] || form.typeDuree;
-});
-
-// Methods
-const disablePreviousDate = (timestamp) => {
-  return timestamp < Date.now() - 24 * 60 * 60 * 1000;
-};
-
-const getDurationTagType = (duration) => {
-  const types = {
-    'heure': 'success',
-    'demi-journee': 'info',
-    'Jour': 'warning',
-    'plus-jours': 'error'
-  };
-  return types[duration] || 'default';
-};
-
-const calculateTarif = () => {
-  let tarif = 0;
-  const resource = selectedResource.value;
-  
-  if (resource && form.typeDuree) {
-    let baseTarif = 0;
-
+    if (!selectedResource.value) return '';
+    
+    const resource = selectedResource.value;
+    let base = '';
+    
     if (form.typeDuree === 'heure') {
-      baseTarif = resource.tarifHeure || 0;
+        base = `${resource.tarifHeure?.toFixed(2) || '0.00'} MGA/heure`;
     } else if (form.typeDuree === 'demi-journee') {
-      baseTarif = resource.tarifDemiJournee || 0;
-    } else if (form.typeDuree === 'Jour' || form.typeDuree === 'plus-jours') {
-      baseTarif = resource.tarifJour || 0;
-      
-      if (form.typeDuree === 'plus-jours' && form.debRes && form.finRes) {
-        const start = new Date(form.debRes);
-        const end = new Date(form.finRes);
-        const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-        baseTarif *= Math.max(1, diffDays);
-      }
+        base = `${resource.tarifDemiJournee?.toFixed(2) || '0.00'} MGA/demi-journée`;
+    } else {
+        base = `${resource.tarifJour?.toFixed(2) || '0.00'} MGA/jour`;
     }
     
     if (form.typeRes === 'Materiel') {
-      tarif = baseTarif * (form.qteMat || 1);
-    } else {
-      tarif = baseTarif;
+        return `${base} × ${form.qteMat} unités`;
     }
-  }
+    
+    return base;
+});
 
-  form.tarifTot = parseFloat(tarif.toFixed(2));
+const durationLabel = computed(() => {
+    const labels = {
+        'heure': 'Par heure',
+        'demi-journee': 'Demi-journée',
+        'Jour': 'Journée complète',
+        'plus-jours': 'Plusieurs jours'
+    };
+    return labels[form.typeDuree] || form.typeDuree;
+});
+
+
+// Methods
+const disablePreviousDate = (timestamp) => {
+  return timestamp < Date.now() - 24 * 60 * 60 * 1000;
 };
 
+const getDurationTagType = (duration) => {
+  const types = {
+    'heure': 'success',
+    'demi-journee': 'info',
+    'Jour': 'warning',
+    'plus-jours': 'error'
+  };
+  return types[duration] || 'default';
+};
+
+const calculateTarif = () => {
+  let tarif = 0;
+  const resource = selectedResource.value;
+  
+  if (resource && form.typeDuree) {
+    let baseTarif = 0;
+
+    if (form.typeDuree === 'heure') {
+      baseTarif = resource.tarifHeure || 0;
+    } else if (form.typeDuree === 'demi-journee') {
+      baseTarif = resource.tarifDemiJournee || 0;
+    } else if (form.typeDuree === 'Jour' || form.typeDuree === 'plus-jours') {
+      baseTarif = resource.tarifJour || 0;
+      
+      if (form.debRes && form.finRes) {
+        const start = new Date(form.debRes);
+        const end = new Date(form.finRes);
+        const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        baseTarif *= Math.max(1, diffDays);
+      }
+    }
+    
+    if (form.typeRes === 'Materiel') {
+      tarif = baseTarif * (form.qteMat || 1);
+    } else {
+      tarif = baseTarif;
+    }
+  }
+
+  form.tarifTot = parseFloat(tarif.toFixed(2));
+};
+
+
 const fetchInitialData = async () => {
-  loading.catalogue = true;
-  try {
-    // Simuler le chargement des données (remplacez par votre vrai appel API)
-    const sallesData = await LocationService.getSalles();
-    const materielsData = await LocationService.getMateriels();
+  loading.catalogue = true;
+  try {
+    const sallesData = await LocationService.getSalles();
+    const materielsData = await LocationService.getMateriels();
 
-    const mappedSalles = sallesData.map(s => ({
-      id: s.idSalle,
-      nom: s.nomSalle,
-      type: 'Salle',
-      tarifHeure: parseFloat(s.tarifHeure) || 0,
-      tarifDemiJournee: parseFloat(s.tarifDemiJournee) || 0,
-      tarifJour: parseFloat(s.tarifJour) || 0,
-    }));
-    
-    const mappedMateriels = materielsData.map(m => ({
-      id: m.codeMat,
-      nom: m.designationMat,
-      type: 'Materiel',
-      tarifHeure: parseFloat(m.tarifHeure) || 0,
-      tarifDemiJournee: parseFloat(m.tarifDemiJournee) || 0,
-      tarifJour: parseFloat(m.tarifJour) || 0,
-    }));
-    
-    catalogueData.value = [...mappedSalles, ...mappedMateriels];
-    
-    // 3. Mise à jour de la sélection si l'ID est dans l'URL et les données sont chargées
-    if (route.query.resourceId) {
-        const resourceIdNum = parseInt(route.query.resourceId);
-        
-        // Trouver le type réel de la ressource dans les données chargées
-        const resource = catalogueData.value.find(item => item.id === resourceIdNum);
+    const mappedSalles = sallesData.map(s => ({
+      id: String(s.idSalle),
+      nom: s.nomSalle,
+      type: 'Salle',
+      tarifHeure: parseFloat(s.tarifHeure) || 0,
+      tarifDemiJournee: parseFloat(s.tarifDemiJournee) || 0,
+      tarifJour: parseFloat(s.tarifJour) || 0,
+    }));
+    
+    const mappedMateriels = materielsData.map(m => ({
+      id: String(m.codeMat),
+      nom: m.designationMat,
+      type: 'Materiel',
+      tarifHeure: parseFloat(m.tarifHeure) || 0,
+      tarifDemiJournee: parseFloat(m.tarifDemiJournee) || 0,
+      tarifJour: parseFloat(m.tarifJour) || 0,
+    }));
+    
+    catalogueData.value = [...mappedSalles, ...mappedMateriels];
+    
+    // 🎯 INITIALISATION PAR URL 
+    if (urlResourceId && catalogueData.value.length > 0) {
+        const resource = catalogueData.value.find(item => item.id === urlResourceId);
 
-        if (resource) {
-            // Mettre à jour le typeRes (au cas où il y aurait une incohérence entre URL et données)
-            form.typeRes = resource.type; 
-            form.idCatalogue = resourceIdNum;
-            resetQuantities(resource.type); // Initialise qteMat/nbPerso
-        }
-    }
+        if (resource) {
+            form.typeRes = resource.type; 
+            form.idCatalogue = resource.id;
+            resetQuantities(resource.type); 
+        } else {
+            message.warn(`Ressource (ID:${urlResourceId}) non trouvée. Veuillez la sélectionner.`);
+        }
+    }
 
-  } catch (error) {
-    console.error("Erreur de chargement des données:", error);
-  } finally {
-    loading.catalogue = false;
-  }
+  } catch (error) {
+    console.error("Erreur de chargement des données:", error);
+    message.error("Erreur lors du chargement des ressources.");
+  } finally {
+    loading.catalogue = false;
+  }
 };
 
 const submitForm = async () => {
-  if (!isFormValid.value) return;
-  
-  isSubmitting.value = true;
-  
-  const payload = {
-    idCatalogue: form.idCatalogue, 
-    dateCre: form.dateCre, 
-    qteMat: form.typeRes === 'Materiel' ? form.qteMat : 0, 
-    typeRes: form.typeRes, 
-    nbPerso: form.typeRes === 'Salle' ? form.nbPerso : 0, 
-    debRes: new Date(form.debRes).toISOString(),
-    finRes: new Date(form.finRes).toISOString(),
-    tarifTot: form.tarifTot,
-    etatRes: form.etatRes,
-  };
+  if (!isFormValid.value) return;
+  
+  isSubmitting.value = true;
+  
+  const payload = {
+    idCatalogue: form.idCatalogue, 
+    dateCre: form.dateCre, 
+    qteMat: form.typeRes === 'Materiel' ? form.qteMat : 0, 
+    typeRes: form.typeRes, 
+    nbPerso: form.typeRes === 'Salle' ? form.nbPerso : 0, 
+    debRes: form.debRes ? new Date(form.debRes).toISOString() : null,
+    finRes: form.finRes ? new Date(form.finRes).toISOString() : null,
+    tarifTot: form.tarifTot,
+    etatRes: form.etatRes,
+  };
 
-  try {
-    const response = await LocationService.createReservation(payload);
-    const resId = response.id || Math.floor(Math.random() * 1000);
-    
-    if (window.$message) {
-      window.$message.success(`✅ Demande #${resId} enregistrée avec succès !`);
-    } else {
-      alert(`✅ Demande #${resId} enregistrée avec succès !`);
-    }
-    
-    // Réinitialisation du formulaire après succès, en conservant le comportement initial par défaut
-    Object.assign(form, { ...initialFormState, typeRes: 'Salle', idCatalogue: '' });
-    
-  } catch (error) {
-    console.error("Erreur lors de l'enregistrement:", error);
-    if (window.$message) {
-      window.$message.error('❌ Échec de l\'enregistrement');
-    } else {
-      alert('❌ Échec de l\'enregistrement');
-    }
-  } finally {
-    isSubmitting.value = false;
-  }
+  try {
+    const response = await LocationService.createReservation(payload);
+    const resId = response.id || Math.floor(Math.random() * 1000);
+    
+    if (window.$message) {
+      window.$message.success(`✅ Demande #${resId} enregistrée avec succès !`);
+    } else {
+      alert(`✅ Demande #${resId} enregistrée avec succès !`);
+    }
+    
+    // Réinitialisation après succès
+    Object.assign(form, { ...initialFormState, typeRes: 'Salle', idCatalogue: '' });
+    
+  } catch (error) {
+    console.error("Erreur lors de l'enregistrement:", error);
+    if (window.$message) {
+      window.$message.error('❌ Échec de l\'enregistrement');
+    } else {
+      alert('❌ Échec de l\'enregistrement');
+    }
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 
 onMounted(() => {
-  fetchInitialData();
+  fetchInitialData();
 });
-</script>
+</script> 
+ 
+<style scoped>
+/* ... Votre section <style scoped> existante ... */
+</style>
 
 <style scoped>
 .main-content {

@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path'); // 💡 Ajout de 'path' pour les chemins absolus
 const sequelize = require('./config/db');
 require('dotenv').config();
 const ReminderService = require('./routes/ReminderService');
@@ -18,6 +19,9 @@ app.use(cors(corsOptions)); // Utilisez la configuration CORS
 //app.use(cors());//
 app.use(express.json());
 app.use(express.urlencoded({ extended: true}));
+
+// Cela rend le contenu de 'backend/public' accessible via la racine de l'URL (ex: /uploads/projecteur.jpg)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes exemple
 app.get('/', (req, res) => {
