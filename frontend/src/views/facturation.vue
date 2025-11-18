@@ -645,15 +645,50 @@ const creerEtEnvoyerFacture = async () => {
 };
 
 // 🔥 NOUVELLE FONCTION POUR METTRE À JOUR L'INTERFACE
+// 🔥 CORRECTION COMPLÈTE de updateDashboardWithNewStats
 const updateDashboardWithNewStats = (newStats) => {
-  console.log('📍 Mise à jour des statistiques:', newStats);
+  console.log('📍 Mise à jour des statistiques reçues:', newStats);
   
-  // Mettre à jour les computed properties
-  // Ces valeurs seront automatiquement recalculées
-  // grâce au rafraîchissement de confirmedEvents
+  // 🔥 STOCKER les nouvelles statistiques
+  receivedStats.value = { ...newStats };
   
-  // Vous pouvez aussi stocker ces stats pour les afficher ailleurs
-  localStorage.setItem('lastFinanceStats', JSON.stringify(newStats));
+  // 🔥 METTRE À JOUR le localStorage pour persistance
+  localStorage.setItem('financeDashboardStats', JSON.stringify(newStats));
+  
+  // 🔥 ANIMATION de mise à jour visuelle
+  document.querySelectorAll('.custom-card').forEach(card => {
+    card.classList.add('stats-update');
+    setTimeout(() => {
+      card.classList.remove('stats-update');
+    }, 1000);
+  });
+};
+
+// 🔥 RÉCUPÉRATION DES STATS AU CHARGEMENT
+const loadInitialStats = async () => {
+  try {
+    // Essayer de récupérer les stats depuis le backend
+    const response = await FinanceService.getFinanceDashboardData();
+    if (response.data) {
+      receivedStats.value = {
+        confirmedLocationsCount: response.data.invoicesToSendCount || 0,
+        invoicesSentCount: response.data.invoicesSentCount || 0,
+        totalRevenue: response.data.totalRevenue || 0,
+        pendingPaymentsCount: response.data.pendingPaymentsCount || 0,
+        pendingAmount: response.data.pendingAmount || 0
+      };
+    }
+  } catch (error) {
+    console.error('Erreur chargement stats initiales:', error);
+    // Valeurs par défaut
+    receivedStats.value = {
+      confirmedLocationsCount: confirmedEvents.value.length,
+      invoicesSentCount: 0,
+      totalRevenue: 0,
+      pendingPaymentsCount: 0,
+      pendingAmount: 0
+    };
+  }
 };
 
 // 🔥 AMÉLIORATION DE facturerTout
@@ -717,27 +752,29 @@ const refreshFullDashboard = async () => {
 };
 
 // 🔥 COMPUTED PROPERTIES AMÉLIORÉES
+// 🔥 CORRECTION DES COMPUTED PROPERTIES
 const aFacturerCount = computed(() => {
-  return confirmedEvents.value.filter(event => 
-    event.etatLo === 'Confirmée' && 
-    !event.paiements?.some(p => p.statutPaie === 'Effectué')
-  ).length;
+  return confirmedEvents.value.length;
 });
 
 const facturesEnvoyeesCount = computed(() => {
-  // Basé sur les paiements avec email envoyé
-  return confirmedEvents.value.filter(event => 
-    event.paiements && event.paiements.some(p => p.emailEnvoye)
-  ).length;
+  // 🔥 CORRECTION: Utilisez les nouvelles stats reçues du backend
+  return receivedStats.value.invoicesSentCount || 0;
 });
 
 const chiffreAffairesTotal = computed(() => {
-  // Calcul basé sur TOUTES les locations facturées (pas seulement celles affichées)
-  const total = tableData.value.reduce((sum, item) => sum + item.tarifNumerique, 0);
-  return formatTarifAriary(total);
+  // 🔥 CORRECTION: Utilisez le chiffre d'affaires du backend, pas le calcul local
+  return formatTarifAriary(receivedStats.value.totalRevenue || 0);
 });
-// 🔥 COMPUTED AMÉLIORÉ POUR LES FACTURES ENVOYÉES
-//const facturesEnvoyeesCount = ref(0); // Initialiser avec une valeur
+
+// 🔥 AJOUT: Stockage des stats reçues
+const receivedStats = ref({
+  confirmedLocationsCount: 0,
+  invoicesSentCount: 0,
+  totalRevenue: 0,
+  pendingPaymentsCount: 0,
+  pendingAmount: 0
+});
 
 // Récupérer le compteur initial au chargement
 onMounted(async () => {

@@ -8,12 +8,12 @@ const sequelize = require('../config/db'); // 👈 Doit pointer vers l'instance 
 const { QueryTypes } = require('sequelize'); 
 
 // Référencez les modèles locaux (adaptez les noms de propriétés si nécessaire)
-const Client = db.client || db.Client;
-const Reservation = db.reservation || db.Reservation;
-const Location = db.location || db.Location;
-const Salle = db.salle || db.Salle;
-const Materiel = db.materiel || db.Materiel;
-const paiement = db.paiement
+const Client = db.Client;
+const Reservation =  db.Reservation;
+const Location =  db.Location;
+const Salle =  db.Salle;
+const Materiel =  db.Materiel;
+const paiement = db.Paiement
 //const sequelize = db.sequelize; // Instance Sequelize pour les fonctions d'agrégation
 
 

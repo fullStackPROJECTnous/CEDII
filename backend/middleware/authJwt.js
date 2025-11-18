@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+/*const jwt = require('jsonwebtoken');
 const db = require('../models');
 const Utilisateur = db.utilisateur; // Assurez-vous que le modèle est correct
 
@@ -78,6 +78,80 @@ const isAdmin = async (req, res, next) => {
 // ======================================================
 // 3. Exportation des fonctions
 // ======================================================
+const authJwt = {
+    verifyToken,
+    isAdmin
+};
+
+module.exports = authJwt;*/
+
+const jwt = require('jsonwebtoken');
+const db = require('../models');
+const Utilisateur = db.utilisateur;
+
+const verifyToken = (req, res, next) => {
+    let token = req.headers['authorization'] || req.headers['x-access-token'];
+
+    if (!token) {
+        return res.status(403).send({
+            message: "Accès refusé. Aucun token fourni dans les en-têtes."
+        });
+    }
+
+    // Nettoyer le jeton : retirer "Bearer " s'il est présent
+    token = token.trim();
+    if (token.startsWith('Bearer ')) {
+        token = token.slice(7);
+    }
+    
+    // 1. VÉRIFICATION ET DÉCODAGE DU JETON
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+            console.error("Échec de la vérification JWT. Erreur :", err.name, ":", err.message); 
+            
+            return res.status(401).send({
+                message: "Non autorisé! Le token est invalide ou expiré.",
+                debug: err.message 
+            });
+        }
+        
+        console.log("Contenu du token décodé:", decoded);
+
+        // 🚨 CORRECTION : Structure cohérente avec req.user
+        req.user = {
+            idUti: decoded.idUti || decoded.id, // Support les deux formats
+            loginUti: decoded.loginUti,
+            roleUti: decoded.roleUti
+        };
+        
+        // Garder aussi les anciennes propriétés pour compatibilité
+        req.idUti = decoded.idUti || decoded.id;
+        req.userRole = decoded.roleUti;
+        
+        console.log("Utilisateur injecté dans req.user:", req.user);
+        
+        next();
+    });
+};
+
+const isAdmin = async (req, res, next) => {
+    try {
+        if (req.userRole && req.userRole.toUpperCase() === 'ADMINISTRATEUR') {
+            next();
+            return;
+        }
+
+        res.status(403).send({
+            message: "Accès refusé! Requiert le rôle ADMINISTRATEUR."
+        });
+    } catch (error) {
+        res.status(500).send({
+            message: "Erreur de vérification des permissions.",
+            error: error.message
+        });
+    }
+};
+
 const authJwt = {
     verifyToken,
     isAdmin

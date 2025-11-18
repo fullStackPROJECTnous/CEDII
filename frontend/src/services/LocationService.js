@@ -68,14 +68,36 @@ async getClients() {
         }
     }
   // ...
-    submitEtatLieux(idLo, mode, payload) {
-        // Mapped to POST /api/locations/:idLo/etat-lieux
-        // 🚨 Assurez-vous d'utiliser `${API_URL}/${idLo}/etat-lieux`
-        return axios.post(`${API_URL}/${idLo}/etat-lieux`, {
-            details: payload, 
-            mode: mode
-        });
+   // Dans LocationService.js
+// Dans LocationService.js - CORRIGEZ la méthode submitEtatLieux
+async submitEtatLieux(locationId, etatLieuxData) {
+  try {
+    // 🔥 VALIDATION: Vérifier que l'ID est défini
+    if (!locationId) {
+      throw new Error('ID de location manquant');
     }
+
+    console.log('📍 Appel API état des lieux - ID:', locationId);
+    console.log('📍 Données:', etatLieuxData);
+
+    const response = await axios.post(
+      `${API_URL}/etat-lieux/${locationId}`, 
+      etatLieuxData
+    );
+    
+    console.log('✅ Réponse API état des lieux:', response.data);
+    return response;
+    
+  } catch (error) {
+    console.error('❌ Erreur LocationService - submitEtatLieux:');
+    console.error('📍 URL appelée:', `${API_URL}/etat-lieux/${locationId}`);
+    console.error('📍 Données envoyées:', etatLieuxData);
+    console.error('📍 Statut HTTP:', error.response?.status);
+    console.error('📍 Message erreur:', error.response?.data || error.message);
+    
+    throw error;
+  }
+}
 // ...
 
     getLocationDetails(idLo) {
@@ -105,6 +127,10 @@ async getClients() {
         return axios.post(API_URL + '/reservations', data);
     }
    
+    // Dans LocationService.js - AJOUTEZ cette méthode
+createClientReservation(data) {
+    return axios.post(`${API_URL}/client/reservations`, data);
+}
   
     
     // Mettre à jour le statut
