@@ -86,26 +86,38 @@
                       <n-grid :cols="form.typeRes === 'Salle' ? 1 : 2" :x-gap="12" class="mb-3">
                         <!-- Quantité pour matériel -->
                         <n-gi v-if="form.typeRes === 'Materiel'">
-                          <n-form-item label="Quantité" :required="true">
+                          <n-form-item 
+                            label="Quantité" 
+                            :required="true"
+                            :feedback="qteMatFeedback"
+                            :validation-status="qteMatValidationStatus"
+                          >
                             <n-input-number
                               v-model:value="form.qteMat"
                               :min="1"
-                              :max="100"
+                              :max="selectedResource ? selectedResource.qteTotDispo : null"
                               placeholder="Quantité"
                               class="w-100"
+                              @update:value="validateQuantities"
                             />
                           </n-form-item>
                         </n-gi>
                         
                         <!-- Nombre de personnes pour salle -->
                         <n-gi v-if="form.typeRes === 'Salle'">
-                          <n-form-item label="Personnes" :required="true">
+                          <n-form-item 
+                            label="Personnes" 
+                            :required="true"
+                            :feedback="nbPersoFeedback"
+                            :validation-status="nbPersoValidationStatus"
+                          >
                             <n-input-number
                               v-model:value="form.nbPerso"
                               :min="1"
-                              :max="500"
+                              :max="selectedResource ? selectedResource.capaciteSalle : null"
                               placeholder="Nombre"
                               class="w-100"
+                              @update:value="validateQuantities"
                             />
                           </n-form-item>
                         </n-gi>
@@ -181,7 +193,12 @@
                             <n-text strong style="color: #02061E;">{{ selectedResource?.nom || 'Non sélectionné' }}</n-text>
                           </n-descriptions-item>
                           <n-descriptions-item :label="form.typeRes === 'Salle' ? 'Personnes' : 'Quantité'">
-                            <n-text strong style="color: #067186;">{{ form.typeRes === 'Salle' ? form.nbPerso : form.qteMat }}</n-text>
+                            <n-text 
+                              strong 
+                              :style="{ color: hasValidationErrors ? '#ff4d4f' : '#067186' }"
+                            >
+                              {{ form.typeRes === 'Salle' ? form.nbPerso : form.qteMat }}
+                            </n-text>
                           </n-descriptions-item>
                           <n-descriptions-item label="Durée">
                             <n-tag :type="getDurationTagType(form.typeDuree)" size="small">
@@ -210,7 +227,7 @@
                   <n-button 
                     type="primary" 
                     size="large" 
-                    :disabled="!isFormValid || isSubmitting" 
+                    :disabled="!isFormValid || isSubmitting || hasValidationErrors" 
                     :loading="isSubmitting"
                     class="cedii-btn-primary fw-bold"
                   >
@@ -233,40 +250,36 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'; 
 import { useRoute } from 'vue-router'; 
 import { 
-  NCard, 
-  NH1, 
-  NH3, 
-  NText, 
-  NButton, 
-  NIcon, 
-  NRadioGroup, 
-  NRadio,
-  NSelect,
-  NFormItem,
-  NInputNumber,
-  NGrid,
-  NGi,
-  NDatePicker,
-  NDescriptions,
-  NDescriptionsItem,
-  NTag,
-  NSpace,
-  NDivider,
-  useMessage // 💡 Ajout pour les messages
+  NCard, 
+  NH1, 
+  NH3, 
+  NText, 
+  NButton, 
+  NIcon, 
+  NRadioGroup, 
+  NRadio,
+  NSelect,
+  NFormItem,
+  NInputNumber,
+  NGrid,
+  NGi,
+  NDatePicker,
+  NDescriptions,
+  NDescriptionsItem,
+  NTag,
+  NSpace,
+  NDivider,
+  useMessage
 } from 'naive-ui';
 import ClientNavbar from '../components/clientNavbar.vue';
 import LocationService from '../services/LocationService'; 
 
-// 💡 Initialisation de useMessage
-// Note: Dans un environnement Naive UI correctement configuré, vous pouvez utiliser useMessage() directement
-// en enlevant le fallback `(window.$message || console)`. Je le laisse pour la robustesse.
-const message = (window.$message || console); 
-
+const message = useMessage(); 
 const route = useRoute();
 
 const isSubmitting = ref(false);
 const loading = reactive({
-  catalogue: true
+  catalogue: true
 });
 
 const catalogueData = ref([]);
@@ -277,247 +290,369 @@ const urlResourceId = route.query.resourceId;
 const initialTypeRes = urlCategory === 'Matériel' ? 'Materiel' : (urlCategory === 'Immobilier' ? 'Salle' : 'Salle');
 
 const initialFormState = {
-  typeRes: initialTypeRes, 
-  idCatalogue: '', 
-  dateCre: new Date().toISOString().split('T')[0], 
-  qteMat: 1, 
-  typeDuree: 'Jour', 
-  nbPerso: 1, 
-  debRes: null, 
-  finRes: null,
-  tarifTot: 0, 
-  etatRes: 'En attente', 
+  typeRes: initialTypeRes, 
+  idCatalogue: '', 
+  dateCre: new Date().toISOString().split('T')[0], 
+  qteMat: 1, 
+  typeDuree: 'Jour', 
+  nbPerso: 1, 
+  debRes: null, 
+  finRes: null,
+  tarifTot: 0, 
+  etatRes: 'En attente', 
 };
 
 const form = reactive({ ...initialFormState });
 
-// 🎯 CORRECTION: Ne réinitialise PAS l'idCatalogue ici.
-const resetQuantities = (newType) => {
-    if (newType === 'Materiel') {
-        form.nbPerso = 0;
-        if (form.qteMat < 1) form.qteMat = 1;
-    } else { // Salle
-        form.qteMat = 0;
-        if (form.nbPerso < 1) form.nbPerso = 1;
-    }
-};
-
-// Watcher pour le type de ressource pour garantir que les champs spécifiques sont propres 
-watch(() => form.typeRes, (newType, oldType) => {
-    // Si l'utilisateur change de type, on vide la sélection de ressource pour forcer un nouveau choix
-    if (newType !== oldType) {
-        form.idCatalogue = ''; 
-    }
-    resetQuantities(newType);
+// VARIABLES DE VALIDATION
+const validationErrors = reactive({
+  qteMat: null,
+  nbPerso: null
 });
 
+// 🎯 FONCTION DE VALIDATION CORRECTE
+const validateQuantities = () => {
+  validationErrors.qteMat = null;
+  validationErrors.nbPerso = null;
 
-// Computed properties 
+  const resource = selectedResource.value;
+  if (!resource) return;
+
+  console.log('🔍 Validation pour:', resource.nom, 'qteTotDispo:', resource.qteTotDispo, 'capaciteSalle:', resource.capaciteSalle);
+
+  if (form.typeRes === 'Materiel') {
+    if (resource.qteTotDispo === null || resource.qteTotDispo === undefined) {
+      console.warn('⚠️ Quantité non disponible pour la validation');
+      return;
+    }
+    
+    const maxQte = resource.qteTotDispo;
+    if (form.qteMat > maxQte) {
+      validationErrors.qteMat = `Quantité indisponible. Maximum disponible : ${maxQte} unités`;
+    } else if (form.qteMat < 1) {
+      validationErrors.qteMat = 'La quantité doit être au moins 1';
+    }
+  } else if (form.typeRes === 'Salle') {
+    if (resource.capaciteSalle === null || resource.capaciteSalle === undefined) {
+      console.warn('⚠️ Capacité non disponible pour la validation');
+      return;
+    }
+    
+    const maxCapacite = resource.capaciteSalle;
+    if (form.nbPerso > maxCapacite) {
+      validationErrors.nbPerso = `Capacité dépassée. Maximum : ${maxCapacite} personnes`;
+    } else if (form.nbPerso < 1) {
+      validationErrors.nbPerso = 'Le nombre de personnes doit être au moins 1';
+    }
+  }
+};
+
+// COMPUTED PROPERTIES POUR LA VALIDATION
+const qteMatValidationStatus = computed(() => {
+  return validationErrors.qteMat ? 'error' : null;
+});
+
+const qteMatFeedback = computed(() => {
+  return validationErrors.qteMat || '';
+});
+
+const nbPersoValidationStatus = computed(() => {
+  return validationErrors.nbPerso ? 'error' : null;
+});
+
+const nbPersoFeedback = computed(() => {
+  return validationErrors.nbPerso || '';
+});
+
+const hasValidationErrors = computed(() => {
+  return validationErrors.qteMat !== null || validationErrors.nbPerso !== null;
+});
+
+// 🎯 VALIDATION AVANT SOUMISSION
+const validateBeforeSubmit = () => {
+  validateQuantities();
+  
+  if (hasValidationErrors.value) {
+    message.error('Veuillez corriger les erreurs de quantité avant de soumettre');
+    return false;
+  }
+  
+  return true;
+};
+
+const resetQuantities = (newType) => {
+  if (newType === 'Materiel') {
+    form.nbPerso = 0;
+    if (form.qteMat < 1) form.qteMat = 1;
+  } else {
+    form.qteMat = 0;
+    if (form.nbPerso < 1) form.nbPerso = 1;
+  }
+  validationErrors.qteMat = null;
+  validationErrors.nbPerso = null;
+};
+
+// WATCHERS
+watch(() => form.typeRes, (newType, oldType) => {
+  if (newType !== oldType) {
+    form.idCatalogue = ''; 
+  }
+  resetQuantities(newType);
+});
+
+watch(() => form.idCatalogue, (newId) => {
+  console.log('🔄 Ressource changée:', newId);
+  validateQuantities();
+});
+
+watch([() => form.qteMat, () => form.nbPerso], () => {
+  validateQuantities();
+});
+
+// COMPUTED PROPERTIES 
 const resourceOptions = computed(() => {
-  return catalogueData.value
-    .filter(item => item.type === form.typeRes)
-    .map(item => ({
-      // L'utilisateur ne voit que le Nom et le Tarif (confidentiel)
-      label: `${item.nom} - ${item.tarifJour?.toFixed(2) || '0.00'} MGA/jour`,
-      value: item.id,
-      ...item
-    }));
+  return catalogueData.value
+    .filter(item => item.type === form.typeRes)
+    .map(item => ({
+      label: `${item.nom} - ${item.tarifJour?.toFixed(2) || '0.00'} MGA/jour`,
+      value: item.id,
+      ...item
+    }));
 });
 
 const selectedResource = computed(() => {
-  return catalogueData.value.find(item => item.id === form.idCatalogue);
+  const resource = catalogueData.value.find(item => item.id === form.idCatalogue);
+  console.log('🎯 Ressource sélectionnée:', resource);
+  return resource;
 });
 
+// 🎯 COMPUTED PROPERTY POUR LE BOUTON - ROBUSTE
 const isFormValid = computed(() => {
-    return form.typeRes && 
-           form.idCatalogue && 
-           form.debRes && 
-           form.finRes && 
-           new Date(form.debRes) < new Date(form.finRes);
+  const basicValid = form.typeRes && 
+         form.idCatalogue && 
+         form.debRes && 
+         form.finRes && 
+         new Date(form.debRes) < new Date(form.finRes);
+  
+  const quantitiesValid = form.typeRes === 'Materiel' ? 
+    (form.qteMat > 0) : 
+    (form.nbPerso > 0);
+  
+  return basicValid && quantitiesValid && !hasValidationErrors.value;
 });
 
 const formattedTarif = computed(() => {
-    calculateTarif();
-    return form.tarifTot.toFixed(2) + ' MGA';
+  calculateTarif();
+  return form.tarifTot.toFixed(2) + ' MGA';
 });
 
 const tarifDetails = computed(() => {
-    if (!selectedResource.value) return '';
-    
-    const resource = selectedResource.value;
-    let base = '';
-    
-    if (form.typeDuree === 'heure') {
-        base = `${resource.tarifHeure?.toFixed(2) || '0.00'} MGA/heure`;
-    } else if (form.typeDuree === 'demi-journee') {
-        base = `${resource.tarifDemiJournee?.toFixed(2) || '0.00'} MGA/demi-journée`;
-    } else {
-        base = `${resource.tarifJour?.toFixed(2) || '0.00'} MGA/jour`;
-    }
-    
-    if (form.typeRes === 'Materiel') {
-        return `${base} × ${form.qteMat} unités`;
-    }
-    
-    return base;
+  if (!selectedResource.value) return '';
+  
+  const resource = selectedResource.value;
+  let base = '';
+  
+  if (form.typeDuree === 'heure') {
+    base = `${resource.tarifHeure?.toFixed(2) || '0.00'} MGA/heure`;
+  } else if (form.typeDuree === 'demi-journee') {
+    base = `${resource.tarifDemiJournee?.toFixed(2) || '0.00'} MGA/demi-journée`;
+  } else {
+    base = `${resource.tarifJour?.toFixed(2) || '0.00'} MGA/jour`;
+  }
+  
+  if (form.typeRes === 'Materiel') {
+    return `${base} × ${form.qteMat} unités`;
+  }
+  
+  return base;
 });
 
 const durationLabel = computed(() => {
-    const labels = {
-        'heure': 'Par heure',
-        'demi-journee': 'Demi-journée',
-        'Jour': 'Journée complète',
-        'plus-jours': 'Plusieurs jours'
-    };
-    return labels[form.typeDuree] || form.typeDuree;
+  const labels = {
+    'heure': 'Par heure',
+    'demi-journee': 'Demi-journée',
+    'Jour': 'Journée complète',
+    'plus-jours': 'Plusieurs jours'
+  };
+  return labels[form.typeDuree] || form.typeDuree;
 });
 
-
-// Methods
+// METHODS
 const disablePreviousDate = (timestamp) => {
-  return timestamp < Date.now() - 24 * 60 * 60 * 1000;
+  return timestamp < Date.now() - 24 * 60 * 60 * 1000;
 };
 
 const getDurationTagType = (duration) => {
-  const types = {
-    'heure': 'success',
-    'demi-journee': 'info',
-    'Jour': 'warning',
-    'plus-jours': 'error'
-  };
-  return types[duration] || 'default';
+  const types = {
+    'heure': 'success',
+    'demi-journee': 'info',
+    'Jour': 'warning',
+    'plus-jours': 'error'
+  };
+  return types[duration] || 'default';
 };
 
 const calculateTarif = () => {
-  let tarif = 0;
-  const resource = selectedResource.value;
-  
-  if (resource && form.typeDuree) {
-    let baseTarif = 0;
+  let tarif = 0;
+  const resource = selectedResource.value;
+  
+  if (resource && form.typeDuree) {
+    let baseTarif = 0;
 
-    if (form.typeDuree === 'heure') {
-      baseTarif = resource.tarifHeure || 0;
-    } else if (form.typeDuree === 'demi-journee') {
-      baseTarif = resource.tarifDemiJournee || 0;
-    } else if (form.typeDuree === 'Jour' || form.typeDuree === 'plus-jours') {
-      baseTarif = resource.tarifJour || 0;
-      
-      if (form.debRes && form.finRes) {
-        const start = new Date(form.debRes);
-        const end = new Date(form.finRes);
-        const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-        baseTarif *= Math.max(1, diffDays);
-      }
-    }
-    
-    if (form.typeRes === 'Materiel') {
-      tarif = baseTarif * (form.qteMat || 1);
-    } else {
-      tarif = baseTarif;
-    }
-  }
+    if (form.typeDuree === 'heure') {
+      baseTarif = resource.tarifHeure || 0;
+    } else if (form.typeDuree === 'demi-journee') {
+      baseTarif = resource.tarifDemiJournee || 0;
+    } else if (form.typeDuree === 'Jour' || form.typeDuree === 'plus-jours') {
+      baseTarif = resource.tarifJour || 0;
+      
+      if (form.debRes && form.finRes) {
+        const start = new Date(form.debRes);
+        const end = new Date(form.finRes);
+        const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        baseTarif *= Math.max(1, diffDays);
+      }
+    }
+    
+    if (form.typeRes === 'Materiel') {
+      tarif = baseTarif * (form.qteMat || 1);
+    } else {
+      tarif = baseTarif;
+    }
+  }
 
-  form.tarifTot = parseFloat(tarif.toFixed(2));
+  form.tarifTot = parseFloat(tarif.toFixed(2));
 };
 
-
+// 🎯🔄 FONCTION CRITIQUE - CORRIGÉE
 const fetchInitialData = async () => {
-  loading.catalogue = true;
-  try {
-    const sallesData = await LocationService.getSalles();
-    const materielsData = await LocationService.getMateriels();
+  loading.catalogue = true;
+  try {
+    const sallesResponse = await LocationService.getSalles();
+    const materielsResponse = await LocationService.getMateriels();
 
-    const mappedSalles = sallesData.map(s => ({
-      id: String(s.idSalle),
-      nom: s.nomSalle,
-      type: 'Salle',
-      tarifHeure: parseFloat(s.tarifHeure) || 0,
-      tarifDemiJournee: parseFloat(s.tarifDemiJournee) || 0,
-      tarifJour: parseFloat(s.tarifJour) || 0,
-    }));
-    
-    const mappedMateriels = materielsData.map(m => ({
-      id: String(m.codeMat),
-      nom: m.designationMat,
-      type: 'Materiel',
-      tarifHeure: parseFloat(m.tarifHeure) || 0,
-      tarifDemiJournee: parseFloat(m.tarifDemiJournee) || 0,
-      tarifJour: parseFloat(m.tarifJour) || 0,
-    }));
-    
-    catalogueData.value = [...mappedSalles, ...mappedMateriels];
-    
-    // 🎯 INITIALISATION PAR URL 
-    if (urlResourceId && catalogueData.value.length > 0) {
-        const resource = catalogueData.value.find(item => item.id === urlResourceId);
+    console.log('=== 🏢 DONNÉES SALLES BRUTES ===', sallesResponse);
+    console.log('=== 🛠️ DONNÉES MATÉRIELS BRUTES ===', materielsResponse);
 
-        if (resource) {
-            form.typeRes = resource.type; 
-            form.idCatalogue = resource.id;
-            resetQuantities(resource.type); 
-        } else {
-            message.warn(`Ressource (ID:${urlResourceId}) non trouvée. Veuillez la sélectionner.`);
-        }
-    }
+    // 🎯 MAPPING CORRECT - UTILISER LES PROPRIÉTÉS EXACTES DE LA BD
+    const mappedSalles = sallesResponse.map(s => {
+      return {
+        id: String(s.idSalle),
+        nom: s.nomSalle,
+        type: 'Salle',
+        tarifHeure: parseFloat(s.tarifHeure) || 0,
+        tarifDemiJournee: parseFloat(s.tarifDemiJournee) || 0,
+        tarifJour: parseFloat(s.tarifJour) || 0,
+        // ✅ PROPRIÉTÉS EXACTES DE LA BD
+        capaciteSalle: parseInt(s.capaciteSalle) || 0,
+        numeroSalle: s.numeroSalle,
+        disponibiliteSalle: s.disponibiliteSalle
+      };
+    });
+    
+    const mappedMateriels = materielsResponse.map(m => {
+      return {
+        id: String(m.codeMat),
+        nom: m.designationMat,
+        type: 'Materiel',
+        tarifHeure: parseFloat(m.tarifHeure) || 0,
+        tarifDemiJournee: parseFloat(m.tarifDemiJournee) || 0,
+        tarifJour: parseFloat(m.tarifJour) || 0,
+        // ✅ PROPRIÉTÉS EXACTES DE LA BD
+        qteTotDispo: parseInt(m.qteTotDispo) || 0,
+        qteActuelStock: parseInt(m.qteActuelStock) || 0,
+        qteEnLocation: parseInt(m.qteEnLocation) || 0,
+        categorieMat: m.categorieMat,
+        etatMat: m.etatMat
+      };
+    });
+    
+    catalogueData.value = [...mappedSalles, ...mappedMateriels];
+    
+    console.log('=== 📊 DONNÉES MAPPÉES FINALES ===');
+    catalogueData.value.forEach(item => {
+      if (item.type === 'Salle') {
+        console.log(`🏢 ${item.nom}: capaciteSalle = ${item.capaciteSalle}`);
+      } else {
+        console.log(`🛠️ ${item.nom}: qteTotDispo = ${item.qteTotDispo}`);
+      }
+    });
 
-  } catch (error) {
-    console.error("Erreur de chargement des données:", error);
-    message.error("Erreur lors du chargement des ressources.");
-  } finally {
-    loading.catalogue = false;
-  }
+    // INITIALISATION PAR URL 
+    if (urlResourceId && catalogueData.value.length > 0) {
+      const resource = catalogueData.value.find(item => item.id === urlResourceId);
+
+      if (resource) {
+        form.typeRes = resource.type; 
+        form.idCatalogue = resource.id;
+        resetQuantities(resource.type); 
+        console.log('🎯 Ressource initialisée depuis URL:', resource);
+        
+        setTimeout(() => {
+          validateQuantities();
+        }, 100);
+      } else {
+        message.warn(`Ressource (ID:${urlResourceId}) non trouvée. Veuillez la sélectionner.`);
+      }
+    }
+
+  } catch (error) {
+    console.error("Erreur de chargement des données:", error);
+    message.error("Erreur lors du chargement des ressources.");
+  } finally {
+    loading.catalogue = false;
+  }
 };
 
 const submitForm = async () => {
-  if (!isFormValid.value) return;
-  
-  isSubmitting.value = true;
-  
-  const payload = {
-    idCatalogue: form.idCatalogue, 
-    dateCre: form.dateCre, 
-    qteMat: form.typeRes === 'Materiel' ? form.qteMat : 0, 
-    typeRes: form.typeRes, 
-    nbPerso: form.typeRes === 'Salle' ? form.nbPerso : 0, 
-    debRes: form.debRes ? new Date(form.debRes).toISOString() : null,
-    finRes: form.finRes ? new Date(form.finRes).toISOString() : null,
-    tarifTot: form.tarifTot,
-    etatRes: form.etatRes,
-  };
+  if (!isFormValid.value) {
+    message.error('Veuillez corriger les erreurs dans le formulaire');
+    return;
+  }
+  
+  if (!validateBeforeSubmit()) {
+    return;
+  }
+  
+  isSubmitting.value = true;
+  
+  const payload = {
+    idCatalogue: form.idCatalogue, 
+    dateCre: form.dateCre, 
+    qteMat: form.typeRes === 'Materiel' ? form.qteMat : 0, 
+    typeRes: form.typeRes, 
+    nbPerso: form.typeRes === 'Salle' ? form.nbPerso : 0, 
+    debRes: form.debRes ? new Date(form.debRes).toISOString() : null,
+    finRes: form.finRes ? new Date(form.finRes).toISOString() : null,
+    tarifTot: form.tarifTot,
+    etatRes: form.etatRes,
+  };
 
-  try {
-    const response = await LocationService.createReservation(payload);
-    const resId = response.id || Math.floor(Math.random() * 1000);
-    
-    if (window.$message) {
-      window.$message.success(`✅ Demande #${resId} enregistrée avec succès !`);
-    } else {
-      alert(`✅ Demande #${resId} enregistrée avec succès !`);
-    }
-    
-    // Réinitialisation après succès
-    Object.assign(form, { ...initialFormState, typeRes: 'Salle', idCatalogue: '' });
-    
-  } catch (error) {
-    console.error("Erreur lors de l'enregistrement:", error);
-    if (window.$message) {
-      window.$message.error('❌ Échec de l\'enregistrement');
-    } else {
-      alert('❌ Échec de l\'enregistrement');
-    }
-  } finally {
-    isSubmitting.value = false;
-  }
+  console.log('📤 Soumission payload:', payload);
+
+  try {
+    const response = await LocationService.createReservation(payload);
+    const resId = response.data?.id || Math.floor(Math.random() * 1000);
+    
+    message.success(`✅ Demande #${resId} enregistrée avec succès !`);
+    
+    // Réinitialisation après succès
+    Object.assign(form, { ...initialFormState, typeRes: 'Salle', idCatalogue: '' });
+    validationErrors.qteMat = null;
+    validationErrors.nbPerso = null;
+    
+  } catch (error) {
+    console.error("Erreur lors de l'enregistrement:", error);
+    message.error('❌ Échec de l\'enregistrement');
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 
 onMounted(() => {
-  fetchInitialData();
+  fetchInitialData();
 });
-</script> 
- 
-<style scoped>
-/* ... Votre section <style scoped> existante ... */
-</style>
+</script>
 
 <style scoped>
 .main-content {

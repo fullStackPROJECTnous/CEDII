@@ -51,14 +51,65 @@ exports.getAllMateriel = async (req, res) => {
 };
 
 exports.createMateriel = async (req, res) => {
-    // Note: Le codeMat est généré par un TRIGGER dans votre DB. 
-    // Si Sequelize doit insérer, il faudra soit désactiver le TRIGGER côté DB, 
-    // soit vous assurer que Sequelize n'envoie pas le codeMat (si il est auto-généré), ou l'envoie si la logique est dans l'app.
     try {
-        const nouveauMateriel = await Materiel.create(req.body);
+        // 1. Déconstruire les champs envoyés par le client.
+        const {
+            designationMat, 
+            categorieMat, 
+            descriptionMat, 
+            qteActuelStock, // C'est la quantité totale que vous entrez (ex: 6)
+            tarifHeure, 
+            tarifDemiJournee, 
+            tarifJour, 
+            dateAcquisition, 
+            etatMat
+        } = req.body;
+
+        // 2. Définir les quantités de manière cohérente.
+        
+        // Assurer que le stock est un nombre entier valide
+        const stock = parseInt(qteActuelStock) || 0;
+        
+        // Pour une nouvelle insertion, la quantité en location est 0.
+        const location = 0; 
+        
+        // Calculer la quantité disponible (Disponible = Stock - Loué).
+        // Le résultat doit être cohérent avec la validation : Stock (6) = Disponible (6) + Loué (0).
+        const dispo = stock - location; 
+
+        // 3. Création de l'enregistrement avec un objet complet et cohérent.
+        const nouveauMateriel = await Materiel.create({
+            // NOTE: N'incluez pas 'codeMat' ici si un TRIGGER ou Sequelize 
+            // le génère automatiquement dans la base de données.
+            designationMat, 
+            categorieMat, 
+            descriptionMat, 
+            
+            // 🎯 L'élément clé : Les trois champs sont présents et cohérents
+            qteActuelStock: stock,     // Ex: 6
+            qteEnLocation: location,   // Ex: 0
+            qteTotDispo: dispo,        // Ex: 6
+            
+            tarifHeure, 
+            tarifDemiJournee, 
+            tarifJour, 
+            dateAcquisition, 
+            etatMat 
+        });
+
         res.status(201).send(nouveauMateriel);
+
     } catch (error) {
-        res.status(400).send({ message: "Erreur de validation lors de la création du matériel.", error: error.message });
+        // Gestion des erreurs de validation spécifiques (y compris l'incohérence des quantités)
+        console.error("Erreur lors de la création de matériel:", error);
+        
+        let errorMessage = error.message;
+        // Tenter d'extraire le message d'erreur spécifique de Sequelize si c'est une validation
+        if (error.name === 'SequelizeValidationError' && error.errors && error.errors.length > 0) {
+            errorMessage = error.errors[0].message;
+        } 
+        
+        res.status(400).send({ message: errorMessage || "Erreur de validation lors de la création du matériel." });
     }
 };
 

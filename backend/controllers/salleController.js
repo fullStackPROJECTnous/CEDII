@@ -299,6 +299,30 @@ exports.getCalendrierSalle = async (req, res) => {
     }
 };
 
+exports.debugSalles = async (req, res) => {
+  try {
+    // Récupération DIRECTE depuis Sequelize
+    const salles = await Salle.findAll({
+      attributes: ['idSalle', 'nomSalle', 'capaciteSalle', 'tarifHeure', 'tarifDemiJournee', 'tarifJour'],
+      raw: true // Pour avoir les données brutes
+    });
+    
+    console.log('🔍 DEBUG SALLES - Données brutes depuis Sequelize:');
+    salles.forEach(salle => {
+      console.log(`- ${salle.nomSalle}: capaciteSalle = ${salle.capaciteSalle}`);
+    });
+    
+    res.json({
+      message: 'Données brutes depuis Sequelize',
+      count: salles.length,
+      salles: salles
+    });
+    
+  } catch (error) {
+    console.error('❌ Erreur debug salles:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
 // ------------------------------------
 // FONCTION POUR CALCULER LE TARIF SALLE
 // ------------------------------------

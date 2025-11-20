@@ -1,10 +1,15 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path'); // 💡 Ajout de 'path' pour les chemins absolus
+const path = require('path'); // 💡 Ajout de 'path' pour les chemins absolus 17/11/25
 const sequelize = require('./config/db');
 require('dotenv').config();
 const ReminderService = require('./routes/ReminderService');
 const app = express();
+
+// ⭐ AJOUTEZ CETTE LIGNE - Import du modèle Salle
+const { Salle } = require('./models'); // ou le chemin correct vers vos modèles
+
+const { Materiel } = require('./models'); // ou le chemin correct vers vos modèles
 
 // --- 1. CONFIGURATION CORS (Pour résoudre le 403 Forbidden) ---
 const corsOptions = {
@@ -20,7 +25,7 @@ app.use(cors(corsOptions)); // Utilisez la configuration CORS
 app.use(express.json());
 app.use(express.urlencoded({ extended: true}));
 
-// Cela rend le contenu de 'backend/public' accessible via la racine de l'URL (ex: /uploads/projecteur.jpg)
+// Cela rend le contenu de 'backend/public' accessible via la racine de l'URL (ex: /uploads/projecteur.jpg) 17/11/25
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes exemple
@@ -90,5 +95,38 @@ app.use('/api/materiel-bureau',materielBureauRoutes  );
 const reservationRoutes = require('./routes/reservationRoute');
 app.use('/reservations', reservationRoutes);
 
+app.get('/api/salles/debug/salles', async (req, res) => {
+  try {
+    const salles = await Salle.findAll();
+    
+    res.json({
+      success: true,
+      count: salles.length,
+      data: salles
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
+app.get('/api/patrimoine/debug/materiel', async (req, res) => {
+  try {
+    // Récupérer tout le matériel depuis la base de données
+    const materiel = await Materiel.findAll(); // ou le modèle approprié
+    
+    res.json({
+      success: true,
+      count: materiel.length,
+      data: materiel
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
