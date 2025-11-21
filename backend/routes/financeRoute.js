@@ -7,8 +7,8 @@ router.get('/dashboard', financeController.getFinanceDashboardData);
 router.get('/cashflow-synthese', financeController.getCashflowSynthese);
 router.get('/facturation', financeController.getFacturationData);
 
-// Routes pour les paiements - CORRECTION ICI
-router.get('/payments', financeController.getPaymentData); // ✅ AJOUTÉE
+// Routes pour les paiements
+router.get('/payments', financeController.getPaymentData);
 router.post('/validate-payment/:id', financeController.validatePayment);
 router.post('/send-reminder/:id', financeController.sendPaymentReminder);
 
@@ -16,11 +16,46 @@ router.post('/send-reminder/:id', financeController.sendPaymentReminder);
 router.post('/generate-invoices', financeController.generateInvoices);
 router.post('/send-invoice/:id', financeController.sendInvoice);
 
+// Routes pour le backend financier
+router.get('/chiffre-affaires', async (req, res) => {
+  try {
+    const db = require('../models');
+    const Paiement = db.Paiement;
+    
+    const result = await Paiement.sum('montantPaie', {
+      where: { statutPaie: 'Effectué' }
+    });
+    
+    res.json({ total: result || 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/factures-envoyees', async (req, res) => {
+  try {
+    const db = require('../models');
+    const HistoriqueEmail = db.HistoriqueEmail;
+    
+    const count = await HistoriqueEmail.count({
+      where: { statutEnvoi: 'succes' }
+    });
+    
+    res.json({ count: count || 0 });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Nouvelles routes pour l'interface avancée
 router.get('/confirmed-locations', financeController.getConfirmedLocationsToInvoice);
 router.post('/create-and-send-invoice', financeController.createAndSendInvoice);
 router.get('/download-invoice/:locationId', financeController.downloadInvoice);
 router.get('/export-invoices', financeController.exportInvoices);
+
+// Routes pour les pénalités et workflow
+router.get('/penalties/calculate', financeController.calculatePenalties);
+router.post('/penalties/notify', financeController.sendPenaltyNotifications);
 
 // Routes pour les rapports et statistiques
 router.get('/payment-history', financeController.getPaymentHistory);

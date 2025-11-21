@@ -114,59 +114,6 @@ exports.getKPIs = async (req, res) => {
     }
 };
 
-// --- 1. Indicateurs Clés de Performance (KPIs) ---
-/*exports.getKPIs = async (req, res) => {
-    try {
-        const debutMois = getMonthStart();
-        
-        // 1. Total Clients Actifs
-        const totalClients = await Client.count();
-
-        // 2. Locations Confirmées ce mois-ci
-        const locationsMois = await Reservation.count({
-            where: {
-                etatRes: 'Confirmée',
-                debRes: { [Op.gte]: debutMois }
-            }
-        });
-        
-        // 3. Revenu Total estimé (Locations Terminées)
-        // Vérifiez le nom de colonne 'tarifTot' dans votre modèle Location.js
-        const revenuTotal = await Location.sum('tarifTot', {
-            where: {
-                etatLo: 'Terminée'
-            }
-        });
-        
-        // 4. Taux d'occupation des Salles
-        const totalSalles = await Salle.count();
-        const sallesOccupees = await Salle.count({
-            where: {
-                disponibiliteSalle: 'Occupée'
-            }
-        });
-        const tauxOccupationSalle = totalSalles > 0 ? ((sallesOccupees / totalSalles) * 100).toFixed(2) : 0;
-
-
-        res.status(200).send({
-            totalClients,
-            locationsMois,
-            revenuTotal: revenuTotal || 0,
-            tauxOccupationSalle,
-            // Ajout d'une valeur par défaut pour les matériels
-            tauxOccupationMateriels: "N/A" 
-        });
-        
-    } catch (error) {
-        console.error("Erreur critique détaillée lors de la récupération des KPIs:", error);
-        res.status(500).send({
-            message: "Erreur serveur lors du calcul des KPIs.",
-            detail: error.message 
-        });
-    }
-};
-*/
-
 // --- 2. Rapport d'activité des Réservations (par mois) ---
 // 💡 CE BLOC EST MAINTENANT AU NIVEAU RACINE DU MODULE
 exports.getReservationsReport = async (req, res) => {
@@ -190,6 +137,7 @@ exports.getReservationsReport = async (req, res) => {
 // 💡 CE BLOC EST MAINTENANT AU NIVEAU RACINE DU MODULE
 // 🚨 CORRECTION POUR /api/rapports/top-materiel
 // backend/controllers/rapportController.js
+// backend/controllers/rapportController.js
 
 exports.getTopRentedMateriel = async (req, res) => {
     try {
@@ -198,7 +146,8 @@ exports.getTopRentedMateriel = async (req, res) => {
         const sqlQuery = `
             SELECT 
                 m.codeMat, 
-                m.nomMat, 
+                m.designationMat,  -- ⚠️ CORRECTION: utilisation de designationMat au lieu de nomMat
+                m.categorieMat,
                 COUNT(r.codeMat) AS totalLocations 
             FROM reservation r
             JOIN materiel m ON r.codeMat = m.codeMat 
@@ -206,18 +155,18 @@ exports.getTopRentedMateriel = async (req, res) => {
             AND r.typeRes = 'Materiel'
             -- Optionnel : s'assurer que le matériel est en état louable
             AND m.etatMat IN ('Neuf', 'Bon état')
-            GROUP BY m.codeMat, m.nomMat
+            GROUP BY m.codeMat, m.designationMat, m.categorieMat
             ORDER BY totalLocations DESC
             LIMIT 5;
         `;
         
         // 🚨 EXECUTION CRITIQUE: Utilisation de sequelize.query
-        const [topMateriel] = await sequelize.query(sqlQuery, {
-            type: QueryTypes.SELECT, 
-            raw: true 
+        const topMateriel = await sequelize.query(sqlQuery, {
+            type: sequelize.QueryTypes.SELECT, 
+            replacements: {} // Ajout des replacements si nécessaire
         });
         
-        console.log(`Top ${topMateriel.length} matériels trouvés.`);
+        console.log(`Top ${topMateriel.length} matériels trouvés:`, topMateriel);
         res.json(topMateriel);
         
     } catch (error) {
@@ -225,11 +174,10 @@ exports.getTopRentedMateriel = async (req, res) => {
         // Renvoyer le message d'erreur détaillé au frontend pour le diagnostic
         res.status(500).json({ 
             error: 'Erreur serveur lors du chargement des rapports de matériel',
-            detail: error.message // 👈 Ceci nous donnera la cause exacte
+            detail: error.message
         });
     }
 };
-
 // backend/controllers/rapportController.js
 
 exports.getRevenueByClientType = async (req, res) => {
@@ -260,5 +208,253 @@ exports.getRevenueByClientType = async (req, res) => {
     }
 };
 
-const { ReservationSalle} = require('../models');
+// backend/controllers/rapportController.js - AJOUT DES FONCTIONS MANQUANTES
+
+// 📊 Statistiques des réservations (endpoint /reservations)
+exports.getReservationsStats = async (req, res) => {
+    try {
+        console.log('Calcul des statistiques des réservations...');
+        
+        const reservationsParEtat = await Reservation.findAll({
+            attributes: [
+                'etatRes',
+                [sequelize.fn('COUNT', sequelize.col('idRes')), 'count']
+            ],
+            group: ['etatRes'],
+            raw: true
+        });
+
+        console.log('✅ Statistiques réservations calculées:', reservationsParEtat);
+        res.status(200).json(reservationsParEtat);
+        
+    } catch (error) {
+        console.error('❌ Erreur statistiques réservations:', error);
+        res.status(500).json({ 
+            error: 'Erreur lors du calcul des statistiques des réservations',
+            detail: error.message 
+        });
+    }
+};
+
+// 📈 Statistiques mensuelles (endpoint /monthly-stats)
+exports.getMonthlyStats = async (req, res) => {
+    try {
+        console.log('Calcul des statistiques mensuelles...');
+        
+        const maintenant = new Date();
+        const debutMois = new Date(maintenant.getFullYear(), maintenant.getMonth(), 1);
+        const finMois = new Date(maintenant.getFullYear(), maintenant.getMonth() + 1, 0);
+
+        // Nouvelles réservations ce mois
+        const nouvellesReservations = await Reservation.count({
+            where: {
+                dateCre: {
+                    [Op.between]: [debutMois, finMois]
+                }
+            }
+        });
+
+        // Revenu mensuel (locations terminées ce mois)
+        const revenuMensuel = await Location.sum('tarifTot', {
+            where: {
+                etatLo: 'Terminée',
+                dateCre: {
+                    [Op.between]: [debutMois, finMois]
+                }
+            }
+        });
+
+        // Taux de conversion (réservations confirmées / total réservations)
+        const totalReservationsMois = await Reservation.count({
+            where: {
+                dateCre: {
+                    [Op.between]: [debutMois, finMois]
+                }
+            }
+        });
+
+        const reservationsConfirmees = await Reservation.count({
+            where: {
+                etatRes: 'Confirmée',
+                dateCre: {
+                    [Op.between]: [debutMois, finMois]
+                }
+            }
+        });
+
+        const tauxConversion = totalReservationsMois > 0 
+            ? Math.round((reservationsConfirmees / totalReservationsMois) * 100)
+            : 0;
+
+        const resultat = {
+            newReservations: nouvellesReservations,
+            monthlyRevenue: revenuMensuel || 0,
+            conversionRate: tauxConversion,
+            period: {
+                start: debutMois,
+                end: finMois,
+                month: maintenant.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })
+            }
+        };
+
+        console.log('✅ Statistiques mensuelles calculées:', resultat);
+        res.status(200).json(resultat);
+        
+    } catch (error) {
+        console.error('❌ Erreur statistiques mensuelles:', error);
+        res.status(500).json({ 
+            error: 'Erreur lors du calcul des statistiques mensuelles',
+            detail: error.message 
+        });
+    }
+};
+
+// 🏷️ Types de location (endpoint /location-types)
+exports.getLocationTypes = async (req, res) => {
+    try {
+        console.log('Calcul des types de location...');
+        
+        const typesLocation = await Reservation.findAll({
+            attributes: [
+                'typeRes',
+                [sequelize.fn('COUNT', sequelize.col('idRes')), 'count']
+            ],
+            where: {
+                typeRes: {
+                    [Op.ne]: null
+                }
+            },
+            group: ['typeRes'],
+            raw: true
+        });
+
+        // Formater les résultats
+        const resultat = typesLocation.map(item => ({
+            type: item.typeRes,
+            count: item.count
+        }));
+
+        console.log('✅ Types de location calculés:', resultat);
+        res.status(200).json(resultat);
+        
+    } catch (error) {
+        console.error('❌ Erreur types de location:', error);
+        res.status(500).json({ 
+            error: 'Erreur lors du calcul des types de location',
+            detail: error.message 
+        });
+    }
+};
+
+// 📥 Export des rapports (endpoint /export)
+exports.exportReports = async (req, res) => {
+    try {
+        const format = req.query.format || 'pdf';
+        console.log(`Export des rapports en format: ${format}`);
+
+        // Récupérer toutes les données nécessaires
+        const [kpis, reservations, topMateriel, revenueClient] = await Promise.all([
+            this.getKPIsData(),
+            this.getReservationsStatsData(),
+            this.getTopRentedMaterielData(),
+            this.getRevenueByClientTypeData()
+        ]);
+
+        // Simuler la génération d'un PDF (à remplacer par une vraie librairie PDF)
+        const rapportData = {
+            titre: "Rapport d'Activité CEDII",
+            date: new Date().toLocaleDateString('fr-FR'),
+            kpis: kpis,
+            reservations: reservations,
+            topMateriel: topMateriel,
+            revenueClient: revenueClient
+        };
+
+        // Pour l'instant, on retourne du JSON
+        // Plus tard, vous pourrez utiliser une librairie comme pdfkit ou puppeteer
+        if (format === 'json') {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Content-Disposition', 'attachment; filename=rapport-cedii.json');
+            res.status(200).json(rapportData);
+        } else {
+            // Pour PDF, on retourne un message d'info (à implémenter)
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', 'attachment; filename=rapport-cedii.pdf');
+            
+            // Message temporaire - à remplacer par la génération PDF réelle
+            const pdfBuffer = Buffer.from(`Rapport CEDII - Fonction PDF à implémenter\n${JSON.stringify(rapportData, null, 2)}`);
+            res.status(200).send(pdfBuffer);
+        }
+
+        console.log('✅ Rapport exporté avec succès');
+        
+    } catch (error) {
+        console.error('❌ Erreur export rapport:', error);
+        res.status(500).json({ 
+            error: 'Erreur lors de l\'export du rapport',
+            detail: error.message 
+        });
+    }
+};
+
+// Fonctions helper pour l'export
+exports.getKPIsData = async () => {
+    const debutMois = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    
+    const totalClients = await Client.count();
+    const locationsMois = await Reservation.count({
+        where: { etatRes: 'Confirmée', debRes: { [Op.gte]: debutMois } }
+    });
+    const revenuTotal = await Location.sum('tarifTot', { where: { etatLo: 'Terminée' } });
+    const totalSalles = await Salle.count();
+    const sallesOccupees = await Salle.count({ where: { disponibiliteSalle: 'Occupée' } });
+    const tauxOccupationSalle = totalSalles > 0 ? ((sallesOccupees / totalSalles) * 100).toFixed(2) : 0;
+
+    return { totalClients, locationsMois, revenuTotal, tauxOccupationSalle };
+};
+
+exports.getReservationsStatsData = async () => {
+    return await Reservation.findAll({
+        attributes: ['etatRes', [sequelize.fn('COUNT', sequelize.col('idRes')), 'count']],
+        group: ['etatRes'],
+        raw: true
+    });
+};
+
+exports.getTopRentedMaterielData = async () => {
+    const sqlQuery = `
+        SELECT 
+            m.codeMat, 
+            m.designationMat,
+            m.categorieMat,
+            COUNT(r.codeMat) AS totalLocations 
+        FROM reservation r
+        JOIN materiel m ON r.codeMat = m.codeMat 
+        WHERE r.etatRes = 'Confirmée'
+        AND r.typeRes = 'Materiel'
+        AND m.etatMat IN ('Neuf', 'Bon état')
+        GROUP BY m.codeMat, m.designationMat, m.categorieMat
+        ORDER BY totalLocations DESC
+        LIMIT 5;
+    `;
+    
+    return await sequelize.query(sqlQuery, { type: sequelize.QueryTypes.SELECT });
+};
+
+exports.getRevenueByClientTypeData = async () => {
+    const sqlQuery = `
+        SELECT 
+            c.typeCli, 
+            COALESCE(SUM(p.montantPaie), 0) AS totalRevenu 
+        FROM client c
+        JOIN reservation r ON c.idCli = r.idCli
+        JOIN location l ON r.idRes = l.idRes
+        JOIN paiement p ON l.idLo = p.idLo
+        WHERE p.statutPaie = 'Effectué'
+        GROUP BY c.typeCli
+        ORDER BY totalRevenu DESC;
+    `;
+    
+    return await sequelize.query(sqlQuery, { type: sequelize.QueryTypes.SELECT });
+};
 

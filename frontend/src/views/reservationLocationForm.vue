@@ -1,35 +1,24 @@
 <template>
   <div class="reservation-page-container">
-    <!-- Header avec bouton retour à gauche -->
-    <div class="header-section mb-4">
-      <div class="d-flex align-items-center">
-        <n-button 
-          type="primary" 
-          ghost 
-          @click="$router.push('/dashboardReception')"
-          class="back-button me-3"
-          size="small"
-        >
-          <template #icon>
-            <n-icon>
-              <i class="bi bi-arrow-left"></i>
-            </n-icon>
-          </template>
-          Retour à l'Accueil
-        </n-button>
-        
-        <div class="flex-grow-1">
-          <n-card class="title-card">
-            <template #header>
-              <div class="text-center">
-                <h2 class="mb-0 cedii-text-primary">
-                  <i class="bi bi-calendar-plus-fill me-2"></i>
-                  Nouvelle Réservation / Location
-                </h2>
-                <p class="text-muted mb-0 mt-1">Formulaire de création de nouvelle demande</p>
-              </div>
-            </template>
-          </n-card>
+    <!-- Header amélioré -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="custom-header p-4 rounded">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <router-link to="/dashboardReception" class="btn btn-sm btn-outline-light">
+                <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
+              </router-link>
+            </div>
+            <div class="text-center">
+              <h1 class="custom-title mb-1">
+                <i class="bi bi-calendar-plus-fill me-2"></i>
+                Nouvelle Réservation / Location
+              </h1>
+              <p class="custom-subtitle">Formulaire de création de nouvelle demande</p>
+            </div>
+            <div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -267,8 +256,6 @@
                 {{ isSubmitting ? 'Envoi en cours...' : 'Enregistrer la Réservation/Location' }}
               </n-button>
             </div>
-            
-           
           </div>
         </n-form>
       </n-card>
@@ -529,7 +516,7 @@ const submitForm = async () => {
     
     // 🎯 REDIRECTION vers la section demandes en attente après 3 secondes
     setTimeout(() => {
-      router.push('/demandeAttente'); // Ajustez le chemin selon votre routeur
+      router.push('/demandeAttente');
     }, 3000);
     
   } catch (error) {
@@ -566,11 +553,6 @@ const resetForm = () => {
   });
 };
 
-// 🎯 FONCTION DE REDIRECTION MANUELLE (optionnelle)
-const redirectToPendingRequests = () => {
-  router.push('/demandeAttente'); // Ajustez le chemin
-};
-
 // Watchers
 watch(() => form.typeRes, () => {
   form.idCatalogue = null;
@@ -593,18 +575,36 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.header-section {
-  background: transparent;
-  flex-shrink: 0;
+/* Header amélioré */
+.custom-header {
+  background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
+  color: white;
+  border-left: 4px solid #007bff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
-.title-card {
-  border: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.custom-title {
+  color: white;
+  font-weight: 700;
+  margin: 0;
+  font-size: 1.8rem;
 }
 
-.back-button {
-  min-width: 140px;
+.custom-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  font-size: 1rem;
+}
+
+.btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: white;
+  color: white;
 }
 
 /* Conteneur avec scroll */
@@ -627,12 +627,12 @@ onMounted(() => {
 }
 
 .content-scroll-container::-webkit-scrollbar-thumb {
-  background: var(--cedii-primary-light, #5B11EE);
+  background: #007bff;
   border-radius: 4px;
 }
 
 .content-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: var(--cedii-primary-dark, #0671b6);
+  background: #0056b3;
 }
 
 .reservation-form-card {
@@ -688,7 +688,7 @@ onMounted(() => {
 /* Section tarif */
 .tarif-section {
   background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%) !important;
-  border: 2px solid var(--cedii-primary-light, #5B11EE) !important;
+  border: 2px solid #007bff !important;
 }
 
 .tarif-amount {
@@ -703,7 +703,7 @@ onMounted(() => {
 }
 
 :deep(.custom-select .n-base-selection:hover) {
-  border-color: var(--cedii-primary-light, #5B11EE);
+  border-color: #007bff;
 }
 
 :deep(.custom-input .n-input) {
@@ -714,44 +714,34 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-/* Palette de couleurs CEDII */
-.cedii-text-primary { 
-  color: var(--cedii-primary-light, #5B11EE) !important; 
+/* Boutons cohérents */
+:deep(.n-button--primary-type) {
+  background: #007bff !important;
+  border-color: #007bff !important;
 }
 
-.cedii-btn-primary { 
-  background-color: var(--cedii-primary-light, #5B11EE) !important;
-  color: white !important; 
-  border-color: var(--cedii-primary-light, #5B11EE) !important;
-  font-weight: 600;
-  padding: 12px 24px;
-  transition: all 0.3s ease;
-}
-
-.cedii-btn-primary:hover {
-  background-color: var(--cedii-primary-dark, #0671b6) !important;
-  border-color: var(--cedii-primary-dark, #0671b6) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(91, 17, 238, 0.3);
+:deep(.n-button--primary-type:hover) {
+  background: #0056b3 !important;
+  border-color: #0056b3 !important;
 }
 
 .btn-outline-primary {
-  color: var(--cedii-primary-light, #5B11EE);
-  border-color: var(--cedii-primary-light, #5B11EE);
+  color: #007bff;
+  border-color: #007bff;
   font-weight: 500;
 }
 
 .btn-check:checked + .btn-outline-primary,
 .btn-outline-primary.active {
-  background-color: var(--cedii-primary-light, #5B11EE);
+  background-color: #007bff;
   color: white;
-  border-color: var(--cedii-primary-light, #5B11EE);
+  border-color: #007bff;
 }
 
 .btn-outline-secondary.active {
-  background-color: var(--cedii-primary-light, #5B11EE);
+  background-color: #007bff;
   color: white;
-  border-color: var(--cedii-primary-light, #5B11EE);
+  border-color: #007bff;
 }
 
 .submit-btn {
@@ -768,13 +758,18 @@ onMounted(() => {
     height: 100vh;
   }
   
-  .header-section .d-flex {
+  .custom-header .d-flex {
     flex-direction: column;
     gap: 12px;
+    text-align: center;
   }
   
-  .back-button {
-    align-self: flex-start;
+  .custom-title {
+    font-size: 1.4rem;
+  }
+  
+  .custom-subtitle {
+    font-size: 0.9rem;
   }
   
   .field-label {
@@ -816,7 +811,7 @@ onMounted(() => {
 :deep(.custom-select .n-base-selection:focus),
 :deep(.custom-input .n-input:focus),
 :deep(.custom-datepicker .n-input:focus) {
-  box-shadow: 0 0 0 2px rgba(91, 17, 238, 0.2);
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
   outline: none;
 }
 </style>

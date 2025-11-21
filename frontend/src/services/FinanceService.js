@@ -1,53 +1,37 @@
-// frontend/services/FinanceService.js
 import axios from 'axios';
 
 const API_URL = 'http://localhost:5000/api/finance';
 
 class FinanceService {
-  // =========================================================================
-  // FONCTIONS EXISTANTES
-  // =========================================================================
-  
-  getCashflowSynthese() {
-    return axios.get(`${API_URL}/cashflow-synthese`);
-  }
-
+  // Méthodes principales
   getFinanceDashboardData() {
     return axios.get(`${API_URL}/dashboard`);
   }
 
-  getFacturationData() {
-    return axios.get(`${API_URL}/facturation`);
-  }
-
-    async getPenalitesData() {
-    try {
-      const response = await axios.get(`${API_URL}/penalites`);
-      return response;
-    } catch (error) {
-      console.error('Erreur API getPenalitesData:', error);
-      throw error;
-    }
-  }
-  
-  getConfirmedLocationsToInvoice() {
+  getConfirmedLocations() {
     return axios.get(`${API_URL}/confirmed-locations`);
   }
 
-  generateInvoices() {
-    return axios.post(`${API_URL}/generate-invoices`);
+  createAndSendInvoice(payload) {
+    return axios.post(`${API_URL}/create-and-send-invoice`, payload);
   }
 
-  // ✅ CORRECTION : Envoi de facture avec payload
-  sendInvoice(payload) {
-    return axios.post(`${API_URL}/send-invoice`, payload); // POST avec données
+  downloadInvoice(locationId) {
+    return axios.get(`${API_URL}/download-invoice/${locationId}`, {
+      responseType: 'blob'
+    });
   }
 
-  // ✅ CONSERVER l'ancienne méthode pour compatibilité
-  sendInvoiceEmail(invoiceId) {
-    return axios.post(`${API_URL}/send-invoice/${invoiceId}`);
+  // Méthodes pénalités
+  calculatePenalties() {
+    return axios.get(`${API_URL}/penalties/calculate`);
   }
 
+  sendPenaltyNotifications() {
+    return axios.post(`${API_URL}/penalties/notify`);
+  }
+
+  // Méthodes paiements
   getPaymentData() {
     return axios.get(`${API_URL}/payments`);
   }
@@ -56,66 +40,32 @@ class FinanceService {
     return axios.post(`${API_URL}/validate-payment/${paymentId}`);
   }
 
-  sendPaymentReminder(paymentId) {
-    return axios.post(`${API_URL}/send-reminder/${paymentId}`);
+  // Méthodes statistiques
+  static async getChiffreAffaires() {
+    try {
+      const response = await axios.get(`${API_URL}/chiffre-affaires`);
+      return response;
+    } catch (error) {
+      console.error('Erreur récupération CA:', error);
+      throw error;
+    }
   }
 
-  getRapportsData() {
-    return axios.get(`${API_URL}/reports`);
+  static async getFacturesEnvoyees() {
+    try {
+      const response = await axios.get(`${API_URL}/factures-envoyees`);
+      return response;
+    } catch (error) {
+      console.error('Erreur comptage factures:', error);
+      throw error;
+    }
   }
 
-  getLitigationCount() {
-    return axios.get(`${API_URL}/litigation-count`);
-  }
-
-  getMonthlyRevenue() {
-    return axios.get(`${API_URL}/monthly-revenue`);
-  }
-
-  getPenalitesList() {
-    return axios.get(`${API_URL}/penalites`);
-  }
-
-  // =========================================================================
-  // NOUVELLES FONCTIONS CORRIGÉES
-  // =========================================================================
-
-  /**
-   * Crée et envoie une facture par email
-   */
-  createAndSendInvoice(payload) {
-    return axios.post(`${API_URL}/create-and-send-invoice`, payload);
-}
-  /**
-   * Télécharge une facture en PDF
-   */
-  downloadInvoice(locationId) {
-    return axios.get(`${API_URL}/download-invoice/${locationId}`, {
-      responseType: 'blob'
-    });
-  }
-
-  /**
-   * Exporte toutes les factures en ZIP
-   */
+  // Autres méthodes
   exportInvoices() {
     return axios.get(`${API_URL}/export-invoices`, {
       responseType: 'blob'
     });
-  }
-
-  /**
-   * Génère un numéro de facture (optionnel)
-   */
-  generateInvoiceNumber() {
-    return axios.get(`${API_URL}/generate-invoice-number`);
-  }
-
-  /**
-   * Récupère l'historique des paiements
-   */
-  getPaymentHistory() {
-    return axios.get(`${API_URL}/payment-history`);
   }
 }
 

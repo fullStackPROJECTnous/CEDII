@@ -1,59 +1,105 @@
 <template>
   <div class="container-fluid py-4">
     <!-- En-tête avec bouton retour -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h1 class="h3 mb-0 text-dark fw-bold">Suivi des Paiements</h1>
-      <n-button type="primary" ghost @click="$router.push('/dashboardFinance')">
-        <template #icon>
-          <n-icon>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
-              <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
-            </svg>
-          </n-icon>
-        </template>
-        Retour à l'Accueil
-      </n-button>
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="custom-header p-4 rounded">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <router-link to="/dashboardFinance" class="btn btn-sm btn-outline-light">
+                <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
+              </router-link>
+            </div>
+            <div class="text-center">
+              <h1 class="custom-title mb-1">
+                <i class="bi bi-cash-coin me-2"></i>
+                Suivi des Paiements
+              </h1>
+              <p class="custom-subtitle">Gestion et suivi des transactions financières</p>
+            </div>
+            <div></div> <!-- Placeholder pour l'alignement -->
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Carte d'alerte pour paiements en attente -->
-    <n-alert title="Paiements en Attente d'Action" type="warning" class="mb-4">
-      <div class="d-flex justify-content-between align-items-center">
-        <div>
-          <p class="mb-0">
-            Vous avez <strong>{{ pendingPayments.length }} transactions</strong> en attente de validation ou de relance.
-          </p>
-          <p class="mb-0">
-            Montant total : <strong>{{ formatCurrency(totalPendingAmount) }}</strong>
-          </p>
-        </div>
-        <n-button type="warning" @click="$router.push({ name: 'FactureGene' })">
+    <div class="row mb-4">
+      <div class="col-12">
+        <n-alert type="warning">
           <template #icon>
-            <n-icon>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-text" viewBox="0 0 16 16">
-                <path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5z"/>
-                <path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5L9.5 0zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5z"/>
-              </svg>
-            </n-icon>
+            <i class="bi bi-exclamation-triangle"></i>
           </template>
-          Voir les Factures en Retard
-        </n-button>
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong>Paiements en Attente d'Action</strong>
+              <div class="small">
+                Vous avez <strong>{{ pendingPayments.length }} transactions</strong> en attente de validation ou de relance.
+                Montant total : <strong>{{ formatCurrency(totalPendingAmount) }}</strong>
+              </div>
+            </div>
+            <n-button type="warning" size="small" @click="$router.push({ name: 'FactureGene' })">
+              <i class="bi bi-file-earmark-text me-1"></i>Voir les Factures en Retard
+            </n-button>
+          </div>
+        </n-alert>
       </div>
-    </n-alert>
+    </div>
+
+    <!-- Cartes de statistiques -->
+    <div class="row mb-4">
+      <div class="col-md-4 mb-3">
+        <n-card class="custom-card-warning h-100" size="small">
+          <div class="d-flex align-items-center">
+            <div class="custom-icon-warning me-3">
+              <i class="bi bi-clock-history text-white"></i>
+            </div>
+            <div>
+              <h6 class="mb-1 text-white">En Attente</h6>
+              <h4 class="mb-0 text-warning">{{ pendingPayments.length }}</h4>
+            </div>
+          </div>
+        </n-card>
+      </div>
+      
+      <div class="col-md-4 mb-3">
+        <n-card class="custom-card-success h-100" size="small">
+          <div class="d-flex align-items-center">
+            <div class="custom-icon-success me-3">
+              <i class="bi bi-check-circle text-white"></i>
+            </div>
+            <div>
+              <h6 class="mb-1 text-white">Validés</h6>
+              <h4 class="mb-0 text-success">{{ validatedPayments.length }}</h4>
+            </div>
+          </div>
+        </n-card>
+      </div>
+      
+      <div class="col-md-4 mb-3">
+        <n-card class="custom-card-primary h-100" size="small">
+          <div class="d-flex align-items-center">
+            <div class="custom-icon-primary me-3">
+              <i class="bi bi-currency-exchange text-white"></i>
+            </div>
+            <div>
+              <h6 class="mb-1 text-white">Total En Attente</h6>
+              <h4 class="mb-0 text-info">{{ formatCurrency(totalPendingAmount) }}</h4>
+            </div>
+          </div>
+        </n-card>
+      </div>
+    </div>
 
     <!-- Section des transactions en attente -->
-    <n-card title="Transactions en Attente" class="mb-4">
+    <n-card class="shadow-lg mb-4" title="Transactions en Attente">
       <template #header-extra>
-        <n-tag type="warning" round>{{ pendingPayments.length }} en attente</n-tag>
+        <n-tag type="warning" round class="custom-tag">{{ pendingPayments.length }} en attente</n-tag>
       </template>
       
       <n-empty v-if="pendingPayments.length === 0 && !isLoading" description="Aucun paiement en attente. Votre caisse est à jour !">
         <template #icon>
-          <n-icon size="60" color="#28a745">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle" viewBox="0 0 16 16">
-              <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-              <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
-            </svg>
-          </n-icon>
+          <i class="bi bi-check-circle" style="font-size: 3rem; color: #28a745;"></i>
         </template>
       </n-empty>
       
@@ -63,14 +109,14 @@
         :data="pendingPayments"
         :loading="isLoading"
         :scroll-x="1200"
-        class="payment-table"
+        class="custom-table"
       />
     </n-card>
 
     <!-- Section de l'historique des transactions -->
-    <n-card title="Historique des Transactions Rapprochées">
+    <n-card class="shadow-lg" title="Historique des Transactions Rapprochées">
       <template #header-extra>
-        <n-tag type="info" round>{{ validatedPayments.length }} validés</n-tag>
+        <n-tag type="info" round class="custom-tag">{{ validatedPayments.length }} validés</n-tag>
       </template>
       
       <p class="text-muted mb-3">Toutes les transactions passées et validées.</p>
@@ -83,11 +129,7 @@
             clearable
           >
             <template #prefix>
-              <n-icon>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
-                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-                </svg>
-              </n-icon>
+              <i class="bi bi-search text-muted"></i>
             </template>
           </n-input>
           
@@ -100,14 +142,9 @@
           />
         </n-space>
         
-        <n-button type="primary" @click="exportHistory">
+        <n-button type="primary" @click="exportHistory" class="custom-btn-primary">
           <template #icon>
-            <n-icon>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
-                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-              </svg>
-            </n-icon>
+            <i class="bi bi-download"></i>
           </template>
           Exporter
         </n-button>
@@ -118,7 +155,7 @@
         :data="filteredHistory"
         :loading="isLoading"
         :scroll-x="1400"
-        class="history-table"
+        class="custom-table"
       />
       
       <div class="d-flex justify-content-between align-items-center mt-3">
@@ -229,14 +266,18 @@ const pendingColumns = [
         'mobilemoney': 'success',
         'cash': 'success'
       };
-      return h(NTag, { type: colorMap[type] || 'default', size: 'small' }, { default: () => row.modePaie });
+      return h(NTag, { 
+        type: colorMap[type] || 'default', 
+        size: 'small',
+        class: 'custom-tag'
+      }, { default: () => row.modePaie });
     }
   },
   {
     title: 'Montant',
     key: 'montantPaie',
     width: 130,
-    render: (row) => formatCurrency(row.montantPaie),
+    render: (row) => h('strong', { class: 'text-success' }, formatCurrency(row.montantPaie)),
     sorter: (a, b) => a.montantPaie - b.montantPaie
   },
   {
@@ -249,38 +290,20 @@ const pendingColumns = [
         h(NButton, {
           type: 'success',
           size: 'small',
+          class: 'custom-btn-success',
           onClick: () => validatePayment(row.idPaie)
         }, {
           default: () => 'Valider',
-          icon: () => h(NIcon, null, {
-            default: () => h('svg', { 
-              xmlns: 'http://www.w3.org/2000/svg', 
-              width: '12', 
-              height: '12', 
-              fill: 'currentColor', 
-              viewBox: '0 0 16 16'
-            }, [
-              h('path', { d: 'M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z' })
-            ])
-          })
+          icon: () => h('i', { class: 'bi bi-check-lg' })
         }),
         h(NButton, {
           type: 'warning',
           size: 'small',
+          class: 'custom-btn-warning',
           onClick: () => sendReminder(row.idPaie)
         }, {
           default: () => 'Relance',
-          icon: () => h(NIcon, null, {
-            default: () => h('svg', { 
-              xmlns: 'http://www.w3.org/2000/svg', 
-              width: '12', 
-              height: '12', 
-              fill: 'currentColor', 
-              viewBox: '0 0 16 16'
-            }, [
-              h('path', { d: 'M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zM8 1.918l-.797.161A4.002 4.002 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4.002 4.002 0 0 0-3.203-3.92L8 1.917zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1C2.68 10.2 3 6.88 3 6c0-2.42 1.72-4.44 4.005-4.901a1 1 0 1 1 1.99 0A5.002 5.002 0 0 1 13 6c0 .88.32 4.2 1.22 6z' })
-            ])
-          })
+          icon: () => h('i', { class: 'bi bi-bell' })
         })
       ]);
     }
@@ -326,14 +349,18 @@ const historyColumns = [
         'mobilemoney': 'success',
         'cash': 'success'
       };
-      return h(NTag, { type: colorMap[type] || 'default', size: 'small' }, { default: () => row.modePaie });
+      return h(NTag, { 
+        type: colorMap[type] || 'default', 
+        size: 'small',
+        class: 'custom-tag'
+      }, { default: () => row.modePaie });
     }
   },
   {
     title: 'Montant',
     key: 'montantPaie',
     width: 130,
-    render: (row) => formatCurrency(row.montantPaie),
+    render: (row) => h('strong', { class: 'text-success' }, formatCurrency(row.montantPaie)),
     sorter: (a, b) => a.montantPaie - b.montantPaie
   },
   {
@@ -346,14 +373,18 @@ const historyColumns = [
         'En attente': 'warning',
         'Annulé': 'error'
       };
-      return h(NTag, { type: typeMap[row.statutPaie] || 'default', size: 'small' }, { default: () => row.statutPaie });
+      return h(NTag, { 
+        type: typeMap[row.statutPaie] || 'default', 
+        size: 'small',
+        class: 'custom-tag'
+      }, { default: () => row.statutPaie });
     }
   },
   {
     title: 'Location',
     key: 'idLo',
     width: 100,
-    render: (row) => `LO-${row.idLo}`
+    render: (row) => h('span', { class: 'text-muted' }, `LO-${row.idLo}`)
   }
 ];
 
@@ -427,45 +458,130 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Styles spécifiques pour l'interface CEDII */
-:deep(.n-card-header) {
-  border-bottom: 1px solid #e9ecef;
+/* COULEURS ORIGINALES */
+
+.custom-header {
+  background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
+  color: white;
+  border-left: 4px solid #007bff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
-:deep(.payment-table .n-data-table-th) {
-  background-color: #f8f9fa;
+.custom-title {
+  color: white;
+  font-weight: 700;
+  margin: 0;
+}
+
+.custom-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+/* Cartes avec couleurs originales */
+.custom-card-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-success {
+  background: linear-gradient(135deg, black 0%, black 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-warning {
+  background: linear-gradient(135deg, gray 0%, gray 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-danger {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+/* Icônes avec fond original */
+.custom-icon-primary, 
+.custom-icon-danger, 
+.custom-icon-success,
+.custom-icon-warning {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Tags */
+.custom-tag {
   font-weight: 600;
 }
 
-:deep(.history-table .n-data-table-th) {
-  background-color: #f8f9fa;
-  font-weight: 600;
+/* Boutons */
+.custom-btn-primary {
+  background: #007bff;
+  border-color: #007bff;
 }
 
-/* Adaptation de la palette CEDII */
-:deep(.n-button--primary-type) {
-  background-color: #04058f;
-  border-color: #04058f;
+.custom-btn-primary:hover {
+  background: #0056b3;
+  border-color: #0056b3;
 }
 
-:deep(.n-button--primary-type:hover) {
-  background-color: #02061e;
-  border-color: #02061e;
+.custom-btn-success {
+  background: #28a745;
+  border-color: #28a745;
 }
 
-:deep(.n-tag--warning-type) {
-  background-color: #fff3cd;
-  color: #856404;
-  border-color: #ffeaa7;
+.custom-btn-warning {
+  background: #ffc107;
+  border-color: #ffc107;
 }
 
-:deep(.n-alert--warning-type) {
-  background-color: #fff3cd;
-  border-color: #ffeaa7;
-  color: #856404;
+/* Table personnalisée */
+.custom-table {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.d-flex.gap-2 {
-  gap: 8px;
+/* Responsive */
+@media (max-width: 768px) {
+  .custom-title {
+    font-size: 1.4rem;
+  }
+  
+  .custom-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .custom-header {
+    padding: 1rem;
+  }
+  
+  .custom-icon-primary, 
+  .custom-icon-danger, 
+  .custom-icon-success,
+  .custom-icon-warning {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+  
+  .custom-header .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
 }
 </style>

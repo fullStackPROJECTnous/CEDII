@@ -9,7 +9,7 @@
                 :width="240"
                 :native-scrollbar="false"
                 show-trigger="bar"
-                class="cedii-sidebar"
+                class="custom-sidebar"
             >
                 <div class="sidebar-content d-flex flex-column h-100 p-3">
                     <!-- Logo et Titre -->
@@ -23,7 +23,7 @@
                         :options="menuOptions"
                         :value="activeMenuKey"
                         @update:value="handleMenuSelect"
-                        class="flex-grow-1 cedii-menu"
+                        class="flex-grow-1 custom-menu"
                     />
                     
                     <!-- Bouton Déconnexion -->
@@ -52,11 +52,12 @@
             <!-- Contenu Principal -->
             <n-layout class="main-content">
                 <!-- Header -->
-                <n-layout-header bordered class="d-flex justify-content-between align-items-center p-4 pb-0 bg-white">
-                    <h1 class="text-secondary mb-0 fs-4">
+                <n-layout-header bordered class="custom-header d-flex justify-content-between align-items-center p-4">
+                    <h1 class="custom-title mb-0">
                         <em>Bienvenue sur la Gestion Patrimoniale du CEDII</em>
+                        <i class="bi bi-cash-coin ms-2"></i>
                     </h1>
-                    <n-tag type="info" size="small">
+                    <n-tag type="info" size="small" class="custom-tag">
                         Utilisateur: {{ userRole }}
                     </n-tag>
                 </n-layout-header>
@@ -75,44 +76,56 @@
                             <n-card title="Indicateurs Clés" class="shadow-sm h-100" content-class="p-2">
                                 <div class="kpis-grid-compact">
                                     <div class="kpi-item-compact">
-                                        <KpiCard 
-                                            icon="bi-people-fill" 
-                                            title="Clients Actifs" 
-                                            :value="kpis.totalClients" 
-                                            color="cedii-text-primary" 
-                                            border-color="border-primary"
-                                            compact
-                                        />
+                                        <div class="custom-card-primary h-100 p-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="custom-icon-primary me-3">
+                                                    <i class="bi bi-people-fill text-white"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-1 text-white">Clients Actifs</h6>
+                                                    <h4 class="mb-0 text-warning">{{ kpis.totalClients }}</h4>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="kpi-item-compact">
-                                        <KpiCard 
-                                            icon="bi-calendar-check" 
-                                            title="Locations (Mois)" 
-                                            :value="kpis.locationsMois" 
-                                            color="text-success" 
-                                            border-color="border-success"
-                                            compact
-                                        />
+                                        <div class="custom-card-warning h-100 p-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="custom-icon-warning me-3">
+                                                    <i class="bi bi-calendar-check text-white"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-1 text-white">Locations (Mois)</h6>
+                                                    <h4 class="mb-0 text-warning">{{ kpis.locationsMois }}</h4>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="kpi-item-compact">
-                                        <KpiCard 
-                                            icon="bi-bar-chart-line" 
-                                            title="Occup. Matériels" 
-                                            :value="`${kpis.tauxOccupationMateriel}%`" 
-                                            color="text-info" 
-                                            border-color="border-info"
-                                            compact
-                                        />
+                                        <div class="custom-card-danger h-100 p-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="custom-icon-danger me-3">
+                                                    <i class="bi bi-bar-chart-line text-white"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-1 text-white">Occup. Matériels</h6>
+                                                    <h4 class="mb-0 text-danger">{{ kpis.tauxOccupationMateriel }}%</h4>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="kpi-item-compact">
-                                        <KpiCard 
-                                            icon="bi-bar-chart-line" 
-                                            title="Occup. Salles" 
-                                            :value="`${kpis.tauxOccupationSalle}%`" 
-                                            color="text-warning" 
-                                            border-color="border-warning"
-                                            compact
-                                        />
+                                        <div class="custom-card-success h-100 p-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="custom-icon-success me-3">
+                                                    <i class="bi bi-bar-chart-line text-white"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-1 text-white">Occup. Salles</h6>
+                                                    <h4 class="mb-0 text-success">{{ kpis.tauxOccupationSalle }}%</h4>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </n-card>
@@ -127,56 +140,47 @@
                                         @click="refreshChart" 
                                         :loading="loading.revenue" 
                                         size="small"
+                                        class="custom-btn-primary"
                                     >
                                         <template #icon>
-                                            <n-icon>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
-                                                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                                                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-                                                </svg>
-                                            </n-icon>
+                                            <i class="bi bi-arrow-clockwise"></i>
                                         </template>
                                     </n-button>
                                 </template>
                                 
-                                <div class="chart-container-expanded d-flex flex-column justify-content-center align-items-center">
+                                <div class="cashflow-container-expanded">
                                     <div v-if="loading.revenue" class="text-center text-muted">
                                         <n-spin size="medium" />
-                                        <p class="mt-2 mb-0 small">Chargement...</p>
+                                        <p class="mt-2 mb-0 small">Calcul des indicateurs...</p>
                                     </div>
                                     <div v-else class="w-100 h-100 d-flex flex-column">
                                         <div class="text-center mb-3">
                                             <h6 class="mb-1 fw-bold">Répartition des Revenus</h6>
                                             <small class="text-muted">Total: {{ formatCurrency(totalRevenue) }} Ar</small>
                                         </div>
-                                        <div class="chart-canvas-container">
-                                            <!-- CANVAS AVEC PLUS D'ESPACE -->
-                                            <canvas 
-                                                ref="revenueChartCanvas" 
-                                                :key="chartKey"
-                                                class="revenue-chart"
-                                            ></canvas>
+                                        <div class="cashflow-chart-expanded">
+                                            <canvas ref="revenueChartCanvas" class="w-100 h-100"></canvas>
                                         </div>
-                                        <div class="chart-legend mt-3">
-                                            <div class="row text-center small g-2">
+                                        <div class="mt-3">
+                                            <div class="row text-center small">
                                                 <div class="col-4">
-                                                    <span class="legend-dot" style="background-color: #FF6384;"></span>
+                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(255, 99, 132, 0.8); border-radius: 2px;"></span>
                                                     Entreprises
                                                 </div>
                                                 <div class="col-4">
-                                                    <span class="legend-dot" style="background-color: #36A2EB;"></span>
+                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(54, 162, 235, 0.8); border-radius: 2px;"></span>
                                                     Particuliers
                                                 </div>
                                                 <div class="col-4">
-                                                    <span class="legend-dot" style="background-color: #FFCE56;"></span>
+                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(255, 206, 86, 0.8); border-radius: 2px;"></span>
                                                     ONG
                                                 </div>
                                                 <div class="col-6">
-                                                    <span class="legend-dot" style="background-color: #4BC0C0;"></span>
+                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(75, 192, 192, 0.8); border-radius: 2px;"></span>
                                                     Associations
                                                 </div>
                                                 <div class="col-6">
-                                                    <span class="legend-dot" style="background-color: #9966FF;"></span>
+                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(153, 102, 255, 0.8); border-radius: 2px;"></span>
                                                     Institutions
                                                 </div>
                                             </div>
@@ -191,44 +195,37 @@
                     <div class="row g-3 mt-3">
                         <!-- Actions & Événements du Jour -->
                         <div class="col-lg-6">
-                            <n-card title="Actions & Événements du Jour" class="shadow-sm border-danger">
+                            <n-card title="Actions & Événements du Jour" class="shadow-sm">
                                 <template #header-extra>
-                                    <n-tag type="error" size="small">
+                                    <n-tag type="error" size="small" class="custom-tag">
                                         {{ urgentReservations.length + todayEvents.length }} actions
                                     </n-tag>
                                 </template>
 
-                                <n-list class="compact-list">
+                                <n-list class="custom-list">
                                     <!-- Réservations à valider -->
                                     <n-list-item>
                                         <template #prefix>
-                                            <n-icon color="#FF4757" size="18">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
-                                                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-                                                </svg>
-                                            </n-icon>
+                                            <div class="custom-icon-danger-small">
+                                                <i class="bi bi-exclamation-triangle-fill text-white"></i>
+                                            </div>
                                         </template>
                                         <n-thing
                                             title="Réservations à valider"
                                             :description="`${urgentReservations.length} en attente`"
-                                            class="compact-thing"
                                         />
                                     </n-list-item>
 
-                                    <n-list-item v-for="res in urgentReservations" :key="res.idRes" class="compact-list-item">
+                                    <n-list-item v-for="res in urgentReservations" :key="res.idRes" class="custom-list-item">
                                         <template #prefix>
-                                            <n-icon color="#FFA500" size="16">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-clock" viewBox="0 0 16 16">
-                                                    <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
-                                                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
-                                                </svg>
-                                            </n-icon>
+                                            <div class="custom-icon-warning me-2" style="width: 36px; height: 36px;">
+                                                <i class="bi bi-clock text-white"></i>
+                                            </div>
                                         </template>
                                         
                                         <n-thing
                                             :title="getClientName(res)"
                                             :description="`${res.typeRes === 'Salle' ? 'Salle' : 'Matériel'} - ${formatDateSimple(res.debRes)}`"
-                                            class="compact-thing"
                                         />
                                         
                                         <template #suffix>
@@ -241,33 +238,26 @@
                                     <!-- Locations Début/Fin -->
                                     <n-list-item>
                                         <template #prefix>
-                                            <n-icon color="#18A058" size="18">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-calendar-event" viewBox="0 0 16 16">
-                                                    <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z"/>
-                                                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
-                                                </svg>
-                                            </n-icon>
+                                            <div class="custom-icon-success me-2" style="width: 36px; height: 36px;">
+                                                <i class="bi bi-calendar-event text-white"></i>
+                                            </div>
                                         </template>
                                         <n-thing
                                             title="Locations Début/Fin"
                                             :description="`${todayEvents.length} événements aujourd'hui`"
-                                            class="compact-thing"
                                         />
                                     </n-list-item>
 
-                                    <n-list-item v-for="event in todayEvents" :key="event.idRes + event.type" class="compact-list-item">
+                                    <n-list-item v-for="event in todayEvents" :key="event.idRes + event.type" class="custom-list-item">
                                         <template #prefix>
-                                            <n-icon :color="event.type === 'start' ? '#18A058' : '#2080F0'" size="16">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-right-circle" viewBox="0 0 16 16">
-                                                    <path fill-rule="evenodd" d="M1 8a7 7 0 1 0 14 0A7 7 0 0 0 1 8zm15 0A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM4.5 7.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H4.5z"/>
-                                                </svg>
-                                            </n-icon>
+                                            <div class="custom-icon-primary me-2" style="width: 36px; height: 36px;">
+                                                <i class="bi bi-arrow-right-circle text-white"></i>
+                                            </div>
                                         </template>
                                         
                                         <n-thing
                                             :title="getClientName(event)"
                                             :description="`${event.typeRes === 'Salle' ? 'Salle' : 'Matériel'}`"
-                                            class="compact-thing"
                                         />
                                         
                                         <template #suffix>
@@ -296,28 +286,24 @@
 
                         <!-- Informations supplémentaires -->
                         <div class="col-lg-6">
-                            <n-card title="Aperçu du Patrimoine" class="shadow-sm border-secondary">
-                                <n-list class="compact-list">
+                            <n-card title="Aperçu du Patrimoine" class="shadow-sm">
+                                <n-list class="custom-list">
                                     <n-list-item>
                                         <n-thing
                                             title="État du Patrimoine"
                                             description="Vue d'ensemble des ressources"
-                                            class="compact-thing"
                                         />
                                     </n-list-item>
                                     
-                                    <n-list-item class="compact-list-item">
+                                    <n-list-item class="custom-list-item">
                                         <template #prefix>
-                                            <n-icon color="#18A058" size="18">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
-                                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-                                                </svg>
-                                            </n-icon>
+                                            <div class="custom-icon-success me-2" style="width: 36px; height: 36px;">
+                                                <i class="bi bi-check-circle-fill text-white"></i>
+                                            </div>
                                         </template>
                                         <n-thing
                                             title="Ressources Disponibles"
                                             description="Matériels et salles opérationnels"
-                                            class="compact-thing"
                                         />
                                         <template #suffix>
                                             <n-tag type="success" size="small">
@@ -326,18 +312,15 @@
                                         </template>
                                     </n-list-item>
 
-                                    <n-list-item class="compact-list-item">
+                                    <n-list-item class="custom-list-item">
                                         <template #prefix>
-                                            <n-icon color="#FFA500" size="18">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-tools" viewBox="0 0 16 16">
-                                                    <path d="M1 0 0 1l2.2 3.081a1 1 0 0 0 .815.419h.07a1 1 0 0 1 .708.293l2.675 2.675-2.617 2.654A3.003 3.003 0 0 0 0 13a3 3 0 1 0 5.878-.851l2.654-2.617.968.968-.305.914a1 1 0 0 0 .242 1.023l3.27 3.27a.997.997 0 0 0 1.414 0l1.586-1.586a.997.997 0 0 0 0-1.414l-3.27-3.27a1 1 0 0 0-1.023-.242L10.5 9.5l-.96-.96 2.68-2.643A3.005 3.005 0 0 0 16 3c0-.269-.035-.53-.102-.777l-2.14 2.141L12 4l-.364-1.757L13.777.102a3 3 0 0 0-3.675 3.68L7.462 6.46 4.793 3.793a1 1 0 0 1-.293-.707v-.071a1 1 0 0 0-.419-.814L1 0zm9.646 10.646a.5.5 0 0 1 .708 0l2.914 2.915a.5.5 0 0 1-.707.707l-2.915-2.914a.5.5 0 0 1 0-.708zM3 11l.471.242.529.026.287.445.445.287.026.529L5 13l-.242.471-.026.529-.445.287-.287.445-.529.026L3 15l-.471-.242L2 14.732l-.287-.445L1.268 14l-.026-.529L1 13l.242-.471.026-.529.445-.287.287-.445.529-.026L3 11z"/>
-                                                </svg>
-                                            </n-icon>
+                                            <div class="custom-icon-warning me-2" style="width: 36px; height: 36px;">
+                                                <i class="bi bi-tools text-white"></i>
+                                            </div>
                                         </template>
                                         <n-thing
                                             title="Maintenance Requise"
                                             description="Ressources nécessitant entretien"
-                                            class="compact-thing"
                                         />
                                         <template #suffix>
                                             <n-tag type="warning" size="small">
@@ -350,7 +333,7 @@
                                 <template #footer>
                                     <div class="text-end">
                                         <router-link :to="{ name: 'InventairePatrimoine' }">
-                                            <n-button size="small" type="primary">
+                                            <n-button size="small" type="default" class="custom-btn-outline">
                                                 Voir le détail
                                             </n-button>
                                         </router-link>
@@ -391,7 +374,6 @@ import { Chart, registerables } from 'chart.js';
 import AuthService from '../services/AuthService'; 
 import RapportService from '../services/RapportService'; 
 import LocationService from '../services/LocationService'; 
-import KpiCard from '../views/KpiCard.vue'; 
 
 const router = useRouter();
 const route = useRoute();
@@ -444,41 +426,41 @@ const revenueData = {
     ]
 };
 
-// Options du menu
+// Options du menu avec texte blanc
 const menuOptions = [
     {
-        label: () => h('span', { style: 'color: white;' }, 'Accueil'),
+        label: () => h('span', { class: 'text-white' }, 'Accueil'),
         key: 'accueil',
         icon: renderIcon('bi-house-door-fill')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Gestion des Utilisateurs'),
+        label: () => h('span', { class: 'text-white' }, 'Gestion des Utilisateurs'),
         key: 'utilisateurs',
         icon: renderIcon('bi-person-gear'),
         show: isAdmin.value
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Gestion des Clients'),
+        label: () => h('span', { class: 'text-white' }, 'Gestion des Clients'),
         key: 'clients',
         icon: renderIcon('bi-people-fill')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Inventaire & Patrimoine'),
+        label: () => h('span', { class: 'text-white' }, 'Inventaire & Patrimoine'),
         key: 'inventaire',
         icon: renderIcon('bi-tools')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Locations & Réservations'),
+        label: () => h('span', { class: 'text-white' }, 'Locations & Réservations'),
         key: 'locations',
         icon: renderIcon('bi-calendar-check')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Gestion Financière'),
+        label: () => h('span', { class: 'text-white' }, 'Gestion Financière'),
         key: 'finance',
         icon: renderIcon('bi-bank')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Suivi & Rapports'),
+        label: () => h('span', { class: 'text-white' }, 'Suivi & Rapports'),
         key: 'rapports',
         icon: renderIcon('bi-graph-up')
     }
@@ -487,7 +469,7 @@ const menuOptions = [
 // Fonction pour rendre les icônes
 function renderIcon(iconClass) {
     return () => h(NIcon, null, {
-        default: () => h('i', { class: iconClass, style: 'color: white;' })
+        default: () => h('i', { class: iconClass + ' text-white' })
     });
 }
 
@@ -574,7 +556,7 @@ const initRevenueChart = async () => {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: false, // On utilise notre légende personnalisée
+                        display: false,
                     },
                     tooltip: {
                         backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -591,7 +573,7 @@ const initRevenueChart = async () => {
                         }
                     }
                 },
-                cutout: '55%',
+                cutout: '60%',
                 animation: {
                     animateScale: true,
                     animateRotate: true,
@@ -724,13 +706,16 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* COULEURS DU DASHBOARD FINANCE */
+
 .dashboard-wrapper {
     height: 100vh;
 }
 
-/* Sidebar */
-.cedii-sidebar {
-    background-color: #02061E !important;
+/* Sidebar en bleu nuit */
+.custom-sidebar {
+    background: linear-gradient(135deg, #04058f 0%, #02061e 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .sidebar-content {
@@ -752,20 +737,123 @@ onUnmounted(() => {
 }
 
 /* Styles pour le menu */
-:deep(.cedii-menu) {
+:deep(.custom-menu) {
     background-color: transparent !important;
 }
 
-:deep(.cedii-menu .n-menu-item .n-menu-item-content) {
+:deep(.custom-menu .n-menu-item .n-menu-item-content) {
     color: white !important;
+    transition: all 0.3s ease;
 }
 
-:deep(.cedii-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected) {
-    background-color: transparent !important;
+:deep(.custom-menu .n-menu-item .n-menu-item-content:hover) {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:deep(.custom-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected) {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
     color: white !important;
     font-weight: 600;
-    border-bottom: 2px solid #04058F;
-    border-radius: 0;
+    border-left: 4px solid #007bff;
+    border-radius: 4px;
+}
+
+/* Header */
+.custom-header {
+    background: linear-gradient(135deg, #04058f 0%, #02061e 100%) !important;
+    color: white;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.custom-title {
+    color: white;
+    font-weight: 700;
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+/* Cartes avec couleurs du dashboard finance */
+.custom-card-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-success {
+  background: linear-gradient(135deg, #dc3545 0%, #dc3545 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-warning {
+  background: linear-gradient(135deg, #0405BF 0%, #0405BF 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-danger {
+  background: linear-gradient(135deg, #5E5E5E 0%, #5E5E5E 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+/* Icônes avec fond du dashboard finance */
+.custom-icon-primary, 
+.custom-icon-success,
+.custom-icon-warning,
+.custom-icon-danger {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.custom-icon-danger-small {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  background: rgba(220, 53, 69, 0.2);
+}
+
+/* Tags */
+.custom-tag {
+  font-weight: 600;
+}
+
+/* Boutons */
+.custom-btn-primary {
+  background: #007bff;
+  border-color: #007bff;
+}
+
+.custom-btn-primary:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.custom-btn-outline {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #6c757d;
+  background: transparent;
+  transition: all 0.3s ease;
+}
+
+.custom-btn-outline:hover {
+  background-color: #6c757d;
+  color: white;
+  border-color: #6c757d;
 }
 
 /* INDICATEURS CLÉS COMPACT */
@@ -779,78 +867,30 @@ onUnmounted(() => {
     min-height: 60px;
 }
 
-/* CHART EXPANDED */
-.chart-container-expanded {
+/* SYNTHÈSE CASHFLOW AGRANDIE */
+.cashflow-container-expanded {
     height: 320px;
     min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
-.chart-canvas-container {
+.cashflow-chart-expanded {
     flex-grow: 1;
     min-height: 180px;
     position: relative;
+    width: 100%;
 }
 
-.revenue-chart {
-    display: block;
-    width: 100% !important;
-    height: 100% !important;
-    max-height: 200px;
+/* Listes */
+.custom-list {
+    background: transparent;
 }
 
-.chart-legend {
-    margin-top: auto;
-}
-
-.legend-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 4px;
-}
-
-/* LISTES COMPACTES */
-.compact-list :deep(.n-list-item) {
-    padding: 6px 0;
-}
-
-.compact-list-item :deep(.n-list-item) {
-    padding: 4px 0;
-}
-
-.compact-thing :deep(.n-thing-main) {
-    padding: 4px 0;
-}
-
-.compact-thing :deep(.n-thing-main .n-thing-body) {
-    margin-top: 2px;
-}
-
-/* Style pour le bouton de déconnexion */
-:deep(.n-button.n-button--error-type.n-button--ghost) {
-    color: #dc3545 !important;
-    border-color: #dc3545 !important;
-    background-color: transparent;
-}
-
-:deep(.n-button.n-button--error-type.n-button--ghost:hover) {
-    background-color: #dc3545 !important;
-    color: white !important;
-}
-
-:deep(.n-layout-header) {
-    background-color: white !important;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-/* Bordures personnalisées pour les cartes */
-:deep(.border-danger) {
-    border: 2px solid #dc3545 !important;
-}
-
-:deep(.border-secondary) {
-    border: 2px solid #6c757d !important;
+.custom-list-item {
+    border-bottom: 1px solid #dee2e6;
 }
 
 /* Responsive */
@@ -868,7 +908,7 @@ onUnmounted(() => {
         gap: 0.4rem;
     }
     
-    .chart-container-expanded {
+    .cashflow-container-expanded {
         height: 280px;
         min-height: 280px;
     }
@@ -880,7 +920,7 @@ onUnmounted(() => {
         gap: 0.6rem;
     }
     
-    .chart-container-expanded {
+    .cashflow-container-expanded {
         height: 340px;
     }
 }
@@ -897,13 +937,14 @@ onUnmounted(() => {
     border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
-/* Styles pour les cartes compactes */
+/* Styles pour les cartes */
 :deep(.n-card .n-card-header) {
-    padding: 10px 14px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #dee2e6;
 }
 
 :deep(.n-card .n-card-content) {
-    padding: 10px 14px;
+    padding: 16px;
 }
 
 /* Amélioration de l'espacement général */

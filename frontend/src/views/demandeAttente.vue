@@ -1,37 +1,30 @@
 <template>
   <div class="demandes-container">
-    <!-- Header avec navigation -->
-    <div class="header-section mb-4">
-      <div class="d-flex justify-content-between align-items-center">
-        <n-button 
-          type="primary" 
-          ghost 
-          @click="$router.push('/dashboardReception')"
-          class="back-button"
-          size="small"
-        >
-          <template #icon>
-            <n-icon>
-              <i class="bi bi-arrow-left"></i>
-            </n-icon>
-          </template>
-          Retour à l'Accueil
-        </n-button>
-
-        <div class="header-title text-center flex-grow-1">
-          <h1 class="page-title cedii-text-primary mb-2">
-            <i class="bi bi-bell-fill me-3"></i> 
-            Demandes de Réservation à Traiter
-          </h1>
-          <p class="page-subtitle text-muted mb-0">
-            Gestion et validation des demandes en attente
-          </p>
+    <!-- Header amélioré avec navigation -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="custom-header p-4 rounded">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <router-link to="/dashboardReception" class="btn btn-sm btn-outline-light">
+                <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
+              </router-link>
+            </div>
+            <div class="text-center">
+              <h1 class="custom-title mb-1">
+                <i class="bi bi-bell-fill me-2"></i>
+                Demandes de Réservation à Traiter
+              </h1>
+              <p class="custom-subtitle">Gestion et validation des demandes en attente</p>
+            </div>
+            <div></div> <!-- Placeholder pour l'alignement -->
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Carte principale -->
-    <n-card class="main-card" content-class="p-0">
+    <n-card class="main-card custom-card" content-class="p-0">
       <!-- En-tête de la carte -->
       <template #header>
         <div class="card-header-content">
@@ -56,7 +49,7 @@
                 {{ pendingRequests.length }} demande(s) nécessite(nt) votre attention
               </p>
             </div>
-            <n-tag :bordered="false" type="warning" size="large">
+            <n-tag :bordered="false" type="warning" size="large" class="custom-tag">
               <template #icon>
                 <n-icon>
                   <i class="bi bi-clock-history"></i>
@@ -103,7 +96,7 @@
               :columns="columns"
               :data="pendingRequests"
               :bordered="false"
-              class="demandes-table"
+              class="demandes-table custom-table"
               size="small"
               :single-line="false"
               :max-height="500"
@@ -149,7 +142,7 @@
           </n-button>
           <n-button 
             type="error" 
-            class="flex-grow-1" 
+            class="flex-grow-1 custom-btn-danger" 
             @click="confirmRefuse"
             :loading="refuseLoading"
           >
@@ -165,6 +158,7 @@
     </n-modal>
   </div>
 </template>
+
 <script setup>
 import { ref, computed, onMounted, h } from 'vue';
 import { useRouter } from 'vue-router';
@@ -218,7 +212,7 @@ const columns = [
     width: 80,
     align: 'center',
     render: (row) => {
-      return h(NTag, { type: 'info', size: 'small', bordered: false }, {
+      return h(NTag, { type: 'info', size: 'small', bordered: false, class: 'custom-tag' }, {
         default: () => `#${row.idRes}`
       });
     }
@@ -255,7 +249,8 @@ const columns = [
       return h(NTag, { 
         type: config.type, 
         size: 'small',
-        bordered: false 
+        bordered: false,
+        class: 'custom-tag'
       }, {
         default: () => h('div', { class: 'd-flex align-items-center justify-content-center' }, [
           h(NIcon, { class: 'me-1', size: '14' }, {
@@ -299,6 +294,7 @@ const columns = [
         h(NButton, {
           type: 'primary',
           size: 'small',
+          class: 'custom-btn-primary',
           onClick: () => handleManage(row)
         }, {
           default: () => h('div', { class: 'd-flex align-items-center' }, [
@@ -312,6 +308,7 @@ const columns = [
           type: 'error',
           size: 'small',
           ghost: true,
+          class: 'custom-btn-danger',
           onClick: () => handleRefuse(row)
         }, {
           default: () => h('div', { class: 'd-flex align-items-center' }, [
@@ -496,7 +493,6 @@ onMounted(() => {
 });
 </script>
 
-
 <style scoped>
 .demandes-container {
   max-width: 1400px;
@@ -507,25 +503,36 @@ onMounted(() => {
   flex-direction: column;
 }
 
-/* Header Section */
-.header-section {
-  background: transparent;
-  flex-shrink: 0;
+/* Header Section amélioré */
+.custom-header {
+  background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
+  color: white;
+  border-left: 4px solid #007bff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
-.page-title {
-  font-size: 2rem;
+.custom-title {
+  color: white;
   font-weight: 700;
-  margin-bottom: 0.5rem;
+  margin: 0;
+  font-size: 1.8rem;
 }
 
-.page-subtitle {
-  font-size: 1.1rem;
-  opacity: 0.8;
+.custom-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  font-size: 1rem;
 }
 
-.back-button {
-  min-width: 140px;
+.btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: white;
+  color: white;
 }
 
 /* Main Card */
@@ -634,7 +641,7 @@ onMounted(() => {
   background-color: #f8f9fa !important;
   font-weight: 600;
   color: #2c3e50;
-  border-bottom: 2px solid var(--cedii-primary-light, #5B11EE);
+  border-bottom: 2px solid #007bff;
   padding: 12px 16px;
   position: sticky;
   top: 0;
@@ -651,6 +658,45 @@ onMounted(() => {
   transition: background-color 0.2s ease;
 }
 
+/* Cartes et boutons cohérents */
+.custom-card {
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-tag {
+  font-weight: 600;
+}
+
+.custom-btn-primary {
+  background: #007bff;
+  border-color: #007bff;
+}
+
+.custom-btn-primary:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.custom-btn-danger {
+  background: #5E5E5E;
+  border-color: #5E5E5E;
+  color: white;
+}
+
+.custom-btn-danger:hover {
+  background: #4a4a4a;
+  border-color: #4a4a4a;
+  color: white;
+}
+
+/* Table personnalisée */
+.custom-table {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 /* Scrollbar personnalisée */
 :deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar) {
   width: 8px;
@@ -663,12 +709,12 @@ onMounted(() => {
 }
 
 :deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-thumb) {
-  background: var(--cedii-primary-light, #5B11EE);
+  background: #007bff;
   border-radius: 4px;
 }
 
 :deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-thumb:hover) {
-  background: var(--cedii-primary-dark, #0671b6);
+  background: #0056b3;
 }
 
 /* Supprimer la pagination et les outils */
@@ -677,7 +723,7 @@ onMounted(() => {
 }
 
 :deep(.demandes-table .n-data-table-base-table-header) {
-  border-bottom: 2px solid var(--cedii-primary-light, #5B11EE);
+  border-bottom: 2px solid #007bff;
 }
 
 /* Client Info */
@@ -703,39 +749,28 @@ onMounted(() => {
   line-height: 1.3;
 }
 
-/* Palette CEDII */
-.cedii-text-primary { 
-  color: var(--cedii-primary-light, #5B11EE) !important; 
-}
-
-:deep(.n-button--primary-type) {
-  background-color: var(--cedii-primary-light, #5B11EE) !important;
-  border-color: var(--cedii-primary-light, #5B11EE) !important;
-}
-
-:deep(.n-button--primary-type:hover) {
-  background-color: var(--cedii-primary-dark, #0671b6) !important;
-  border-color: var(--cedii-primary-dark, #0671b6) !important;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
   .demandes-container {
     padding: 12px;
   }
   
-  .page-title {
-    font-size: 1.5rem;
+  .custom-title {
+    font-size: 1.4rem;
   }
   
-  .header-section .d-flex {
+  .custom-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .custom-header {
+    padding: 1rem;
+  }
+  
+  .custom-header .d-flex {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
-  }
-  
-  .back-button {
-    align-self: flex-start;
   }
   
   .table-scroll-container {

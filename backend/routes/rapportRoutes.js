@@ -18,4 +18,10 @@ router.get('/top-materiel', rapportCtrl.getTopRentedMateriel);
 router.get('/revenu-par-client', rapportCtrl.getRevenueByClientType); // 👈 Nouvelle route
 // ...
 
+// NOUVELLES ROUTES MANQUANTES
+router.get('/reservations', rapportCtrl.getReservationsStats);
+router.get('/monthly-stats', rapportCtrl.getMonthlyStats);
+router.get('/location-types', rapportCtrl.getLocationTypes);
+router.get('/export', rapportCtrl.exportReports);
+
 module.exports = router;
