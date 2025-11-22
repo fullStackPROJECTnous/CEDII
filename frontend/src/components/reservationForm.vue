@@ -152,6 +152,7 @@
                               type="datetime"
                               :is-date-disabled="disablePreviousDate"
                               class="w-100"
+                              placeholder="Sélectionnez la date et heure de début"
                             />
                           </n-form-item>
                         </n-gi>
@@ -162,6 +163,7 @@
                               type="datetime"
                               :is-date-disabled="disablePreviousDate"
                               class="w-100"
+                              placeholder="Sélectionnez la date et heure de fin"
                             />
                           </n-form-item>
                         </n-gi>
@@ -229,6 +231,7 @@
                     size="large" 
                     :disabled="!isFormValid || isSubmitting || hasValidationErrors" 
                     :loading="isSubmitting"
+                    @click="submitForm"
                     class="cedii-btn-primary fw-bold"
                   >
                     <template #icon>
@@ -236,6 +239,13 @@
                     </template>
                     {{ isSubmitting ? 'Enregistrement...' : 'Confirmer la Réservation' }}
                   </n-button>
+                  
+                  <!-- Message d'aide pour la validation -->
+                  <div v-if="!isFormValid" class="text-center mt-2">
+                    <n-text depth="3" class="small">
+                      ⚠️ Remplissez tous les champs obligatoires pour activer le bouton
+                    </n-text>
+                  </div>
                 </div>
               </form>
             </n-card>
@@ -248,7 +258,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'; 
-import { useRoute } from 'vue-router'; 
+import { useRoute, useRouter } from 'vue-router'; 
 import { 
   NCard, 
   NH1, 
@@ -273,9 +283,11 @@ import {
 } from 'naive-ui';
 import ClientNavbar from '../components/clientNavbar.vue';
 import LocationService from '../services/LocationService'; 
+import axios from 'axios';
 
 const message = useMessage(); 
 const route = useRoute();
+const router = useRouter();
 
 const isSubmitting = ref(false);
 const loading = reactive({
@@ -292,14 +304,12 @@ const initialTypeRes = urlCategory === 'Matériel' ? 'Materiel' : (urlCategory =
 const initialFormState = {
   typeRes: initialTypeRes, 
   idCatalogue: '', 
-  dateCre: new Date().toISOString().split('T')[0], 
   qteMat: 1, 
   typeDuree: 'Jour', 
   nbPerso: 1, 
   debRes: null, 
   finRes: null,
   tarifTot: 0, 
-  etatRes: 'En attente', 
 };
 
 const form = reactive({ ...initialFormState });
@@ -310,7 +320,7 @@ const validationErrors = reactive({
   nbPerso: null
 });
 
-// 🎯 FONCTION DE VALIDATION CORRECTE
+// FONCTION DE VALIDATION
 const validateQuantities = () => {
   validationErrors.qteMat = null;
   validationErrors.nbPerso = null;
@@ -368,7 +378,7 @@ const hasValidationErrors = computed(() => {
   return validationErrors.qteMat !== null || validationErrors.nbPerso !== null;
 });
 
-// 🎯 VALIDATION AVANT SOUMISSION
+// VALIDATION AVANT SOUMISSION
 const validateBeforeSubmit = () => {
   validateQuantities();
   
@@ -426,7 +436,7 @@ const selectedResource = computed(() => {
   return resource;
 });
 
-// 🎯 COMPUTED PROPERTY POUR LE BOUTON - ROBUSTE
+// COMPUTED PROPERTY POUR LE BOUTON
 const isFormValid = computed(() => {
   const basicValid = form.typeRes && 
          form.idCatalogue && 
@@ -524,7 +534,7 @@ const calculateTarif = () => {
   form.tarifTot = parseFloat(tarif.toFixed(2));
 };
 
-// 🎯🔄 FONCTION CRITIQUE - CORRIGÉE
+// FONCTION DE CHARGEMENT DES DONNÉES
 const fetchInitialData = async () => {
   loading.catalogue = true;
   try {
@@ -534,7 +544,7 @@ const fetchInitialData = async () => {
     console.log('=== 🏢 DONNÉES SALLES BRUTES ===', sallesResponse);
     console.log('=== 🛠️ DONNÉES MATÉRIELS BRUTES ===', materielsResponse);
 
-    // 🎯 MAPPING CORRECT - UTILISER LES PROPRIÉTÉS EXACTES DE LA BD
+    // MAPPING CORRECT - UTILISER LES PROPRIÉTÉS EXACTES DE LA BD
     const mappedSalles = sallesResponse.map(s => {
       return {
         id: String(s.idSalle),
@@ -543,7 +553,6 @@ const fetchInitialData = async () => {
         tarifHeure: parseFloat(s.tarifHeure) || 0,
         tarifDemiJournee: parseFloat(s.tarifDemiJournee) || 0,
         tarifJour: parseFloat(s.tarifJour) || 0,
-        // ✅ PROPRIÉTÉS EXACTES DE LA BD
         capaciteSalle: parseInt(s.capaciteSalle) || 0,
         numeroSalle: s.numeroSalle,
         disponibiliteSalle: s.disponibiliteSalle
@@ -558,7 +567,6 @@ const fetchInitialData = async () => {
         tarifHeure: parseFloat(m.tarifHeure) || 0,
         tarifDemiJournee: parseFloat(m.tarifDemiJournee) || 0,
         tarifJour: parseFloat(m.tarifJour) || 0,
-        // ✅ PROPRIÉTÉS EXACTES DE LA BD
         qteTotDispo: parseInt(m.qteTotDispo) || 0,
         qteActuelStock: parseInt(m.qteActuelStock) || 0,
         qteEnLocation: parseInt(m.qteEnLocation) || 0,
@@ -604,6 +612,7 @@ const fetchInitialData = async () => {
   }
 };
 
+// MÉTHODE DE SOUMISSION
 const submitForm = async () => {
   if (!isFormValid.value) {
     message.error('Veuillez corriger les erreurs dans le formulaire');
@@ -616,34 +625,44 @@ const submitForm = async () => {
   
   isSubmitting.value = true;
   
-  const payload = {
-    idCatalogue: form.idCatalogue, 
-    dateCre: form.dateCre, 
-    qteMat: form.typeRes === 'Materiel' ? form.qteMat : 0, 
-    typeRes: form.typeRes, 
-    nbPerso: form.typeRes === 'Salle' ? form.nbPerso : 0, 
-    debRes: form.debRes ? new Date(form.debRes).toISOString() : null,
-    finRes: form.finRes ? new Date(form.finRes).toISOString() : null,
-    tarifTot: form.tarifTot,
-    etatRes: form.etatRes,
-  };
-
-  console.log('📤 Soumission payload:', payload);
-
   try {
-    const response = await LocationService.createReservation(payload);
-    const resId = response.data?.id || Math.floor(Math.random() * 1000);
-    
-    message.success(`✅ Demande #${resId} enregistrée avec succès !`);
-    
-    // Réinitialisation après succès
-    Object.assign(form, { ...initialFormState, typeRes: 'Salle', idCatalogue: '' });
-    validationErrors.qteMat = null;
-    validationErrors.nbPerso = null;
-    
+    const token = localStorage.getItem('token');
+    console.log('Token envoyé:', token);
+
+    const response = await axios.post(
+      'http://localhost:5000/api/locations/client/reservations',
+      {
+        idCatalogue: form.idCatalogue,
+        typeRes: form.typeRes,
+        typeDuree: form.typeDuree,
+        debRes: form.debRes,
+        finRes: form.finRes,
+        qteMat: form.qteMat,
+        nbPerso: form.nbPerso,
+        tarifTot: form.tarifTot
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('Réservation créée :', response.data);
+
+    message.success('Réservation enregistrée avec succès !');
+    router.push('/client/mes-reservations');
+
   } catch (error) {
-    console.error("Erreur lors de l'enregistrement:", error);
-    message.error('❌ Échec de l\'enregistrement');
+    console.error('❌ Erreur réservation:', error);
+
+    if (error.response?.status === 401) {
+      message.error('Session expirée. Veuillez vous reconnecter.');
+      router.push('/');
+    } else {
+      message.error('❌ Échec de l\'enregistrement');
+    }
   } finally {
     isSubmitting.value = false;
   }
@@ -655,6 +674,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Votre CSS reste inchangé */
 .main-content {
   background-color: #ffffff;
 }

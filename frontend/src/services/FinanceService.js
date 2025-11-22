@@ -20,6 +20,16 @@ class FinanceService {
     return axios.get(`${API_URL}/facturation`);
   }
 
+    async getPenalitesData() {
+    try {
+      const response = await axios.get(`${API_URL}/penalites`);
+      return response;
+    } catch (error) {
+      console.error('Erreur API getPenalitesData:', error);
+      throw error;
+    }
+  }
+  
   getConfirmedLocationsToInvoice() {
     return axios.get(`${API_URL}/confirmed-locations`);
   }

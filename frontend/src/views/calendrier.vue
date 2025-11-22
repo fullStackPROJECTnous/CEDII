@@ -36,8 +36,8 @@
               <i class="bi bi-clock-history text-white"></i>
             </div>
             <div>
-              <h6 class="mb-1">En Attente</h6>
-              <h4 class="mb-0 text-info">{{ pendingCount }}</h4>
+              <h6 class="mb-1">En Cours</h6>
+              <h4 class="mb-0 text-info">{{ enCoursCount }}</h4>
             </div>
           </div>
         </n-card>
@@ -110,6 +110,19 @@
         </n-alert>
       </n-collapse-item>
     </n-collapse>
+
+    <!-- 🔥 CORRECTION : Utiliser EtatLieu au lieu de RetourMaterielModal -->
+    <EtatLieu 
+      v-model:show="showRetourModal"
+      :location="selectedLocationForAction"
+      @retour-success="handleRetourSuccess"
+    />
+    
+    <EtatLieuDepart
+      v-model:show="showEtatLieuxDepartModal"
+      :location="selectedLocationForAction"
+      @depart-success="handleEtatLieuxDepartSuccess"
+    />
   </div>
 </template>
 
@@ -128,10 +141,17 @@ import {
   NTag 
 } from 'naive-ui';
 import LocationService from '../services/LocationService';
+import EtatLieu from './etatLieu.vue';
+import EtatLieuDepart from './etatLieuDepart.vue';
 
 // Variables réactives
 const confirmedEvents = ref([]);
 const loadingEvents = ref(true);
+
+// Variables pour les modals
+const showEtatLieuxDepartModal = ref(false);
+const showRetourModal = ref(false);
+const selectedLocationForAction = ref(null);
 
 // Computed properties
 const formattedCalendarEvents = computed(() => {
@@ -145,21 +165,47 @@ const formattedCalendarEvents = computed(() => {
 });
 
 const tableData = computed(() => {
-  return confirmedEvents.value.map(event => ({
-    id: event.idLo,
-    client: event.reservation?.client ? 
-      `${event.reservation.client.nomCli} ${event.reservation.client.prenomCli || ''}` : 'N/A',
-    type: event.typeLo,
-    dateDebut: new Date(event.debLo).toLocaleString('fr-FR'),
-    dateFin: new Date(event.finLo).toLocaleString('fr-FR'),
-    tarifTot: event.tarifTot, // Garder la valeur originale pour debug
-    statut: event.etatLo,
-    materiel: event.reservation?.codeMat || 'N/A',
-    salle: event.reservation?.idSalle || 'N/A',
-    // Ajouter les données nécessaires pour le calcul
-    reservation: event.reservation,
-    location: event
-  }));
+  return confirmedEvents.value.map(event => {
+    console.log('🔍 Traitement event:', event.idLo, event);
+    
+    let clientName = 'N/A';
+    
+    if (event.client && (event.client.nomCli || event.client.prenomCli)) {
+      clientName = `${event.client.nomCli || ''} ${event.client.prenomCli || ''}`.trim();
+    }
+    else if (event.reservation?.client && (event.reservation.client.nomCli || event.reservation.client.prenomCli)) {
+      clientName = `${event.reservation.client.nomCli || ''} ${event.reservation.client.prenomCli || ''}`.trim();
+    }
+
+    const rowData = {
+      // Identifiants
+      id: event.idLo,
+      idLo: event.idLo,
+      
+      // Informations affichées
+      client: clientName,
+      type: event.typeLo,
+      dateDebut: new Date(event.debLo).toLocaleString('fr-FR'),
+      dateFin: new Date(event.finLo).toLocaleString('fr-FR'),
+      tarifTot: event.tarifTot,
+      statut: event.etatLo,
+      materiel: event.reservation?.codeMat || event.codeMat || 'N/A',
+      salle: event.reservation?.idSalle || event.idSalle || 'N/A',
+      
+      // Données complètes pour les actions
+      _original: event,
+      reservation: event.reservation,
+      location: event
+    };
+    
+    console.log('🔍 Row data créé:', rowData);
+    return rowData;
+  });
+});
+
+// 🔥 CORRECTION : Ajouter le compteur pour "En cours"
+const enCoursCount = computed(() => {
+  return confirmedEvents.value.filter(event => event.etatLo === 'En cours').length;
 });
 
 const pendingCount = computed(() => {
@@ -173,27 +219,21 @@ const completedCount = computed(() => {
 // Fonction pour calculer le tarif basé sur la durée
 const calculateTarif = (event) => {
   try {
-    // Si le tarif existe déjà dans la location, l'utiliser
     if (event.tarifTot && event.tarifTot > 0) {
       return event.tarifTot;
     }
 
-    // Sinon, calculer basé sur la réservation
     if (event.reservation) {
-      // Utiliser le tarif de la réservation
       if (event.reservation.tarifTot && event.reservation.tarifTot > 0) {
         return event.reservation.tarifTot;
       }
 
-      // Calculer basé sur la durée et les tarifs du matériel/salle
       const debut = new Date(event.debLo || event.reservation.debRes);
       const fin = new Date(event.finLo || event.reservation.finRes);
-      
       const dureeHeures = (fin - debut) / (1000 * 60 * 60);
       
       let tarifUnitaire = 0;
       
-      // Si c'est une location de matériel
       if (event.reservation.codeMat && event.reservation.materiel) {
         const materiel = event.reservation.materiel;
         if (dureeHeures <= 4) {
@@ -201,12 +241,10 @@ const calculateTarif = (event) => {
         } else if (dureeHeures <= 8) {
           tarifUnitaire = materiel.tarifJour || 0;
         } else {
-          // Calcul proportionnel
           tarifUnitaire = (materiel.tarifHeure || 0) * dureeHeures;
         }
       }
       
-      // Si c'est une location de salle
       if (event.reservation.idSalle && event.reservation.salle) {
         const salle = event.reservation.salle;
         if (dureeHeures <= 4) {
@@ -218,7 +256,6 @@ const calculateTarif = (event) => {
         }
       }
       
-      // Multiplier par la quantité
       const quantite = event.reservation.qteMat || 1;
       return tarifUnitaire * quantite;
     }
@@ -285,14 +322,48 @@ const columns = [
     render: (row) => {
       const typeMap = {
         'Confirmée': 'success',
-        'En attente': 'warning',
-        'Annulée': 'error',
-        'Terminée': 'default'
+        'En cours': 'warning',
+        'Terminée': 'default',
+        'En attente': 'info'
       };
       return h(NTag, { 
         type: typeMap[row.statut] || 'default',
         size: 'small'
       }, { default: () => row.statut })
+    }
+  },
+  {
+    title: 'Actions',
+    key: 'actions',
+    width: 200,
+    render: (row) => {
+      return h('div', { class: 'd-flex gap-1' }, [
+        // Bouton État des lieux Départ - visible seulement pour "Confirmée"
+        h(NButton, {
+          size: 'small',
+          type: 'warning',
+          onClick: () => ouvrirEtatLieuxDepart(row),
+          disabled: row.statut !== 'Confirmée',
+          title: row.statut !== 'Confirmée' ? 
+            (row.statut === 'En cours' ? 'Départ déjà effectué' : 'Location terminée ou annulée') 
+            : 'État des lieux départ'
+        }, {
+          default: () => [h('i', { class: 'bi bi-box-arrow-right me-1' }), 'Départ']
+        }),
+        
+        // Bouton Retour Matériel - visible seulement pour "En cours"
+        h(NButton, {
+          size: 'small',
+          type: 'error',
+          onClick: () => ouvrirRetourMateriel(row),
+          disabled: row.statut !== 'En cours',
+          title: row.statut !== 'En cours' ? 
+            (row.statut === 'Confirmée' ? 'Départ non effectué' : 'Location terminée') 
+            : 'Retour de matériel'
+        }, {
+          default: () => [h('i', { class: 'bi bi-box-arrow-in-left me-1' }), 'Retour']
+        })
+      ]);
     }
   }
 ];
@@ -302,17 +373,103 @@ const pagination = {
 };
 
 // Méthodes
+const ouvrirEtatLieuxDepart = (location) => {
+  console.log('📍 ouvrirEtatLieuxDepart appelé');
+  console.log('📍 Location reçue:', location);
+  
+  if (!location || (!location.idLo && !location.id)) {
+    console.error('❌ ERREUR CRITIQUE: Location invalide:', location);
+    alert('Erreur: Données de location invalides');
+    return;
+  }
+  
+  const locationAvecId = {
+    ...location,
+    idLo: location.idLo || location.id
+  };
+  
+  selectedLocationForAction.value = locationAvecId;
+  showEtatLieuxDepartModal.value = true;
+  
+  console.log('📍 Modal départ ouvert avec:', locationAvecId);
+};
+
+const ouvrirRetourMateriel = (location) => {
+  console.log('📍 ouvrirRetourMateriel appelé');
+  console.log('📍 Location reçue:', location);
+  
+  if (!location || (!location.idLo && !location.id)) {
+    console.error('❌ ERREUR CRITIQUE: Location invalide:', location);
+    alert('Erreur: Données de location invalides');
+    return;
+  }
+  
+  const locationAvecId = {
+    ...location,
+    idLo: location.idLo || location.id
+  };
+  
+  selectedLocationForAction.value = locationAvecId;
+  showRetourModal.value = true;
+  
+  console.log('📍 Modal retour ouvert avec:', locationAvecId);
+};
+
+const handleEtatLieuxDepartSuccess = (result) => {
+  console.log('✅ État des lieux départ validé:', result);
+  
+  // Mettre à jour le statut de la location dans la liste
+  const locationIndex = confirmedEvents.value.findIndex(
+    event => event.idLo === result.locationId
+  );
+  
+  if (locationIndex !== -1) {
+    confirmedEvents.value[locationIndex].etatLo = 'En cours';
+    console.log('📍 Statut mis à jour: Confirmée → En cours');
+  }
+  
+  // Fermer le modal après succès
+  showEtatLieuxDepartModal.value = false;
+  
+  alert('État des lieux départ enregistré avec succès ! La location est maintenant "En cours".');
+};
+
+const handleRetourSuccess = (retourData) => {
+  console.log('✅ Retour validé:', retourData);
+  
+  // Mettre à jour le statut de la location dans la liste
+  const locationIndex = confirmedEvents.value.findIndex(
+    event => event.idLo === retourData.locationId
+  );
+  
+  if (locationIndex !== -1) {
+    confirmedEvents.value[locationIndex].etatLo = 'Terminée';
+    console.log('📍 Statut mis à jour: En cours → Terminée');
+    
+    // Optionnel - Supprimer de la liste après un délai
+    setTimeout(() => {
+      confirmedEvents.value = confirmedEvents.value.filter(
+        event => event.idLo !== retourData.locationId
+      );
+      console.log('📍 Location terminée retirée de la liste');
+    }, 2000);
+  }
+  
+  // Fermer le modal après succès
+  showRetourModal.value = false;
+  
+  alert(`Retour de matériel validé !\nLa location est maintenant "Terminée".\nStock mis à jour.`);
+};
+
 const fetchConfirmedEvents = async () => {
   loadingEvents.value = true;
   try {
     const response = await LocationService.getConfirmedEvents();
     confirmedEvents.value = response.data;
     
-    // Debug: vérifier les données
     console.log('Événements chargés:', response.data);
     if (response.data.length > 0) {
       console.log('Premier événement complet:', response.data[0]);
-      console.log('Tarif calculé pour le premier:', calculateTarif(response.data[0]));
     }
   } catch (error) {
     console.error("Erreur lors du chargement des événements confirmés:", error);

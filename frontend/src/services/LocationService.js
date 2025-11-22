@@ -65,11 +65,34 @@ class LocationService {
     }
   }
 
-  submitEtatLieux(idLo, mode, payload) {
-    return axios.post(`${API_URL}/locations/${idLo}/etat-lieux`, {
-      details: payload, 
-      mode: mode
-    });
+  // Méthode submitEtatLieux corrigée
+  async submitEtatLieux(locationId, etatLieuxData) {
+    try {
+      // 🔥 VALIDATION: Vérifier que l'ID est défini
+      if (!locationId) {
+        throw new Error('ID de location manquant');
+      }
+
+      console.log('📍 Appel API état des lieux - ID:', locationId);
+      console.log('📍 Données:', etatLieuxData);
+
+      const response = await axios.post(
+        `${API_URL}/etat-lieux/${locationId}`, 
+        etatLieuxData
+      );
+      
+      console.log('✅ Réponse API état des lieux:', response.data);
+      return response;
+      
+    } catch (error) {
+      console.error('❌ Erreur LocationService - submitEtatLieux:');
+      console.error('📍 URL appelée:', `${API_URL}/etat-lieux/${locationId}`);
+      console.error('📍 Données envoyées:', etatLieuxData);
+      console.error('📍 Statut HTTP:', error.response?.status);
+      console.error('📍 Message erreur:', error.response?.data || error.message);
+      
+      throw error;
+    }
   }
 
   getLocationDetails(idLo) {
@@ -88,8 +111,14 @@ class LocationService {
     return axios.get(`${API_URL}/locations/history`); 
   }
 
+  // Méthode pour créer une réservation (version standard)
   createReservation(data) {
     return axios.post(`${API_URL}/locations/reservations`, data);
+  }
+
+  // Méthode pour créer une réservation client (avec authentification)
+  createClientReservation(data) {
+    return axios.post(`${API_URL}/locations/client/reservations`, data);
   }
 
   updateReservationStatus(idRes, newStatus) {

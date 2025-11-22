@@ -797,3 +797,68 @@ exports.getConfirmedLocations = async (req, res) => {
         });
     }
 };
+
+exports.createClientReservation = async (req, res) => {
+    try {
+        console.log('User object:', req.user); // Debug
+        
+        // Vérifier si l'utilisateur est authentifié
+        if (!req.user || !req.user.idUti) {
+            return res.status(401).json({
+                success: false,
+                message: "Utilisateur non authentifié"
+            });
+        }
+
+        // Récupérer le client associé à l'utilisateur
+        const [clients] = await db.query(
+            "SELECT idCli FROM client WHERE idUti = ?", 
+            [req.user.idUti] // ← Utilisez req.user.idUti
+        );
+
+        if (clients.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Client non trouvé pour cet utilisateur"
+            });
+        }
+
+        const idCli = clients[0].idCli;
+        const { typeRes, nbPerso, debRes, finRes, tarifTot, idSalle, codeMat, qteMat } = req.body;
+
+        // Validation des données requises
+        if (!typeRes || !debRes || !finRes || !tarifTot) {
+            return res.status(400).json({
+                success: false,
+                message: "Données manquantes: typeRes, debRes, finRes et tarifTot sont requis"
+            });
+        }
+
+        console.log('Création réservation pour client:', idCli, 'données:', req.body);
+
+        // Insertion de la réservation
+        const [result] = await db.query(
+            `INSERT INTO reservation 
+             (idCli, typeRes, nbPerso, debRes, finRes, tarifTot, etatRes, idSalle, codeMat, qteMat) 
+             VALUES (?, ?, ?, ?, ?, ?, 'En attente', ?, ?, ?)`,
+            [idCli, typeRes, nbPerso || null, debRes, finRes, tarifTot, idSalle || null, codeMat || null, qteMat || 0]
+        );
+
+        res.status(201).json({
+            success: true,
+            message: "Réservation créée avec succès",
+            data: {
+                idRes: result.insertId,
+                idCli: idCli
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur création réservation client:', error);
+        res.status(500).json({
+            success: false,
+            message: "Erreur serveur lors de la création de la réservation",
+            error: error.message
+        });
+    }
+};

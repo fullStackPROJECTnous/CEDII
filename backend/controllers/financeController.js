@@ -213,20 +213,50 @@ exports.sendInvoice = async (req, res) => {
 
 exports.getPaymentData = async (req, res) => {
     try {
-        // ... (Requête pour les Paiements EN ATTENTE) ...
-        const sqlPendingPaymentsDetails = `... WHERE p.statutPaie = 'En attente' ...`;
+        // --- 1. Requête pour les Paiements EN ATTENTE ---
+        const sqlPendingPaymentsDetails = `
+            SELECT 
+                p.idPaie,
+                p.numeroFacture,
+                p.dateCre,
+                p.modePaie,
+                p.montantPaie,
+                p.statutPaie,
+                p.libellePaie,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                l.idLo
+            FROM 
+                paiement p
+            JOIN 
+                location l ON p.idLo = l.idLo
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            WHERE 
+                p.statutPaie = 'En attente'
+            ORDER BY 
+                p.dateCre DESC;
+        `;
+        
         const pendingPayments = await sequelize.query(sqlPendingPaymentsDetails, { 
-             type: sequelize.QueryTypes.SELECT 
+            type: sequelize.QueryTypes.SELECT 
         });
 
         // --- 2. Requête pour les Paiements VALIDÉS (Historique) ---
         const sqlValidatedPaymentsDetails = `
             SELECT 
-                p.idPaie AS id,
-                CONCAT(c.nomCli, ' ', c.prenomCli) AS client,
-                p.dateCre AS date,
-                p.modePaie AS method,
-                p.montantPaie AS amount
+                p.idPaie,
+                p.numeroFacture,
+                p.dateCre,
+                p.modePaie,
+                p.montantPaie,
+                p.statutPaie,
+                p.libellePaie,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                l.idLo
             FROM 
                 paiement p
             JOIN 
@@ -238,19 +268,25 @@ exports.getPaymentData = async (req, res) => {
             ORDER BY 
                 p.dateCre DESC;
         `;
+        
         const validatedPayments = await sequelize.query(sqlValidatedPaymentsDetails, { 
-             type: sequelize.QueryTypes.SELECT 
+            type: sequelize.QueryTypes.SELECT 
         });
 
         // Envoi des deux listes au frontend
         res.status(200).send({
+            success: true,
             pendingPayments,
-            validatedPayments // 👈 C'est cette liste qui est l'historique complet
+            validatedPayments
         });
 
     } catch (error) {
         console.error("Erreur getPaymentData:", error);
-        res.status(500).send({ message: "Erreur serveur lors de la récupération des données de paiement." });
+        res.status(500).send({ 
+            success: false,
+            message: "Erreur serveur lors de la récupération des données de paiement.",
+            error: error.message 
+        });
     }
 };
 
@@ -1125,155 +1161,7 @@ exports.getConfirmedLocationsToInvoice = async (req, res) => {
     }
 };
 
-/**
- * Crée une facture et envoie par email
- */
-/*exports.createAndSendInvoice = async (req, res) => {
-    const { locationId, clientEmail } = req.body;
-
-    try {
-        // 1. Récupérer les données de la location
-        const sqlLocationData = `
-            SELECT 
-                l.*,
-                c.nomCli, c.prenomCli, c.emailCli,
-                r.typeRes,
-                m.designationMat as materielDesignation,
-                m.tarifHeure as materielTarifHeure,
-                m.tarifDemiJournee as materielTarifDemiJournee,
-                m.tarifJour as materielTarifJour,
-                s.nomSalle as salleNom,
-                s.tarifHeure as salleTarifHeure,
-                s.tarifDemiJournee as salleTarifDemiJournee,
-                s.tarifJour as salleTarifJour
-            FROM location l
-            JOIN reservation r ON l.idRes = r.idRes
-            JOIN client c ON r.idCli = c.idCli
-            LEFT JOIN materiel m ON r.codeMat = m.codeMat
-            LEFT JOIN salle s ON r.idSalle = s.idSalle
-            WHERE l.idLo = :locationId
-        `;
-
-        const [locationData] = await sequelize.query(sqlLocationData, {
-            replacements: { locationId },
-            type: sequelize.QueryTypes.SELECT
-        });
-
-        if (!locationData) {
-            return res.status(404).send({ message: "Location non trouvée." });
-        }
-
-        // 2. Calculer le montant de la facture
-        let montantFacture = parseFloat(locationData.tarifTot);
-        
-        // Si pas de tarif défini, calculer basé sur la durée
-        if (!montantFacture || montantFacture === 0) {
-            const debut = new Date(locationData.debLo);
-            const fin = new Date(locationData.finLo);
-            const dureeHeures = (fin - debut) / (1000 * 60 * 60);
-            
-            let tarifUnitaire = 0;
-            
-            if (locationData.typeLo === 'Materiel' && locationData.materielDesignation) {
-                const materiel = locationData;
-                if (dureeHeures <= 4) {
-                    tarifUnitaire = parseFloat(materiel.materielTarifDemiJournee) || 0;
-                } else if (dureeHeures <= 8) {
-                    tarifUnitaire = parseFloat(materiel.materielTarifJour) || 0;
-                } else {
-                    tarifUnitaire = (parseFloat(materiel.materielTarifHeure) || 0) * dureeHeures;
-                }
-            } else if (locationData.typeLo === 'Salle' && locationData.salleNom) {
-                const salle = locationData;
-                if (dureeHeures <= 4) {
-                    tarifUnitaire = parseFloat(salle.salleTarifDemiJournee) || 0;
-                } else if (dureeHeures <= 8) {
-                    tarifUnitaire = parseFloat(salle.salleTarifJour) || 0;
-                } else {
-                    tarifUnitaire = (parseFloat(salle.salleTarifHeure) || 0) * dureeHeures;
-                }
-            }
-            
-            montantFacture = tarifUnitaire * (locationData.qteMat || 1);
-        }
-
-        // 3. Générer un numéro de facture unique
-        const numeroFacture = await generateInvoiceNumber();
-
-        // 4. Créer l'enregistrement de paiement/facture
-        const paiementData = {
-            idLo: locationId,
-            dateCre: new Date(),
-            dateFacture: new Date(),
-            modePaie: 'À définir',
-            montantPaie: montantFacture,
-            statutPaie: 'En attente',
-            numeroFacture: numeroFacture,
-            libellePaie: `Facture location ${locationData.typeLo} - ${locationData.materielDesignation || locationData.salleNom || 'Non spécifié'}`
-        };
-
-        const [paiementId] = await sequelize.query(
-            `INSERT INTO paiement SET ?`,
-            { replacements: [paiementData] }
-        );
-
-        // 5. Préparer les données pour l'email
-        const factureData = {
-            idFacture: paiementId,
-            numeroFacture: numeroFacture,
-            idLocation: locationId,
-            client: {
-                nom: locationData.nomCli,
-                prenom: locationData.prenomCli,
-                email: clientEmail || locationData.emailCli
-            },
-            location: {
-                type: locationData.typeLo,
-                designation: locationData.materielDesignation || locationData.salleNom,
-                dateDebut: locationData.debLo,
-                dateFin: locationData.finLo,
-                quantite: locationData.qteMat || 1
-            },
-            montant: montantFacture,
-            dateEmission: new Date()
-        };
-
-        // 6. Envoyer l'email (simulation)
-        const emailResult = await sendInvoiceEmail(factureData);
-
-        // 7. Marquer l'email comme envoyé
-        await sequelize.query(
-            `UPDATE paiement SET emailEnvoye = TRUE, dateEnvoiEmail = NOW() WHERE idPaie = ?`,
-            { replacements: [paiementId] }
-        );
-
-        res.status(201).send({
-            message: "Facture créée et envoyée avec succès",
-            facture: factureData,
-            emailSent: true,
-            paiementId: paiementId
-        });
-
-    } catch (error) {
-        console.error("Erreur createAndSendInvoice:", error);
-        res.status(500).send({ 
-            message: "Échec de la création et envoi de la facture.",
-            error: error.message 
-        });
-    }
-};
-*/
-
-// Dans financeController.js - AMÉLIORATION DE createAndSendInvoice
-
-/**
- * Crée et envoie une facture par email + met à jour tous les indicateurs
- */
-// Dans financeController.js - CORRECTION DE LA REQUÊTE SQL
-
-/**
- * Crée et envoie une facture par email (VERSION CORRIGÉE)
- */
+/*
 exports.createAndSendInvoice = async (req, res) => {
     console.log('📍 DÉBUT createAndSendInvoice - Corps de la requête:', req.body);
     
@@ -1439,8 +1327,137 @@ exports.createAndSendInvoice = async (req, res) => {
         });
     }
 };
+*/
 
+exports.createAndSendInvoice = async (req, res) => {
+    console.log('📍 DÉBUT createAndSendInvoice - Corps de la requête:', req.body);
+    
+    const { locationId, clientEmail } = req.body;
+    const transaction = await sequelize.transaction();
+    
+    try {
+        // 1. Récupérer les données de la location
+        const sqlLocationData = `
+            SELECT 
+                l.idLo, l.tarifTot, l.debLo, l.finLo, l.typeLo, l.qteMat, l.nbPersp,
+                c.idCli, c.nomCli, c.prenomCli, c.emailCli, c.telephoneCli,
+                r.typeRes,
+                m.designationMat as materielDesignation,
+                s.nomSalle as salleNom
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN salle s ON r.idSalle = s.idSalle
+            WHERE l.idLo = ?
+        `;
+
+        const [locationData] = await sequelize.query(sqlLocationData, {
+            replacements: [locationId],
+            type: sequelize.QueryTypes.SELECT,
+            transaction
+        });
+
+        if (!locationData) {
+            await transaction.rollback();
+            return res.status(404).send({ message: "Location non trouvée." });
+        }
+
+        // 2. Calculer le montant
+        let montantFacture = parseFloat(locationData.tarifTot) || 0;
+        
+        if (montantFacture === 0) {
+            // Calcul basique
+            const debut = new Date(locationData.debLo);
+            const fin = new Date(locationData.finLo);
+            const dureeHeures = (fin - debut) / (1000 * 60 * 60);
+            
+            if (locationData.typeLo === 'Materiel') {
+                montantFacture = dureeHeures * 5000 * (locationData.qteMat || 1);
+            } else if (locationData.typeLo === 'Salle') {
+                montantFacture = dureeHeures * 10000 * (locationData.nbPersp || 1);
+            }
+        }
+
+        // 3. Générer un numéro de facture
+        const numeroFacture = `FACT-${new Date().getFullYear()}-${Date.now()}`;
+
+        // 4. 🔥 CORRECTION: Créer le paiement avec statut "En attente"
+        const paiementData = {
+            idLo: locationId,
+            dateCre: new Date(),
+            dateFacture: new Date(),
+            modePaie: 'À définir',
+            montantPaie: montantFacture,
+            statutPaie: 'En attente', // 🔥 IMPORTANT: Pas "Effectué" tout de suite
+            numeroFacture: numeroFacture,
+            emailEnvoye: true,
+            dateEnvoiEmail: new Date(),
+            libellePaie: `Facture location ${locationData.typeLo} - ${locationData.materielDesignation || locationData.salleNom || 'Non spécifié'}`
+        };
+
+        const [paiementId] = await sequelize.query(
+            `INSERT INTO paiement (idLo, dateCre, dateFacture, modePaie, montantPaie, statutPaie, numeroFacture, emailEnvoye, dateEnvoiEmail, libellePaie) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            {
+                replacements: [
+                    paiementData.idLo,
+                    paiementData.dateCre,
+                    paiementData.dateFacture,
+                    paiementData.modePaie,
+                    paiementData.montantPaie,
+                    paiementData.statutPaie,
+                    paiementData.numeroFacture,
+                    paiementData.emailEnvoye,
+                    paiementData.dateEnvoiEmail,
+                    paiementData.libellePaie
+                ],
+                transaction
+            }
+        );
+
+        // 5. Simuler l'envoi d'email
+        await sendInvoiceEmail({
+            numeroFacture: numeroFacture,
+            client: {
+                nom: locationData.nomCli,
+                prenom: locationData.prenomCli,
+                email: clientEmail || locationData.emailCli
+            },
+            montant: montantFacture
+        });
+
+        // 6. 🔥 RÉCUPÉRER LES NOUVELLES STATISTIQUES
+        const newStats = await getUpdatedDashboardStats(transaction);
+
+        await transaction.commit();
+
+        console.log(`✅ Facture ${numeroFacture} créée - Stats:`, newStats);
+
+        // 7. 🔥 ENVOYER LES STATS CORRECTES
+        res.status(201).send({
+            message: "Facture créée et envoyée avec succès",
+            facture: {
+                idFacture: paiementId,
+                numeroFacture: numeroFacture,
+                montant: montantFacture,
+                clientEmail: clientEmail || locationData.emailCli
+            },
+            emailSent: true,
+            newStats: newStats
+        });
+
+    } catch (error) {
+        await transaction.rollback();
+        console.error("❌ ERREUR createAndSendInvoice:", error);
+        res.status(500).send({ 
+            message: "Échec de la création et envoi de la facture.",
+            error: error.message
+        });
+    }
+};
 // 🔥 NOUVELLE FONCTION POUR RÉCUPÉRER LES STATS ACTUALISÉES
+// 🔥 CORRECTION COMPLÈTE de getUpdatedDashboardStats
 async function getUpdatedDashboardStats(transaction = null) {
     try {
         const options = transaction ? { transaction } : {};
@@ -1456,17 +1473,17 @@ async function getUpdatedDashboardStats(transaction = null) {
             ...options 
         });
 
-        // 2. Factures envoyées (total)
+        // 2. Factures envoyées (TOUS les paiements avec email envoyé)
         const [invoicesSentCount] = await sequelize.query(`
             SELECT COUNT(*) as count
             FROM paiement 
-            WHERE emailEnvoye = TRUE
+            WHERE emailEnvoye = TRUE AND statutPaie = 'En attente'
         `, { 
             type: sequelize.QueryTypes.SELECT,
             ...options 
         });
 
-        // 3. Chiffre d'affaires total
+        // 3. 🔥 CORRECTION: Chiffre d'affaires = SOMME des paiements EFFECTUÉS
         const [revenueData] = await sequelize.query(`
             SELECT COALESCE(SUM(montantPaie), 0) as totalRevenue
             FROM paiement 
@@ -1488,6 +1505,14 @@ async function getUpdatedDashboardStats(transaction = null) {
             ...options 
         });
 
+        console.log('📊 STATS MISES À JOUR:', {
+            confirmedLocationsCount: parseInt(confirmedCount?.count) || 0,
+            invoicesSentCount: parseInt(invoicesSentCount?.count) || 0,
+            totalRevenue: parseFloat(revenueData?.totalRevenue) || 0,
+            pendingPaymentsCount: parseInt(pendingData?.pendingCount) || 0,
+            pendingAmount: parseFloat(pendingData?.pendingAmount) || 0
+        });
+
         return {
             confirmedLocationsCount: parseInt(confirmedCount?.count) || 0,
             invoicesSentCount: parseInt(invoicesSentCount?.count) || 0,
@@ -1507,7 +1532,6 @@ async function getUpdatedDashboardStats(transaction = null) {
         };
     }
 }
-
 /**
  * Simule l'envoi d'email de confirmation de facture
  */
