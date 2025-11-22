@@ -9,7 +9,7 @@
                 :width="240"
                 :native-scrollbar="false"
                 show-trigger="bar"
-                class="cedii-sidebar"
+                class="custom-sidebar"
             >
                 <div class="sidebar-content d-flex flex-column h-100 p-3">
                     <!-- Logo et Titre -->
@@ -23,7 +23,7 @@
                         :options="menuOptions"
                         :value="activeMenuKey"
                         @update:value="handleMenuSelect"
-                        class="flex-grow-1 cedii-menu"
+                        class="flex-grow-1 custom-menu"
                     />
                     
                     <!-- Bouton Déconnexion -->
@@ -36,12 +36,7 @@
                             ghost
                         >
                             <template #icon>
-                                <n-icon>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-right" viewBox="0 0 16 16">
-                                        <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
-                                        <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
-                                    </svg>
-                                </n-icon>
+                                <i class="bi bi-box-arrow-right"></i>
                             </template>
                             Déconnexion
                         </n-button>
@@ -52,9 +47,9 @@
             <!-- Contenu Principal -->
             <n-layout class="main-content">
                 <!-- Header -->
-                <n-layout-header bordered class="d-flex justify-content-between align-items-center p-4 pb-0 bg-white">
-                    <h1 class="text-secondary mb-0 fs-4">Espace Financier 💰</h1>
-                    <n-tag type="info" size="small">
+                <n-layout-header bordered class="custom-header d-flex justify-content-between align-items-center p-4">
+                    <h1 class="custom-title mb-0">Espace Financier <i class="bi bi-cash-coin ms-2"></i></h1>
+                    <n-tag type="info" size="small" class="custom-tag">
                         Rôle: {{ userRole }}
                     </n-tag>
                 </n-layout-header>
@@ -69,70 +64,131 @@
                         class="mb-4 shadow-sm"
                     >
                         <template #icon>
-                            <n-icon>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
-                                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-                                </svg>
-                            </n-icon>
+                            <i class="bi bi-exclamation-triangle-fill"></i>
                         </template>
                         <strong>{{ litigeCount }}</strong> dossiers de pénalités ou dégradations requièrent votre action. Traitez-les pour déclencher les calculs de jours de retard.
                     </n-alert>
 
-                    <!-- Disposition horizontale compacte - MODIFIÉE -->
-                    <div class="row g-3">
-                        <!-- Colonne KPIs (gauche) - RÉDUITE -->
-                        <div class="col-lg-6">
-                            <n-card title="Indicateurs Financiers" class="shadow-sm h-100" content-class="p-2">
-                                <div class="kpis-grid-compact">
-                                    <div class="kpi-item-compact">
-                                        <KpiCard 
-                                            icon="bi-file-earmark-plus" 
-                                            title="Factures à Générer" 
-                                            :value="invoicesToProcess" 
-                                            trend="Automatique" 
-                                            color="text-info"
-                                            linkName="FacturationGeneration"
-                                            compact
-                                        />
+                    <!-- Cartes de statistiques principales -->
+                    <div class="row mb-4">
+                        <div class="col-md-3 mb-3">
+                            <n-card class="custom-card-primary h-100" size="small">
+                                <div class="d-flex align-items-center">
+                                    <div class="custom-icon-primary me-3">
+                                        <i class="bi bi-file-earmark-plus text-white"></i>
                                     </div>
-                                    <div class="kpi-item-compact">
-                                        <KpiCard 
-                                            icon="bi-hourglass-split" 
-                                            title="Paiements en Attente" 
-                                            :value="pendingPaymentsCount" 
-                                            :trend="`${formatCurrency(kpis.pendingAmount)}`" 
-                                            color="text-warning"
-                                            linkName="SuiviPaiements"
-                                            compact
-                                        />
+                                    <div>
+                                        <h6 class="mb-1 text-white">Factures à Générer</h6>
+                                        <h4 class="mb-0 text-warning">{{ invoicesToProcess }}</h4>
                                     </div>
-                                    <div class="kpi-item-compact">
-                                        <KpiCard 
-                                            icon="bi-receipt" 
-                                            title="Jours Retard (Moy)" 
-                                            :value="kpis.avgDaysLate" 
-                                            trend="-2 jours" 
-                                            color="text-danger"
-                                            linkName="PenalitesLitiges"
-                                            compact
-                                        />
+                                </div>
+                            </n-card>
+                        </div>
+                        
+                        <div class="col-md-3 mb-3">
+                            <n-card class="custom-card-warning h-100" size="small">
+                                <div class="d-flex align-items-center">
+                                    <div class="custom-icon-warning me-3">
+                                        <i class="bi bi-hourglass-split text-white"></i>
                                     </div>
-                                    <div class="kpi-item-compact">
-                                        <KpiCard 
-                                            icon="bi-currency-euro" 
-                                            title="Paiements Auto" 
-                                            :value="kpis.autoPaymentRate" 
-                                            trend="98% réussite" 
-                                            color="text-success"
-                                            linkName="SuiviPaiements"
-                                            compact
-                                        />
+                                    <div>
+                                        <h6 class="mb-1 text-white">Paiements en Attente</h6>
+                                        <h4 class="mb-0 text-warning">{{ pendingPaymentsCount }}</h4>
+                                        <small class="text-white-50">{{ formatCurrency(kpis.pendingAmount) }}</small>
+                                    </div>
+                                </div>
+                            </n-card>
+                        </div>
+                        
+                        <div class="col-md-3 mb-3">
+                            <n-card class="custom-card-danger h-100" size="small">
+                                <div class="d-flex align-items-center">
+                                    <div class="custom-icon-danger me-3">
+                                        <i class="bi bi-receipt text-white"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1 text-white">Jours Retard (Moy)</h6>
+                                        <h4 class="mb-0 text-danger">{{ kpis.avgDaysLate }}</h4>
+                                        <small class="text-white-50">-2 jours</small>
                                     </div>
                                 </div>
                             </n-card>
                         </div>
 
-                        <!-- Colonne Synthèse Cashflow (droite) - AGRANDIE -->
+                        <div class="col-md-3 mb-3">
+                            <n-card class="custom-card-success h-100" size="small">
+                                <div class="d-flex align-items-center">
+                                    <div class="custom-icon-success me-3">
+                                        <i class="bi bi-currency-euro text-white"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1 text-white">Paiements Auto</h6>
+                                        <h4 class="mb-0 text-success">{{ kpis.autoPaymentRate }}</h4>
+                                        <small class="text-white-50">98% réussite</small>
+                                    </div>
+                                </div>
+                            </n-card>
+                        </div>
+                    </div>
+
+                    <!-- Disposition horizontale compacte -->
+                    <div class="row g-3">
+                        <!-- Colonne Actions Rapides (gauche) -->
+                        <div class="col-lg-6">
+                            <n-card title="Actions Rapides" class="shadow-sm h-100">
+                                <div class="quick-actions-grid">
+                                    <router-link :to="{ name: 'FactureGene' }" class="quick-action-item custom-card-primary">
+                                        <div class="d-flex align-items-center p-3">
+                                            <div class="custom-icon-primary me-3">
+                                                <i class="bi bi-file-earmark-plus text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-1 text-white">Générer Factures</h6>
+                                                <small class="text-white-50">{{ invoicesToProcess }} en attente</small>
+                                            </div>
+                                        </div>
+                                    </router-link>
+                                    
+                                    <router-link :to="{ name: 'SuiviPaie' }" class="quick-action-item custom-card-warning">
+                                        <div class="d-flex align-items-center p-3">
+                                            <div class="custom-icon-warning me-3">
+                                                <i class="bi bi-cash-stack text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-1 text-white">Suivi Paiements</h6>
+                                                <small class="text-white-50">{{ pendingPaymentsCount }} en attente</small>
+                                            </div>
+                                        </div>
+                                    </router-link>
+                                    
+                                    <router-link :to="{ name: 'PenaliteLiti' }" class="quick-action-item custom-card-danger">
+                                        <div class="d-flex align-items-center p-3">
+                                            <div class="custom-icon-danger me-3">
+                                                <i class="bi bi-exclamation-octagon text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-1 text-white">Pénalités & Litiges</h6>
+                                                <small class="text-white-50">{{ litigeCount }} à traiter</small>
+                                            </div>
+                                        </div>
+                                    </router-link>
+                                    
+                                    <router-link :to="{ name: 'RapportSynth' }" class="quick-action-item custom-card-success">
+                                        <div class="d-flex align-items-center p-3">
+                                            <div class="custom-icon-success me-3">
+                                                <i class="bi bi-graph-up text-white"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-1 text-white">Rapports</h6>
+                                                <small class="text-white-50">Analyses détaillées</small>
+                                            </div>
+                                        </div>
+                                    </router-link>
+                                </div>
+                            </n-card>
+                        </div>
+
+                        <!-- Colonne Synthèse Cashflow (droite) -->
                         <div class="col-lg-6">
                             <n-card title="Synthèse Cashflow" class="shadow-sm h-100">
                                 <template #header-extra>
@@ -141,14 +197,10 @@
                                         @click="loadCashflowData" 
                                         :loading="loadingCashflow" 
                                         size="small"
+                                        class="custom-btn-primary"
                                     >
                                         <template #icon>
-                                            <n-icon>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
-                                                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                                                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-                                                </svg>
-                                            </n-icon>
+                                            <i class="bi bi-arrow-clockwise"></i>
                                         </template>
                                     </n-button>
                                 </template>
@@ -161,11 +213,7 @@
                                     <div v-else-if="!hasCashflowData" class="text-center text-muted">
                                         <n-empty description="Données non disponibles" size="small">
                                             <template #icon>
-                                                <n-icon>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-bar-chart" viewBox="0 0 16 16">
-                                                        <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
-                                                    </svg>
-                                                </n-icon>
+                                                <i class="bi bi-bar-chart" style="font-size: 2rem; color: #55555E;"></i>
                                             </template>
                                         </n-empty>
                                     </div>
@@ -201,7 +249,7 @@
                         <div class="col-lg-7">
                             <n-card title="Factures Prêtes à l'Envoi Automatique" class="shadow-sm">
                                 <template #header-extra>
-                                    <n-tag type="info" size="small">
+                                    <n-tag type="info" size="small" class="custom-tag">
                                         {{ invoicesToSend.length }} en attente
                                     </n-tag>
                                 </template>
@@ -211,7 +259,7 @@
                                     :data="invoicesToSend"
                                     :pagination="pagination"
                                     size="small"
-                                    striped
+                                    class="custom-table"
                                 />
                                 
                                 <template #footer v-if="invoicesToSend.length === 0">
@@ -226,19 +274,17 @@
                         <div class="col-lg-5">
                             <n-card title="Pénalités Requérant Notification" class="shadow-sm">
                                 <template #header-extra>
-                                    <n-tag type="error" size="small">
+                                    <n-tag type="error" size="small" class="custom-tag">
                                         {{ pendingPenalties.length }} en attente
                                     </n-tag>
                                 </template>
 
-                                <n-list>
-                                    <n-list-item v-for="penalty in pendingPenalties" :key="penalty.id">
+                                <n-list class="custom-list">
+                                    <n-list-item v-for="penalty in pendingPenalties" :key="penalty.id" class="custom-list-item">
                                         <template #prefix>
-                                            <n-icon color="#FF4757" size="20">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-calendar-x-fill" viewBox="0 0 16 16">
-                                                    <path d="M4 .5a.5.5 0 0 0-1 0V1H2a2 2 0 0 0-2 2v1h16V3a2 2 0 0 0-2-2h-1V.5a.5.5 0 0 0-1 0V1H4V.5zM16 14V5H0v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zM6.854 8.146 8 9.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 10l1.147 1.146a.5.5 0 0 1-.708.708L8 10.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 10 6.146 8.854a.5.5 0 1 1 .708-.708z"/>
-                                                </svg>
-                                            </n-icon>
+                                            <div class="custom-icon-danger-small">
+                                                <i class="bi bi-calendar-x-fill text-white"></i>
+                                            </div>
                                         </template>
                                         
                                         <n-thing
@@ -247,20 +293,16 @@
                                         />
                                         
                                         <template #suffix>
-                                            <n-button size="small" type="error" ghost>
+                                            <n-button size="small" type="error" class="custom-btn-danger" ghost>
                                                 <template #icon>
-                                                    <n-icon>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-bell" viewBox="0 0 16 16">
-                                                            <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zM8 1.918l-.797.161A4.002 4.002 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4.002 4.002 0 0 0-3.203-3.92L8 1.917zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1C2.68 10.2 3 6.88 3 6c0-2.42 1.72-4.44 4.005-4.901a1 1 0 1 1 1.99 0A5.002 5.002 0 0 1 13 6c0 .88.32 4.2 1.22 6z"/>
-                                                        </svg>
-                                                    </n-icon>
+                                                    <i class="bi bi-bell"></i>
                                                 </template>
                                                 Notifier
                                             </n-button>
                                         </template>
                                     </n-list-item>
                                     
-                                    <n-list-item v-if="pendingPenalties.length === 0">
+                                    <n-list-item v-if="pendingPenalties.length === 0" class="custom-list-item">
                                         <div class="text-center text-muted py-3">
                                             Aucune pénalité en attente de notification.
                                         </div>
@@ -270,7 +312,7 @@
                                 <template #footer>
                                     <div class="text-end">
                                         <router-link :to="{ name: 'SuiviPaie' }">
-                                            <n-button size="small" type="default">
+                                            <n-button size="small" type="default" class="custom-btn-outline">
                                                 Voir tout
                                             </n-button>
                                         </router-link>
@@ -357,7 +399,7 @@ const invoiceColumns = [
     {
         title: 'Montant Calculé',
         key: 'amount',
-        render: (row) => formatCurrency(row.amount)
+        render: (row) => h('strong', { class: 'text-success' }, formatCurrency(row.amount))
     },
     {
         title: 'Action',
@@ -367,6 +409,7 @@ const invoiceColumns = [
             {
                 size: 'small',
                 type: 'primary',
+                class: 'custom-btn-primary',
                 onClick: () => sendInvoiceEmail(row.id)
             },
             {
@@ -386,7 +429,7 @@ const pagination = ref({
 // Options du menu avec texte blanc
 const menuOptions = [
     {
-        label: () => h('span', { style: 'color: white;' }, 'Tableau de Bord'),
+        label: () => h('span', { class: 'text-white' }, 'Tableau de Bord'),
         key: 'dashboard',
         icon: renderIcon('bi-wallet-fill')
     },
@@ -394,13 +437,12 @@ const menuOptions = [
         label: () => h('div', {
             class: 'd-flex justify-content-between align-items-center w-100'
         }, [
-            h('span', { style: 'color: white;' }, 'Facturation & Génération'),
+            h('span', { class: 'text-white' }, 'Facturation & Génération'),
             invoicesToProcess.value > 0 ? h(NBadge, {
                 value: invoicesToProcess.value,
                 type: 'info',
                 max: 99,
-                class: 'ms-2',
-                style: 'color: black !important;'
+                class: 'ms-2 custom-badge'
             }) : null
         ]),
         key: 'facturation',
@@ -410,13 +452,12 @@ const menuOptions = [
         label: () => h('div', {
             class: 'd-flex justify-content-between align-items-center w-100'
         }, [
-            h('span', { style: 'color: white;' }, 'Suivi des Paiements'),
+            h('span', { class: 'text-white' }, 'Suivi des Paiements'),
             pendingPaymentsCount.value > 0 ? h(NBadge, {
                 value: pendingPaymentsCount.value,
                 type: 'warning',
                 max: 99,
-                class: 'ms-2',
-                style: 'color: black !important;'
+                class: 'ms-2 custom-badge'
             }) : null
         ]),
         key: 'paiements',
@@ -426,20 +467,19 @@ const menuOptions = [
         label: () => h('div', {
             class: 'd-flex justify-content-between align-items-center w-100'
         }, [
-            h('span', { style: 'color: white;' }, 'Pénalités & Litiges'),
+            h('span', { class: 'text-white' }, 'Pénalités & Litiges'),
             litigeCount.value > 0 ? h(NBadge, {
                 value: litigeCount.value,
                 type: 'error',
                 max: 99,
-                class: 'ms-2',
-                style: 'color: black !important;'
+                class: 'ms-2 custom-badge'
             }) : null
         ]),
         key: 'penalites',
         icon: renderIcon('bi-exclamation-octagon-fill')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Rapports & Synthèse'),
+        label: () => h('span', { class: 'text-white' }, 'Rapports & Synthèse'),
         key: 'rapports',
         icon: renderIcon('bi-graph-up')
     }
@@ -448,7 +488,7 @@ const menuOptions = [
 // Fonction pour rendre les icônes
 function renderIcon(iconClass) {
     return () => h(NIcon, null, {
-        default: () => h('i', { class: iconClass, style: 'color: white;' })
+        default: () => h('i', { class: iconClass + ' text-white' })
     });
 }
 
@@ -603,13 +643,16 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* COULEURS ORIGINALES */
+
 .dashboard-wrapper {
     height: 100vh;
 }
 
-/* Sidebar en bleu nuit identique à la navbar */
-.cedii-sidebar {
-    background-color: #02061E !important;
+/* Sidebar en bleu nuit */
+.custom-sidebar {
+    background: linear-gradient(135deg, #04058f 0%, #02061e 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .sidebar-content {
@@ -631,31 +674,152 @@ onMounted(() => {
 }
 
 /* Styles pour le menu */
-:deep(.cedii-menu) {
+:deep(.custom-menu) {
     background-color: transparent !important;
 }
 
-:deep(.cedii-menu .n-menu-item .n-menu-item-content) {
+:deep(.custom-menu .n-menu-item .n-menu-item-content) {
     color: white !important;
+    transition: all 0.3s ease;
 }
 
-:deep(.cedii-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected) {
-    background-color: transparent !important;
+:deep(.custom-menu .n-menu-item .n-menu-item-content:hover) {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:deep(.custom-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected) {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
     color: white !important;
     font-weight: 600;
-    border-bottom: 2px solid #04058F;
-    border-radius: 0;
+    border-left: 4px solid #007bff;
+    border-radius: 4px;
 }
 
-/* INDICATEURS CLÉS COMPACT */
-.kpis-grid-compact {
+.custom-badge {
+    font-weight: 600;
+}
+
+/* Header */
+.custom-header {
+    background: linear-gradient(135deg, #04058f 0%, #02061e 100%) !important;
+    color: white;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.custom-title {
+    color: white;
+    font-weight: 700;
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+/* Cartes avec couleurs originales */
+.custom-card-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-success {
+  background: linear-gradient(135deg, #dc3545 0%, #dc3545 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-warning {
+  background: linear-gradient(135deg, #0405BF 0%, #0405BF 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-danger {
+  background: linear-gradient(135deg, #5E5E5E 0%, #5E5E5E 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+/* Icônes avec fond original */
+.custom-icon-primary, 
+.custom-icon-success,
+.custom-icon-warning,
+.custom-icon-danger {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.custom-icon-danger-small {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  background: rgba(220, 53, 69, 0.2);
+}
+
+/* Tags */
+.custom-tag {
+  font-weight: 600;
+}
+
+/* Boutons */
+.custom-btn-primary {
+  background: #007bff;
+  border-color: #007bff;
+}
+
+.custom-btn-primary:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.custom-btn-danger {
+  background:  #5E5E5E;
+  border-color: #5E5E5E;
+}
+
+.custom-btn-outline {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #6c757d;
+  background: transparent;
+  transition: all 0.3s ease;
+}
+
+.custom-btn-outline:hover {
+  background-color: #6c757d;
+  color: white;
+  border-color: #6c757d;
+}
+
+/* Actions rapides */
+.quick-actions-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
 }
 
-.kpi-item-compact {
-    min-height: 60px;
+.quick-action-item {
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.quick-action-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    text-decoration: none;
 }
 
 /* SYNTHÈSE CASHFLOW AGRANDIE */
@@ -675,21 +839,20 @@ onMounted(() => {
     width: 100%;
 }
 
-/* Style pour le bouton de déconnexion */
-:deep(.n-button.n-button--error-type.n-button--ghost) {
-    color: #dc3545 !important;
-    border-color: #dc3545 !important;
-    background-color: transparent;
+/* Table personnalisée */
+.custom-table {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-:deep(.n-button.n-button--error-type.n-button--ghost:hover) {
-    background-color: #dc3545 !important;
-    color: white !important;
+/* Listes */
+.custom-list {
+    background: transparent;
 }
 
-:deep(.n-layout-header) {
-    background-color: white !important;
-    border-bottom: 1px solid #e0e0e0;
+.custom-list-item {
+    border-bottom: 1px solid #dee2e6;
 }
 
 /* Responsive */
@@ -702,9 +865,9 @@ onMounted(() => {
         width: 100%;
     }
     
-    .kpis-grid-compact {
+    .quick-actions-grid {
         grid-template-columns: 1fr;
-        gap: 0.4rem;
+        gap: 0.5rem;
     }
     
     .cashflow-container-expanded {
@@ -714,9 +877,9 @@ onMounted(() => {
 }
 
 @media (min-width: 1200px) {
-    .kpis-grid-compact {
-        grid-template-columns: 1fr 1fr;
-        gap: 0.6rem;
+    .quick-actions-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
     }
     
     .cashflow-container-expanded {
@@ -736,13 +899,14 @@ onMounted(() => {
     border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
-/* Styles pour les cartes compactes */
+/* Styles pour les cartes */
 :deep(.n-card .n-card-header) {
-    padding: 10px 14px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #dee2e6;
 }
 
 :deep(.n-card .n-card-content) {
-    padding: 10px 14px;
+    padding: 16px;
 }
 
 /* Amélioration de l'espacement général */

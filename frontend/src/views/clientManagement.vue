@@ -1,128 +1,123 @@
 <template>
   <div class="client-management-container">
-    <!-- Header avec navigation -->
-    <div class="header-section mb-4">
-      <div class="d-flex justify-content-between align-items-center">
-        <n-button 
-          type="primary" 
-          ghost 
-          @click="$router.back()"
-          class="back-button"
-          size="small"
-        >
-          <template #icon>
-            <n-icon>
-              <i class="bi bi-arrow-left"></i>
-            </n-icon>
-          </template>
-          Retour à l'Accueil
-        </n-button>
-
-        <div class="header-title text-center flex-grow-1">
-          <h1 class="page-title cedii-text-primary mb-2">
-            <i class="bi bi-people-fill me-2"></i> 
-            Gestion des Clients
-          </h1>
-          <p class="page-subtitle text-muted mb-0">
-            Gestion complète du portefeuille clients et suivi des activités
-          </p>
+    <!-- Header amélioré -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="custom-header p-4 rounded">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <router-link to="/dashboardReception" class="btn btn-sm btn-outline-light">
+                <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
+              </router-link>
+            </div>
+            <div class="text-center">
+              <h1 class="custom-title mb-1">
+                <i class="bi bi-people-fill me-2"></i>
+                Gestion des Clients
+              </h1>
+              <p class="custom-subtitle">Gestion complète du portefeuille clients et suivi des activités</p>
+            </div>
+            <div></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Cartes de statistiques (seulement les 2 KPIs demandés) -->
-    <n-grid :cols="2" :x-gap="12" :y-gap="12" class="mb-4">
-      <n-gi>
-        <n-card class="stat-card top-client" content-class="text-center">
-          <div class="stat-content">
-            <n-icon color="#faad14" size="24" class="mb-2">
-              <i class="bi bi-trophy"></i>
-            </n-icon>
-            <div class="stat-value">{{ formatCurrency(topClient.revenue) }}</div>
-            <div class="stat-label">Client le plus rentable</div>
-            <n-text depth="3" class="small">{{ topClient.name }}</n-text>
-          </div>
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card class="stat-card active-client" content-class="text-center">
-          <div class="stat-content">
-            <n-icon color="#1890ff" size="24" class="mb-2">
-              <i class="bi bi-lightning-charge"></i>
-            </n-icon>
-            <div class="stat-value">{{ activeClient.count }}</div>
-            <div class="stat-label">Client le plus actif</div>
-            <n-text depth="3" class="small">{{ activeClient.name }}</n-text>
-          </div>
-        </n-card>
-      </n-gi>
-    </n-grid>
+    <!-- Conteneur principal avec scroll -->
+    <div class="main-content-scroll">
+      <!-- Cartes de statistiques -->
+      <n-grid :cols="2" :x-gap="12" :y-gap="12" class="mb-4">
+        <n-gi>
+          <n-card class="stat-card top-client custom-card-primary" content-class="text-center">
+            <div class="stat-content">
+              <n-icon color="#faad14" size="24" class="mb-2">
+                <i class="bi bi-trophy"></i>
+              </n-icon>
+              <div class="stat-value">{{ formatCurrency(topClient.revenue) }}</div>
+              <div class="stat-label text-white">Client le plus rentable</div>
+              <n-text class="small text-white-50">{{ topClient.name }}</n-text>
+            </div>
+          </n-card>
+        </n-gi>
+        <n-gi>
+          <n-card class="stat-card active-client custom-card-warning" content-class="text-center">
+            <div class="stat-content">
+              <n-icon color="#ffc107" size="24" class="mb-2">
+                <i class="bi bi-lightning-charge"></i>
+              </n-icon>
+              <div class="stat-value">{{ activeClient.count }}</div>
+              <div class="stat-label text-white">Client le plus actif</div>
+              <n-text class="small text-white-50">{{ activeClient.name }}</n-text>
+            </div>
+          </n-card>
+        </n-gi>
+      </n-grid>
 
-    <!-- Barre d'actions et recherche -->
-    <n-card class="filters-card mb-4">
-      <div class="d-flex justify-content-between align-items-center">
-        <n-button type="primary" @click="openModal('create')" class="me-3">
-          <template #icon>
-            <n-icon><i class="bi bi-plus-circle"></i></n-icon>
-          </template>
-          Ajouter un Client
-        </n-button>
-        
-        <n-input
-          v-model:value="searchQuery"
-          placeholder="Rechercher par nom, email, téléphone..."
-          clearable
-          class="search-input"
-          style="max-width: 400px;"
-        >
-          <template #prefix>
-            <n-icon><i class="bi bi-search"></i></n-icon>
-          </template>
-        </n-input>
-      </div>
-    </n-card>
-
-    <!-- Tableau des clients -->
-    <n-card class="main-card">
-      <template #header>
+      <!-- Barre d'actions et recherche -->
+      <n-card class="filters-card custom-card mb-4">
         <div class="d-flex justify-content-between align-items-center">
-          <div>
-            <h3 class="card-title mb-0">
-              <i class="bi bi-list-ul me-2"></i>
-              Liste des Clients
-            </h3>
-            <p class="card-subtitle text-muted mb-0">
-              {{ filteredClients.length }} client(s) trouvé(s)
-            </p>
+          <n-button type="primary" @click="openModal('create')" class="me-3 custom-btn-primary">
+            <template #icon>
+              <n-icon><i class="bi bi-plus-circle"></i></n-icon>
+            </template>
+            Ajouter un Client
+          </n-button>
+          
+          <n-input
+            v-model:value="searchQuery"
+            placeholder="Rechercher par nom, email, téléphone..."
+            clearable
+            class="search-input"
+            style="max-width: 400px;"
+          >
+            <template #prefix>
+              <n-icon><i class="bi bi-search"></i></n-icon>
+            </template>
+          </n-input>
+        </div>
+      </n-card>
+
+      <!-- Tableau des clients -->
+      <n-card class="main-card custom-card">
+        <template #header>
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h3 class="card-title mb-0">
+                <i class="bi bi-list-ul me-2"></i>
+                Liste des Clients
+              </h3>
+              <p class="card-subtitle text-muted mb-0">
+                {{ filteredClients.length }} client(s) trouvé(s)
+              </p>
+            </div>
           </div>
-          <!-- Bouton Exporter supprimé -->
-        </div>
-      </template>
+        </template>
 
-      <div class="table-scroll-container">
-        <n-data-table
-          :columns="tableColumns"
-          :data="filteredClients"
-          :bordered="false"
-          :loading="isLoading"
-          size="small"
-          class="clients-table"
-          flex-height
-          :min-height="400"
-          :max-height="600"
-          :scroll-x="1200"
-        />
-      </div>
-
-      <template #footer>
-        <div class="text-center text-muted small">
-          <n-text depth="3">
-            <i class="bi bi-info-circle me-1"></i>
-            Double-cliquez sur un client pour voir son historique détaillé
-          </n-text>
+        <div class="table-scroll-container">
+          <n-data-table
+            :columns="tableColumns"
+            :data="filteredClients"
+            :bordered="false"
+            :loading="isLoading"
+            size="small"
+            class="clients-table"
+            flex-height
+            :min-height="400"
+            :max-height="600"
+            :scroll-x="1200"
+          />
         </div>
-      </template>
-    </n-card>
+
+        <template #footer>
+          <div class="text-center text-muted small">
+            <n-text depth="3">
+              <i class="bi bi-info-circle me-1"></i>
+              Double-cliquez sur un client pour voir son historique détaillé
+            </n-text>
+          </div>
+        </template>
+      </n-card>
+    </div>
 
     <!-- Modal Création/Modification Client -->
     <n-modal
@@ -135,90 +130,93 @@
       @positive-click="saveClient"
       @negative-click="showClientModal = false"
       style="width: 700px"
+      class="scrollable-modal"
     >
-      <n-form :model="currentClient" :rules="clientRules" ref="clientFormRef">
-        <n-grid :cols="2" :x-gap="16" :y-gap="16">
-          <!-- Association Utilisateur -->
-          <n-gi :span="2">
-            <n-form-item 
-              v-if="modalMode === 'create'" 
-              label="Utilisateur à Associer" 
-              path="idUti"
-            >
-              <n-select
-                v-model:value="currentClient.idUti"
-                :options="clientUserOptions"
-                placeholder="Sélectionner un utilisateur..."
-                clearable
-                filterable
-              />
-            </n-form-item>
-            <n-form-item 
-              v-else 
-              label="ID Utilisateur Associé"
-            >
-              <n-input
-                :value="currentClient.idUti"
-                disabled
-                placeholder="ID utilisateur non modifiable"
-              />
-            </n-form-item>
-          </n-gi>
+      <div class="modal-scroll-content">
+        <n-form :model="currentClient" :rules="clientRules" ref="clientFormRef">
+          <n-grid :cols="2" :x-gap="16" :y-gap="16">
+            <!-- Association Utilisateur -->
+            <n-gi :span="2">
+              <n-form-item 
+                v-if="modalMode === 'create'" 
+                label="Utilisateur à Associer" 
+                path="idUti"
+              >
+                <n-select
+                  v-model:value="currentClient.idUti"
+                  :options="clientUserOptions"
+                  placeholder="Sélectionner un utilisateur..."
+                  clearable
+                  filterable
+                />
+              </n-form-item>
+              <n-form-item 
+                v-else 
+                label="ID Utilisateur Associé"
+              >
+                <n-input
+                  :value="currentClient.idUti"
+                  disabled
+                  placeholder="ID utilisateur non modifiable"
+                />
+              </n-form-item>
+            </n-gi>
 
-          <!-- Informations personnelles -->
-          <n-gi>
-            <n-form-item label="Nom" path="nomCli">
-              <n-input v-model:value="currentClient.nomCli" placeholder="Nom du client" />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label="Prénom" path="prenomCli">
-              <n-input v-model:value="currentClient.prenomCli" placeholder="Prénom du client" />
-            </n-form-item>
-          </n-gi>
+            <!-- Informations personnelles -->
+            <n-gi>
+              <n-form-item label="Nom" path="nomCli">
+                <n-input v-model:value="currentClient.nomCli" placeholder="Nom du client" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="Prénom" path="prenomCli">
+                <n-input v-model:value="currentClient.prenomCli" placeholder="Prénom du client" />
+              </n-form-item>
+            </n-gi>
 
-          <n-gi>
-            <n-form-item label="Email" path="emailCli">
-              <n-input v-model:value="currentClient.emailCli" placeholder="email@exemple.com" />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label="Téléphone" path="telephoneCli">
-              <n-input v-model:value="currentClient.telephoneCli" placeholder="+261 XX XX XXX XX" />
-            </n-form-item>
-          </n-gi>
+            <n-gi>
+              <n-form-item label="Email" path="emailCli">
+                <n-input v-model:value="currentClient.emailCli" placeholder="email@exemple.com" />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="Téléphone" path="telephoneCli">
+                <n-input v-model:value="currentClient.telephoneCli" placeholder="+261 XX XX XXX XX" />
+              </n-form-item>
+            </n-gi>
 
-          <n-gi :span="2">
-            <n-form-item label="Adresse" path="addresseCli">
-              <n-input
-                v-model:value="currentClient.addresseCli"
-                type="textarea"
-                placeholder="Adresse complète du client"
-                :rows="2"
-              />
-            </n-form-item>
-          </n-gi>
+            <n-gi :span="2">
+              <n-form-item label="Adresse" path="addresseCli">
+                <n-input
+                  v-model:value="currentClient.addresseCli"
+                  type="textarea"
+                  placeholder="Adresse complète du client"
+                  :rows="2"
+                />
+              </n-form-item>
+            </n-gi>
 
-          <n-gi>
-            <n-form-item label="Type Client" path="typeCli">
-              <n-select
-                v-model:value="currentClient.typeCli"
-                :options="typeOptions"
-                placeholder="Sélectionner le type"
-              />
-            </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label="Statut" path="statutCli">
-              <n-select
-                v-model:value="currentClient.statutCli"
-                :options="statusOptions"
-                placeholder="Sélectionner le statut"
-              />
-            </n-form-item>
-          </n-gi>
-        </n-grid>
-      </n-form>
+            <n-gi>
+              <n-form-item label="Type Client" path="typeCli">
+                <n-select
+                  v-model:value="currentClient.typeCli"
+                  :options="typeOptions"
+                  placeholder="Sélectionner le type"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="Statut" path="statutCli">
+                <n-select
+                  v-model:value="currentClient.statutCli"
+                  :options="statusOptions"
+                  placeholder="Sélectionner le statut"
+                />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+        </n-form>
+      </div>
     </n-modal>
 
     <!-- Modal Historique Client -->
@@ -226,8 +224,9 @@
       v-model:show="showHistoryModal"
       preset="dialog"
       :title="`Historique - ${historyClient.nomCli} ${historyClient.prenomCli}`"
-      style="width: 900px"
+      style="width: 900px; max-height: 90vh;"
       :show-icon="false"
+      class="scrollable-modal"
     >
       <div class="history-modal-scroll">
         <n-tabs type="line" v-model:value="historyTab">
@@ -236,7 +235,7 @@
               <template #header>
                 <div class="d-flex justify-content-between align-items-center">
                   <h6 class="mb-0">Locations Passées</h6>
-                  <n-tag type="info" size="small">
+                  <n-tag type="info" size="small" class="custom-tag">
                     {{ historyClient.locations?.length || 0 }} location(s)
                   </n-tag>
                 </div>
@@ -259,7 +258,7 @@
               <template #header>
                 <div class="d-flex justify-content-between align-items-center">
                   <h6 class="mb-0">Réservations en Cours</h6>
-                  <n-tag type="info" size="small">
+                  <n-tag type="info" size="small" class="custom-tag">
                     {{ historyClient.reservations?.length || 0 }} réservation(s)
                   </n-tag>
                 </div>
@@ -309,7 +308,7 @@
       </div>
 
       <template #action>
-        <n-button @click="showHistoryModal = false">Fermer</n-button>
+        <n-button @click="showHistoryModal = false" class="custom-btn-primary">Fermer</n-button>
       </template>
     </n-modal>
   </div>
@@ -423,7 +422,8 @@ const tableColumns = [
     render: (row) => h(NTag, { 
       type: getClientTypeTagType(row.typeCli),
       size: 'small',
-      bordered: false
+      bordered: false,
+      class: 'custom-tag'
     }, { default: () => row.typeCli })
   },
   {
@@ -454,7 +454,7 @@ const tableColumns = [
         type: 'primary',
         ghost: true,
         onClick: () => openModal('update', row),
-        class: 'me-1'
+        class: 'me-1 custom-btn-primary'
       }, {
         icon: () => h('i', { class: 'bi bi-pencil' })
       }),
@@ -462,7 +462,8 @@ const tableColumns = [
         size: 'small',
         type: 'error',
         ghost: true,
-        onClick: () => deleteClient(row)
+        onClick: () => deleteClient(row),
+        class: 'custom-btn-danger'
       }, {
         icon: () => h('i', { class: 'bi bi-trash' })
       })
@@ -490,7 +491,8 @@ const reservationColumns = [
     key: 'statut', 
     render: (row) => h(NTag, { 
       type: getStatusBadgeType(row.statut),
-      size: 'small'
+      size: 'small',
+      class: 'custom-tag'
     }, { default: () => row.statut })
   }
 ];
@@ -692,33 +694,67 @@ const formatCurrency = (value) => {
   margin: 0 auto;
   padding: 20px;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Header */
-.header-section {
-  background: transparent;
+/* Header amélioré */
+.custom-header {
+  background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
+  color: white;
+  border-left: 4px solid #007bff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
-.page-title {
-  font-size: 2rem;
+.custom-title {
+  color: white;
   font-weight: 700;
-  margin-bottom: 0.5rem;
+  margin: 0;
+  font-size: 1.8rem;
 }
 
-.page-subtitle {
-  font-size: 1.1rem;
-  opacity: 0.8;
+.custom-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  font-size: 1rem;
 }
 
-.back-button {
-  min-width: 160px;
+.btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: white;
+  color: white;
+}
+
+/* Conteneur principal avec scroll */
+.main-content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  max-height: calc(100vh - 120px);
+  padding-right: 8px;
 }
 
 /* Cards */
-.main-card, .filters-card, .stat-card {
-  border-radius: 12px;
+.custom-card {
+  border: none;
+  border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border: 1px solid #e9ecef;
+}
+
+/* Cartes de statistiques avec couleurs cohérentes */
+.custom-card-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+}
+
+.custom-card-warning {
+  background: linear-gradient(135deg, #0405BF 0%, #0405BF 100%);
+  color: white;
 }
 
 .stat-card {
@@ -735,7 +771,7 @@ const formatCurrency = (value) => {
 }
 
 .stat-card.active-client {
-  border-left-color: #1890ff;
+  border-left-color: #ffc107;
 }
 
 .stat-content {
@@ -748,12 +784,38 @@ const formatCurrency = (value) => {
 .stat-value {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1f2937;
+  color: white;
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Boutons cohérents */
+.custom-btn-primary {
+  background: #007bff !important;
+  border-color: #007bff !important;
+}
+
+.custom-btn-primary:hover {
+  background: #0056b3 !important;
+  border-color: #0056b3 !important;
+}
+
+.custom-btn-danger {
+  background: #5E5E5E !important;
+  border-color: #5E5E5E !important;
+  color: white !important;
+}
+
+.custom-btn-danger:hover {
+  background: #4a4a4a !important;
+  border-color: #4a4a4a !important;
+}
+
+.custom-tag {
+  font-weight: 600;
 }
 
 /* Table */
@@ -771,7 +833,7 @@ const formatCurrency = (value) => {
   background-color: #f8f9fa !important;
   font-weight: 600;
   color: #2c3e50;
-  border-bottom: 2px solid #5B11EE;
+  border-bottom: 2px solid #007bff;
   position: sticky;
   top: 0;
   z-index: 1;
@@ -787,7 +849,26 @@ const formatCurrency = (value) => {
   gap: 4px;
 }
 
-/* Modal Historique avec scroll */
+/* Modales avec scroll */
+:deep(.scrollable-modal .n-dialog) {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.scrollable-modal .n-dialog__content) {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-scroll-content {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
 .history-modal-scroll {
   max-height: 60vh;
   overflow-y: auto;
@@ -798,52 +879,40 @@ const formatCurrency = (value) => {
   overflow-y: auto;
 }
 
-/* Palette CEDII */
-.cedii-text-primary { 
-  color: #5B11EE !important; 
-}
-
-:deep(.n-button--primary-type) {
-  background-color: #5B11EE !important;
-  border-color: #5B11EE !important;
-}
-
-:deep(.n-button--primary-type:hover) {
-  background-color: #04058F !important;
-  border-color: #04058F !important;
-}
-
 /* Scrollbars personnalisées */
+.main-content-scroll::-webkit-scrollbar,
 .table-scroll-container::-webkit-scrollbar,
 .history-modal-scroll::-webkit-scrollbar,
-.timeline-scroll::-webkit-scrollbar {
+.timeline-scroll::-webkit-scrollbar,
+.modal-scroll-content::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
+.main-content-scroll::-webkit-scrollbar-track,
 .table-scroll-container::-webkit-scrollbar-track,
 .history-modal-scroll::-webkit-scrollbar-track,
-.timeline-scroll::-webkit-scrollbar-track {
+.timeline-scroll::-webkit-scrollbar-track,
+.modal-scroll-content::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 4px;
 }
 
+.main-content-scroll::-webkit-scrollbar-thumb,
 .table-scroll-container::-webkit-scrollbar-thumb,
 .history-modal-scroll::-webkit-scrollbar-thumb,
-.timeline-scroll::-webkit-scrollbar-thumb {
-  background: #5B11EE;
+.timeline-scroll::-webkit-scrollbar-thumb,
+.modal-scroll-content::-webkit-scrollbar-thumb {
+  background: #007bff;
   border-radius: 4px;
 }
 
+.main-content-scroll::-webkit-scrollbar-thumb:hover,
 .table-scroll-container::-webkit-scrollbar-thumb:hover,
 .history-modal-scroll::-webkit-scrollbar-thumb:hover,
-.timeline-scroll::-webkit-scrollbar-thumb:hover {
-  background: #04058F;
-}
-
-/* Scroll horizontal pour les tableaux */
-:deep(.n-data-table-base-table-body) {
-  overflow-x: auto !important;
+.timeline-scroll::-webkit-scrollbar-thumb:hover,
+.modal-scroll-content::-webkit-scrollbar-thumb:hover {
+  background: #0056b3;
 }
 
 /* Responsive */
@@ -852,18 +921,18 @@ const formatCurrency = (value) => {
     padding: 12px;
   }
   
-  .page-title {
-    font-size: 1.5rem;
-  }
-  
-  .header-section .d-flex {
+  .custom-header .d-flex {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
   }
   
-  .back-button {
-    align-self: flex-start;
+  .custom-title {
+    font-size: 1.4rem;
+  }
+  
+  .custom-subtitle {
+    font-size: 0.9rem;
   }
   
   :deep(.n-grid) {
@@ -877,6 +946,10 @@ const formatCurrency = (value) => {
   .table-scroll-container {
     max-height: 500px;
   }
+  
+  .main-content-scroll {
+    max-height: calc(100vh - 100px);
+  }
 }
 
 @media (max-width: 576px) {
@@ -887,5 +960,14 @@ const formatCurrency = (value) => {
   .stat-value {
     font-size: 1.25rem;
   }
+  
+  .main-content-scroll {
+    max-height: calc(100vh - 80px);
+  }
+}
+
+/* Support pour le défilement fluide */
+.main-content-scroll {
+  scroll-behavior: smooth;
 }
 </style>

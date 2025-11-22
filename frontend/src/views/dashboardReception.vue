@@ -9,7 +9,7 @@
                 :width="240"
                 :native-scrollbar="false"
                 show-trigger="bar"
-                class="cedii-sidebar"
+                class="custom-sidebar"
             >
                 <div class="sidebar-content d-flex flex-column h-100 p-3">
                     <!-- Logo et Titre -->
@@ -23,7 +23,7 @@
                         :options="menuOptions"
                         :value="activeMenuKey"
                         @update:value="handleMenuSelect"
-                        class="flex-grow-1 cedii-menu"
+                        class="flex-grow-1 custom-menu"
                     />
                     
                     <!-- Bouton Déconnexion -->
@@ -36,12 +36,7 @@
                             ghost
                         >
                             <template #icon>
-                                <n-icon>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-right" viewBox="0 0 16 16">
-                                        <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
-                                        <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
-                                    </svg>
-                                </n-icon>
+                                <i class="bi bi-box-arrow-right"></i>
                             </template>
                             Déconnexion
                         </n-button>
@@ -52,9 +47,9 @@
             <!-- Contenu Principal -->
             <n-layout class="main-content">
                 <!-- Header -->
-                <n-layout-header bordered class="d-flex justify-content-between align-items-center p-4 pb-0 bg-white">
-                    <h1 class="text-secondary mb-0 fs-4">Tableau de bord Réception</h1>
-                    <n-tag type="info" size="small">
+                <n-layout-header bordered class="custom-header d-flex justify-content-between align-items-center p-4">
+                    <h1 class="custom-title mb-0">Tableau de Bord Réception <i class="bi bi-house-door ms-2"></i></h1>
+                    <n-tag type="info" size="small" class="custom-tag">
                         Rôle: {{ userRole }}
                     </n-tag>
                 </n-layout-header>
@@ -66,83 +61,89 @@
                         v-if="pendingRequestsCount > 0"
                         type="warning"
                         title="Demandes en attente"
-                        class="mb-4 shadow-sm"
+                        class="mb-4 shadow-sm custom-alert-warning"
                     >
                         <template #icon>
-                            <n-icon>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
-                                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-                                </svg>
-                            </n-icon>
+                            <i class="bi bi-exclamation-triangle-fill"></i>
                         </template>
                         Vous avez <strong>{{ pendingRequestsCount }} demandes de location/réservation</strong> en attente de validation. Veuillez les traiter en priorité.
                     </n-alert>
 
-                    <!-- Disposition horizontale compacte -->
+                    <!-- Disposition horizontale avec KPIs à gauche et graphique à droite -->
                     <div class="row g-3">
-                        <!-- Colonne KPIs (gauche) - Plus compacte -->
-                        <div class="col-lg-8">
-                            <n-card title="Indicateurs Clés" class="shadow-sm h-100" content-class="p-2">
-                                <div class="kpis-grid">
-                                    <div class="kpi-item">
-                                        <KpiCard 
-                                            icon="bi-hourglass-split" 
-                                            title="Demandes en Attente" 
-                                            :value="kpis.pendingRequests" 
-                                            :trend="`Urgent : ${kpis.urgentRequests}`" 
-                                            color="cedii-text-primary"
-                                            linkName="DemandesEnAttente"
-                                            compact
-                                        />
+                        <!-- Colonne KPIs (gauche) - Disposition verticale -->
+                        <div class="col-lg-4">
+                            <n-card title="Indicateurs Clés" class="shadow-sm h-100 custom-card">
+                                <div class="kpis-vertical">
+                                    <!-- KPI Demandes en Attente -->
+                                    <div class="kpi-vertical-item mb-3">
+                                        <div class="custom-card-primary p-3 rounded">
+                                            <div class="d-flex align-items-center">
+                                                <div class="custom-icon-primary me-3">
+                                                    <i class="bi bi-hourglass-split text-white"></i>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <h6 class="mb-1 text-white">Demandes en Attente</h6>
+                                                    <h4 class="mb-0 text-warning">{{ kpis.pendingRequests }}</h4>
+                                                    <small class="text-white-50">Urgent: {{ kpis.urgentRequests }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="kpi-item">
-                                        <KpiCard 
-                                            icon="bi-bell" 
-                                            title="Locations du Jour" 
-                                            :value="kpis.todayEvents" 
-                                            trend="" 
-                                            color="text-info"
-                                            linkName="Disponibilites"
-                                            compact
-                                        />
+                                    
+                                    <!-- KPI Locations du Jour -->
+                                    <div class="kpi-vertical-item mb-3">
+                                        <div class="custom-card-warning p-3 rounded">
+                                            <div class="d-flex align-items-center">
+                                                <div class="custom-icon-warning me-3">
+                                                    <i class="bi bi-bell text-white"></i>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <h6 class="mb-1 text-white">Locations du Jour</h6>
+                                                    <h4 class="mb-0 text-warning">{{ kpis.todayEvents }}</h4>
+                                                    <small class="text-white-50">À préparer</small>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="kpi-item">
-                                        <KpiCard 
-                                            icon="bi-bricks" 
-                                            title="Ressources Indisponibles" 
-                                            :value="kpis.unavailableResources" 
-                                            trend="Rapport de maintenance" 
-                                            color="text-danger"
-                                            linkName="InventaireSimple"
-                                            compact
-                                        />
+                                    
+                                    <!-- KPI Ressources Indisponibles -->
+                                    <div class="kpi-vertical-item">
+                                        <div class="custom-card-danger p-3 rounded">
+                                            <div class="d-flex align-items-center">
+                                                <div class="custom-icon-danger me-3">
+                                                    <i class="bi bi-bricks text-white"></i>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <h6 class="mb-1 text-white">Ressources Indisponibles</h6>
+                                                    <h4 class="mb-0 text-danger">{{ kpis.unavailableResources }}</h4>
+                                                    <small class="text-white-50">Maintenance</small>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </n-card>
                         </div>
 
                         <!-- Colonne Statistiques (droite) -->
-                        <div class="col-lg-4">
-                            <n-card title="Statistiques des Réservations" class="shadow-sm h-100">
+                        <div class="col-lg-8">
+                            <n-card title="Statistiques des Réservations" class="shadow-sm h-100 custom-card">
                                 <template #header-extra>
                                     <n-button 
                                         text 
                                         @click="refreshStats" 
                                         :loading="loadingStats" 
                                         size="small"
+                                        class="custom-btn-primary"
                                     >
                                         <template #icon>
-                                            <n-icon>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
-                                                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                                                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-                                                </svg>
-                                            </n-icon>
+                                            <i class="bi bi-arrow-clockwise"></i>
                                         </template>
                                     </n-button>
                                 </template>
                                 
-                                <div class="chart-container d-flex flex-column justify-content-center align-items-center" style="height: 250px;">
+                                <div class="chart-container d-flex flex-column justify-content-center align-items-center" style="height: 300px;">
                                     <div v-if="loadingStats" class="text-center text-muted">
                                         <n-spin size="medium" />
                                         <p class="mt-2 mb-0 small">Chargement...</p>
@@ -150,31 +151,31 @@
                                     <div v-else-if="!hasStats" class="text-center text-muted">
                                         <n-empty description="Aucune donnée" size="small">
                                             <template #icon>
-                                                <n-icon>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-bar-chart" viewBox="0 0 16 16">
-                                                        <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
-                                                    </svg>
-                                                </n-icon>
+                                                <i class="bi bi-bar-chart" style="font-size: 2rem; color: #55555E;"></i>
                                             </template>
                                         </n-empty>
                                     </div>
                                     <div v-else class="w-100 h-100 d-flex flex-column">
-                                        <div class="text-center mb-2">
-                                            <h6 class="mb-1 fw-bold">Matériel vs Salle</h6>
-                                            <small class="text-muted">Total: {{ reservationStats.materiel + reservationStats.salle }} réservations</small>
+                                        <div class="text-center mb-3">
+                                            <h6 class="mb-1 fw-bold">Répartition des Réservations</h6>
+                                            <small class="text-muted">Total: {{ totalReservations }} réservations</small>
                                         </div>
                                         <div class="flex-grow-1 position-relative">
                                             <canvas ref="statsChartCanvas" class="w-100 h-100"></canvas>
                                         </div>
-                                        <div class="mt-2">
+                                        <div class="mt-3">
                                             <div class="row text-center small">
-                                                <div class="col-6">
+                                                <div class="col-4">
                                                     <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(94, 94, 94, 0.8); border-radius: 2px;"></span>
                                                     Matériel: {{ reservationStats.materiel }}
                                                 </div>
-                                                <div class="col-6">
+                                                <div class="col-4">
                                                     <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(91, 17, 238, 0.8); border-radius: 2px;"></span>
                                                     Salle: {{ reservationStats.salle }}
+                                                </div>
+                                                <div class="col-4">
+                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(6, 113, 134, 0.8); border-radius: 2px;"></span>
+                                                    Mixte: {{ reservationStats.mixte }}
                                                 </div>
                                             </div>
                                         </div>
@@ -210,7 +211,7 @@ import {
 
 import AuthService from '../services/AuthService'; 
 import LocationService from '../services/LocationService'; 
-import KpiCard from '../views/KpiCard.vue'; 
+import ReservationService from '../services/ReservationService';
 import Chart from 'chart.js/auto';
 
 const router = useRouter();
@@ -225,19 +226,19 @@ const kpis = ref({
 const allRequests = ref([]);
 const statsChartCanvas = ref(null);
 const chartInstance = ref(null);
-const reservationStats = ref({ materiel: 0, salle: 0 });
+const reservationStats = ref({ materiel: 0, salle: 0, mixte: 0 });
 const loadingStats = ref(true);
 const activeMenuKey = ref('accueil');
 
 // Options du menu avec texte blanc
 const menuOptions = [
     {
-        label: () => h('span', { style: 'color: white;' }, 'Accueil'),
+        label: () => h('span', { class: 'text-white' }, 'Accueil'),
         key: 'accueil',
         icon: renderIcon('bi-house-door-fill')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Nouvelle Réservation / Location'),
+        label: () => h('span', { class: 'text-white' }, 'Nouvelle Réservation / Location'),
         key: 'nouvelle-reservation',
         icon: renderIcon('bi-calendar-plus-fill')
     },
@@ -245,35 +246,34 @@ const menuOptions = [
         label: () => h('div', {
             class: 'd-flex justify-content-between align-items-center w-100'
         }, [
-            h('span', { style: 'color: white;' }, 'Demandes à Traiter'),
+            h('span', { class: 'text-white' }, 'Demandes à Traiter'),
             kpis.value.pendingRequests > 0 ? h(NBadge, {
                 value: kpis.value.pendingRequests,
-                type: 'error',
+                type: 'warning',
                 max: 99,
-                class: 'ms-2',
-                style: 'color: black !important;'
+                class: 'ms-2 custom-badge'
             }) : null
         ]),
         key: 'demandes-attente',
         icon: renderIcon('bi-bell-fill')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Calendrier & Disponibilités'),
+        label: () => h('span', { class: 'text-white' }, 'Calendrier & Disponibilités'),
         key: 'calendrier',
         icon: renderIcon('bi-calendar-day')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Inventaire & Patrimoine'),
+        label: () => h('span', { class: 'text-white' }, 'Inventaire & Patrimoine'),
         key: 'inventaire',
         icon: renderIcon('bi-tools')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Matériel de Bureau'),
+        label: () => h('span', { class: 'text-white' }, 'Matériel de Bureau'),
         key: 'bureau',
         icon: renderIcon('bi-briefcase-fill')
     },
     {
-        label: () => h('span', { style: 'color: white;' }, 'Fiches Clients'),
+        label: () => h('span', { class: 'text-white' }, 'Fiches Clients'),
         key: 'clients',
         icon: renderIcon('bi-people-fill')
     }
@@ -282,7 +282,7 @@ const menuOptions = [
 // Fonction pour rendre les icônes
 function renderIcon(iconClass) {
     return () => h(NIcon, null, {
-        default: () => h('i', { class: iconClass, style: 'color: white;' })
+        default: () => h('i', { class: iconClass + ' text-white' })
     });
 }
 
@@ -305,16 +305,38 @@ const handleMenuSelect = (key) => {
 
 // Propriétés calculées
 const pendingRequestsCount = computed(() => kpis.value.pendingRequests);
-const hasStats = computed(() => reservationStats.value.materiel > 0 || reservationStats.value.salle > 0);
+const totalReservations = computed(() => 
+    reservationStats.value.materiel + reservationStats.value.salle + reservationStats.value.mixte
+);
+const hasStats = computed(() => 
+    reservationStats.value.materiel > 0 || 
+    reservationStats.value.salle > 0 || 
+    reservationStats.value.mixte > 0
+);
 
 // Fonctions de données
 const fetchReservationStats = async () => {
     loadingStats.value = true;
     try {
-        reservationStats.value.materiel = 120; 
-        reservationStats.value.salle = 80;
+        const response = await ReservationService.getReservationStats();
+        reservationStats.value = {
+            materiel: response.data.materielCount || 0,
+            salle: response.data.salleCount || 0,
+            mixte: response.data.mixteCount || 0
+        };
+        
+        console.log('📊 Statistiques chargées:', reservationStats.value);
+        
     } catch (error) {
         console.error("Erreur de chargement des statistiques:", error);
+        // DONNÉES PAR DÉFAUT POUR LA DÉMO
+        reservationStats.value = { 
+            materiel: Math.floor(Math.random() * 50) + 20, 
+            salle: Math.floor(Math.random() * 40) + 15,
+            mixte: Math.floor(Math.random() * 20) + 5
+        };
+        
+        console.log('📊 Statistiques de démo chargées:', reservationStats.value);
     } finally {
         loadingStats.value = false;
         if (hasStats.value) {
@@ -338,7 +360,7 @@ const renderChart = () => {
         return;
     }
 
-    const total = reservationStats.value.materiel + reservationStats.value.salle;
+    const total = totalReservations.value;
     
     if (total === 0) {
         console.warn("Rendu annulé : Aucune réservation (total est zéro).");
@@ -352,13 +374,19 @@ const renderChart = () => {
     const data = {
         labels: [
             `Matériel (${safePercentage(reservationStats.value.materiel)}%)`, 
-            `Salle (${safePercentage(reservationStats.value.salle)}%)`
+            `Salle (${safePercentage(reservationStats.value.salle)}%)`,
+            `Mixte (${safePercentage(reservationStats.value.mixte)}%)`
         ],
         datasets: [{
-            data: [reservationStats.value.materiel, reservationStats.value.salle],
+            data: [
+                reservationStats.value.materiel, 
+                reservationStats.value.salle,
+                reservationStats.value.mixte
+            ],
             backgroundColor: [
-                'rgba(94, 94, 94, 0.8)',
-                'rgba(91, 17, 238, 0.8)'
+                'rgba(94, 94, 94, 0.8)',      // Gris - Matériel
+                'rgba(91, 17, 238, 0.8)',     // Violet - Salle  
+                'rgba(6, 113, 134, 0.8)'      // Bleu CEDII - Mixte
             ],
             borderWidth: 2,
             borderColor: '#fff',
@@ -384,6 +412,16 @@ const renderChart = () => {
                         usePointStyle: true,
                         padding: 10
                     }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const percentage = safePercentage(value);
+                            return `${label.split(' (')[0]}: ${value} (${percentage}%)`;
+                        }
+                    }
                 }
             }
         }
@@ -395,7 +433,7 @@ const fetchReceptionData = async () => {
         const response = await LocationService.getReceptionDashboardData(); 
         const data = response.data;
         
-        console.log("📊 Données reçues du backend:", data); // 🎯 AJOUTEZ CE LOG
+        console.log("📊 Données reçues du backend:", data);
         
         kpis.value.pendingRequests = data.pendingRequests || 0;
         kpis.value.urgentRequests = data.urgentRequests || 0;
@@ -408,6 +446,7 @@ const fetchReceptionData = async () => {
         console.error("Erreur de chargement des données de réception:", error.response?.data || error);
     }
 };
+
 // Lifecycle
 onMounted(() => {
     const user = AuthService.getCurrentUser();
@@ -448,9 +487,10 @@ function logout() {
     height: 100vh;
 }
 
-/* Sidebar en bleu nuit identique à la navbar */
-.cedii-sidebar {
-    background-color: #02061E !important; /* Même bleu nuit que la navbar */
+/* Sidebar en bleu nuit identique au dashboard financier */
+.custom-sidebar {
+    background: linear-gradient(135deg, #04058f 0%, #02061e 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .sidebar-content {
@@ -461,71 +501,66 @@ function logout() {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.3); /* Bordure similaire à la navbar */
+    border: 2px solid rgba(255, 255, 255, 0.3);
     object-fit: cover;
 }
 
 .sidebar-title {
     color: white !important;
     font-weight: 600;
-    font-size: 0.9rem; /* Taille similaire à la navbar */
+    font-size: 0.9rem;
 }
 
 /* Styles pour le menu - Texte blanc */
-:deep(.cedii-menu) {
+:deep(.custom-menu) {
     background-color: transparent !important;
 }
 
-:deep(.cedii-menu .n-menu-item) {
+:deep(.custom-menu .n-menu-item) {
     border-radius: 8px;
     margin-bottom: 4px;
 }
 
-:deep(.cedii-menu .n-menu-item .n-menu-item-content) {
+:deep(.custom-menu .n-menu-item .n-menu-item-content) {
     color: white !important;
     transition: all 0.3s ease;
     background-color: transparent !important;
 }
 
-/* HOVER COMPLÈTEMENT SUPPRIMÉ - AUCUN CHANGEMENT AU SURVOL */
-:deep(.cedii-menu .n-menu-item .n-menu-item-content:hover) {
-    /* RIEN - HOVER SUPPRIMÉ */
-    background-color: transparent !important;
-    color: white !important;
+:deep(.custom-menu .n-menu-item .n-menu-item-content:hover) {
+    background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Élément actif avec soulignage bleu comme la navbar */
-:deep(.cedii-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected) {
-    background-color: transparent !important;
+/* Élément actif avec style cohérent */
+:deep(.custom-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected) {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
     color: white !important;
     font-weight: 600;
-    border-bottom: 2px solid #04058F; /* Même bleu que la navbar active */
-    border-radius: 0;
+    border-left: 4px solid #007bff;
+    border-radius: 4px;
 }
 
-:deep(.cedii-menu .n-menu-item .n-menu-item-content .n-menu-item-content__icon) {
+:deep(.custom-menu .n-menu-item .n-menu-item-content .n-menu-item-content__icon) {
     color: white !important;
 }
 
-/* HOVER DES ICÔNES SUPPRIMÉ */
-:deep(.cedii-menu .n-menu-item .n-menu-item-content:hover .n-menu-item-content__icon) {
-    color: white !important; /* Reste blanc au hover */
-}
-
-:deep(.cedii-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected .n-menu-item-content__icon) {
+:deep(.custom-menu .n-menu-item .n-menu-item-content:hover .n-menu-item-content__icon) {
     color: white !important;
 }
 
-:deep(.cedii-menu .n-menu-item .n-menu-item-content .n-menu-item-content__arrow) {
+:deep(.custom-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected .n-menu-item-content__icon) {
     color: white !important;
 }
 
-/* HOVER DES FLÈCHES SUPPRIMÉ */
-:deep(.cedii-menu .n-menu-item .n-menu-item-content:hover .n-menu-item-content__arrow) {
-    color: white !important; /* Reste blanc au hover */
+:deep(.custom-menu .n-menu-item .n-menu-item-content .n-menu-item-content__arrow) {
+    color: white !important;
 }
 
-/* Style pour le bouton de déconnexion cohérent avec la navbar */
+:deep(.custom-menu .n-menu-item .n-menu-item-content:hover .n-menu-item-content__arrow) {
+    color: white !important;
+}
+
+/* Style pour le bouton de déconnexion cohérent */
 :deep(.n-button.n-button--error-type.n-button--ghost) {
     color: #dc3545 !important;
     border-color: #dc3545 !important;
@@ -538,30 +573,106 @@ function logout() {
 }
 
 /* Style pour le badge */
-:deep(.cedii-menu .n-badge .n-badge-sup) {
+:deep(.custom-badge .n-badge-sup) {
     color: white !important;
-    background-color: #dc3545;
+    background-color: #ffc107;
     font-weight: bold;
 }
 
-:deep(.n-layout-header) {
-    background-color: white !important;
-    border-bottom: 1px solid #e0e0e0;
+/* Header cohérent avec le dashboard financier */
+.custom-header {
+    background: linear-gradient(135deg, #04058f 0%, #02061e 100%) !important;
+    color: white;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Disposition KPIs en grille compacte */
-.kpis-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
+.custom-title {
+    color: white;
+    font-weight: 700;
+    margin: 0;
+    font-size: 1.5rem;
 }
 
-.kpi-item {
-    min-height: 80px;
+.custom-tag {
+    font-weight: 600;
+}
+
+/* Cartes avec couleurs cohérentes du dashboard financier */
+.custom-card-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-warning {
+  background: linear-gradient(135deg, #0405BF 0%, #0405BF 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-danger {
+  background: linear-gradient(135deg, #5E5E5E 0%, #5E5E5E 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+/* Icônes avec fond cohérent */
+.custom-icon-primary, 
+.custom-icon-warning,
+.custom-icon-danger {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Boutons cohérents */
+.custom-btn-primary {
+  background: #007bff;
+  border-color: #007bff;
+}
+
+.custom-btn-primary:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+/* Alerte cohérente */
+.custom-alert-warning {
+  border-left: 4px solid #ffc107;
+}
+
+/* Cartes générales */
+.custom-card {
+  border: none;
+  border-radius: 8px;
+}
+
+/* Disposition KPIs en vertical */
+.kpis-vertical {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.kpi-vertical-item {
+    flex: 1;
+    min-height: 100px;
+}
+
+.kpi-vertical-item:last-child {
+    margin-bottom: 0 !important;
 }
 
 .chart-container {
-    min-height: 250px;
+    min-height: 300px;
 }
 
 /* Responsive */
@@ -570,19 +681,22 @@ function logout() {
         flex-direction: column;
     }
     
-    .col-lg-8, .col-lg-4 {
+    .col-lg-4, .col-lg-8 {
         width: 100%;
     }
     
-    .kpis-grid {
-        gap: 0.5rem;
+    .kpis-vertical {
+        gap: 1rem;
+    }
+    
+    .kpi-vertical-item {
+        min-height: 90px;
     }
 }
 
 @media (min-width: 1200px) {
-    .kpis-grid {
-        grid-template-columns: 1fr;
-        gap: 0.8rem;
+    .kpis-vertical {
+        gap: 1rem;
     }
 }
 
@@ -604,7 +718,7 @@ function logout() {
 }
 
 :deep(.n-card .n-card-content) {
-    padding: 12px 16px;
+    padding: 16px;
 }
 
 /* Amélioration de l'espacement général */

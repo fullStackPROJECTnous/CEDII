@@ -1,23 +1,23 @@
 <template>
   <div class="container-fluid py-2">
-    <!-- En-tête compact -->
-    <div class="row mb-2">
+    <!-- Header amélioré -->
+    <div class="row mb-4">
       <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center">
-          <div class="d-flex align-items-center">
-            <i class="bi bi-laptop me-2 custom-icon fs-5"></i>
+        <div class="custom-header p-4 rounded">
+          <div class="d-flex justify-content-between align-items-center">
             <div>
-              <h4 class="mb-0 fw-bold">Matériel de Bureau</h4>
-              <small class="text-muted">{{ filteredMateriels.length }} équipement(s)</small>
+              <router-link to="/dashboardReception" class="btn btn-sm btn-outline-light">
+                <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
+              </router-link>
             </div>
-          </div>
-          <div class="d-flex align-items-center gap-1">
-            <n-button type="primary" @click="fetchData" size="small" secondary>
-              <i class="bi bi-arrow-clockwise"></i>
-            </n-button>
-            <router-link to="/dashboardReception" class="btn btn-sm btn-outline-primary">
-              <i class="bi bi-house"></i>
-            </router-link>
+            <div class="text-center">
+              <h1 class="custom-title mb-1">
+                <i class="bi bi-laptop me-2"></i>
+                Matériel de Bureau
+              </h1>
+              <p class="custom-subtitle">Gestion des équipements informatiques et bureautiques</p>
+            </div>
+            <div></div>
           </div>
         </div>
       </div>
@@ -75,7 +75,7 @@
           <!-- Bouton d'action -->
           <div class="col-md-3">
             <div class="d-flex justify-content-end">
-              <n-button type="primary" @click="openModal('add')" size="small">
+              <n-button type="primary" @click="openModal('add')" size="small" class="custom-btn-primary">
                 <i class="bi bi-plus-lg me-1"></i>Nouveau
               </n-button>
             </div>
@@ -250,7 +250,7 @@
         <template #footer>
           <div class="d-flex justify-content-end gap-2">
             <n-button size="small" @click="showMaterielModal = false">Annuler</n-button>
-            <n-button type="primary" size="small" @click="saveItem" :loading="isLoading">
+            <n-button type="primary" size="small" @click="saveItem" :loading="isLoading" class="custom-btn-primary">
               {{ isEdit ? 'Sauvegarder' : 'Ajouter' }}
             </n-button>
           </div>
@@ -289,7 +289,7 @@
         <template #footer>
           <div class="d-flex justify-content-end gap-2">
             <n-button size="small" @click="showAssignModal = false">Annuler</n-button>
-            <n-button type="warning" size="small" @click="assignUser">
+            <n-button type="warning" size="small" @click="assignUser" class="custom-btn-warning">
               Assigner
             </n-button>
           </div>
@@ -642,25 +642,46 @@ const formatDate = (date) => {
 </script>
 
 <style scoped>
-:root {
-  --cedii-primary: #5811EE;
-  --cedii-primary-dark: #04058F;
-  --cedii-dark: #02061E;
-  --cedii-info: #067186;
-  --cedii-secondary: #55555E;
-}
-
 .container-fluid {
   max-width: 1400px;
   margin: 0 auto;
+  padding: 20px;
 }
 
-.custom-icon {
-  color: var(--cedii-primary);
+/* Header amélioré */
+.custom-header {
+  background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
+  color: white;
+  border-left: 4px solid #007bff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.custom-title {
+  color: white;
+  font-weight: 700;
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.custom-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  font-size: 1rem;
+}
+
+.btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: white;
+  color: white;
 }
 
 .custom-divider {
-  border-color: var(--cedii-info);
+  border-color: #007bff;
   opacity: 0.2;
   margin: 0.5rem 0;
 }
@@ -669,6 +690,28 @@ const formatDate = (date) => {
   border: none;
   border-radius: 6px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Boutons cohérents */
+.custom-btn-primary {
+  background: #007bff !important;
+  border-color: #007bff !important;
+}
+
+.custom-btn-primary:hover {
+  background: #0056b3 !important;
+  border-color: #0056b3 !important;
+}
+
+.custom-btn-warning {
+  background: #0405BF !important;
+  border-color: #0405BF !important;
+  color: white !important;
+}
+
+.custom-btn-warning:hover {
+  background: #0304a3 !important;
+  border-color: #0304a3 !important;
 }
 
 /* Tableau compact */
@@ -714,8 +757,21 @@ const formatDate = (date) => {
 /* Responsive */
 @media (max-width: 768px) {
   .container-fluid {
-    padding-left: 8px;
-    padding-right: 8px;
+    padding: 12px;
+  }
+  
+  .custom-header .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .custom-title {
+    font-size: 1.4rem;
+  }
+  
+  .custom-subtitle {
+    font-size: 0.9rem;
   }
 }
 </style>

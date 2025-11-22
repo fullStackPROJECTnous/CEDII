@@ -26,7 +26,8 @@ import {
   NMessageProvider,
   NNotificationProvider,
   NDialogProvider,
-  NConfigProvider
+  NConfigProvider,
+
 } from 'naive-ui'
 
 const naive = create({

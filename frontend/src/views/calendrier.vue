@@ -3,10 +3,22 @@
     <!-- Header avec navigation -->
     <div class="row mb-4">
       <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center">
-          <router-link to="/dashboardReception" class="btn btn-sm custom-btn-outline">
-            <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
-          </router-link>
+        <div class="custom-header p-4 rounded">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <router-link to="/dashboardReception" class="btn btn-sm btn-outline-light">
+                <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
+              </router-link>
+            </div>
+            <div class="text-center">
+              <h1 class="custom-title mb-1">
+                <i class="bi bi-calendar-check me-2"></i>
+                Calendrier & Disponibilités
+              </h1>
+              <p class="custom-subtitle">Gestion des locations et réservations en temps réel</p>
+            </div>
+            <div></div> <!-- Placeholder pour l'alignement -->
+          </div>
         </div>
       </div>
     </div>
@@ -16,42 +28,42 @@
     <!-- Cartes de statistiques -->
     <div class="row mb-4">
       <div class="col-md-4 mb-3">
-        <n-card class="custom-card h-100" size="small">
+        <n-card class="custom-card-primary h-100" size="small">
           <div class="d-flex align-items-center">
-            <div class="custom-icon-container me-3">
+            <div class="custom-icon-primary me-3">
               <i class="bi bi-calendar-check text-white"></i>
             </div>
             <div>
-              <h6 class="mb-1">Événements Confirmés</h6>
-              <h4 class="mb-0 text-primary">{{ confirmedEvents.length }}</h4>
+              <h6 class="mb-1 text-white">Événements Confirmés</h6>
+              <h4 class="mb-0 text-warning">{{ confirmedEvents.length }}</h4>
             </div>
           </div>
         </n-card>
       </div>
       
       <div class="col-md-4 mb-3">
-        <n-card class="custom-card h-100" size="small">
+        <n-card class="custom-card-warning h-100" size="small">
           <div class="d-flex align-items-center">
-            <div class="custom-icon-container me-3" style="background-color: #067186;">
+            <div class="custom-icon-warning me-3">
               <i class="bi bi-clock-history text-white"></i>
             </div>
             <div>
-              <h6 class="mb-1">En Cours</h6>
-              <h4 class="mb-0 text-info">{{ enCoursCount }}</h4>
+              <h6 class="mb-1 text-white">En Cours</h6>
+              <h4 class="mb-0 text-warning">{{ enCoursCount }}</h4>
             </div>
           </div>
         </n-card>
       </div>
       
       <div class="col-md-4 mb-3">
-        <n-card class="custom-card h-100" size="small">
+        <n-card class="custom-card-danger h-100" size="small">
           <div class="d-flex align-items-center">
-            <div class="custom-icon-container me-3" style="background-color: #55555E;">
+            <div class="custom-icon-danger me-3">
               <i class="bi bi-check-circle text-white"></i>
             </div>
             <div>
-              <h6 class="mb-1">Terminés</h6>
-              <h4 class="mb-0 text-secondary">{{ completedCount }}</h4>
+              <h6 class="mb-1 text-white">Terminés</h6>
+              <h4 class="mb-0 text-danger">{{ completedCount }}</h4>
             </div>
           </div>
         </n-card>
@@ -59,9 +71,9 @@
     </div>
 
     <!-- Tableau des locations et réservations -->
-    <n-card class="custom-card shadow-lg" title="Vue d'ensemble des Locations et Réservations">
+    <n-card class="shadow-lg custom-card" title="Vue d'ensemble des Locations et Réservations">
       <template #header-extra>
-        <n-button type="primary" size="small" @click="fetchConfirmedEvents">
+        <n-button type="primary" size="small" class="custom-btn-primary" @click="fetchConfirmedEvents">
           <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
         </n-button>
       </template>
@@ -111,7 +123,7 @@
       </n-collapse-item>
     </n-collapse>
 
-    <!-- 🔥 CORRECTION : Utiliser EtatLieu au lieu de RetourMaterielModal -->
+    <!-- Modals -->
     <EtatLieu 
       v-model:show="showRetourModal"
       :location="selectedLocationForAction"
@@ -294,7 +306,8 @@ const columns = [
     key: 'type',
     render: (row) => h(NTag, { 
       type: row.type === 'Salle' ? 'primary' : row.type === 'Materiel' ? 'info' : 'success',
-      size: 'small'
+      size: 'small',
+      class: 'custom-tag'
     }, { default: () => row.type })
   },
   {
@@ -328,7 +341,8 @@ const columns = [
       };
       return h(NTag, { 
         type: typeMap[row.statut] || 'default',
-        size: 'small'
+        size: 'small',
+        class: 'custom-tag'
       }, { default: () => row.statut })
     }
   },
@@ -342,6 +356,7 @@ const columns = [
         h(NButton, {
           size: 'small',
           type: 'warning',
+          class: 'custom-btn-warning',
           onClick: () => ouvrirEtatLieuxDepart(row),
           disabled: row.statut !== 'Confirmée',
           title: row.statut !== 'Confirmée' ? 
@@ -355,6 +370,7 @@ const columns = [
         h(NButton, {
           size: 'small',
           type: 'error',
+          class: 'custom-btn-danger',
           onClick: () => ouvrirRetourMateriel(row),
           disabled: row.statut !== 'En cours',
           title: row.statut !== 'En cours' ? 
@@ -485,34 +501,56 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Votre CSS existant */
-:root {
-  --cedii-primary: #5811EE;
-  --cedii-primary-dark: #04058F;
-  --cedii-dark: #02061E;
-  --cedii-info: #067186;
-  --cedii-secondary: #55555E;
-}
+/* COULEURS COHÉRENTES AVEC LE DASHBOARD FINANCIER */
 
-.custom-btn-outline {
-  border-color: var(--cedii-primary);
-  color: var(--cedii-primary);
-  transition: all 0.3s ease;
-}
-
-.custom-btn-outline:hover {
-  background-color: var(--cedii-primary);
+.custom-header {
+  background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
   color: white;
+  border-left: 4px solid #007bff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.custom-title {
+  color: white;
+  font-weight: 700;
+  margin: 0;
+}
+
+.custom-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
 }
 
 .custom-divider {
-  border-color: var(--cedii-info);
+  border-color: #007bff;
   opacity: 0.3;
+}
+
+/* Cartes avec couleurs cohérentes */
+.custom-card-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-warning {
+  background: linear-gradient(135deg, #0405BF 0%, #0405BF 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.custom-card-danger {
+  background: linear-gradient(135deg, #5E5E5E 0%, #5E5E5E 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
 }
 
 .custom-card {
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -520,19 +558,76 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
-.custom-icon-container {
+/* Icônes avec fond cohérent */
+.custom-icon-primary, 
+.custom-icon-warning,
+.custom-icon-danger {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
-  background-color: var(--cedii-primary);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
+  background: rgba(255, 255, 255, 0.2);
 }
 
+/* Tags */
+.custom-tag {
+  font-weight: 600;
+}
+
+/* Boutons cohérents */
+.custom-btn-primary {
+  background: #007bff;
+  border-color: #007bff;
+}
+
+.custom-btn-primary:hover {
+  background: #0056b3;
+  border-color: #0056b3;
+}
+
+.custom-btn-warning {
+  background: #0405BF;
+  border-color: #0405BF;
+  color: white;
+}
+
+.custom-btn-warning:hover {
+  background: #0304a3;
+  border-color: #0304a3;
+  color: white;
+}
+
+.custom-btn-danger {
+  background: #5E5E5E;
+  border-color: #5E5E5E;
+  color: white;
+}
+
+.custom-btn-danger:hover {
+  background: #4a4a4a;
+  border-color: #4a4a4a;
+  color: white;
+}
+
+.btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: white;
+  color: white;
+}
+
+/* Table personnalisée */
 .custom-table {
-  --n-border-color: #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 :deep(.n-card__content) {
@@ -542,7 +637,7 @@ onMounted(() => {
 :deep(.n-data-table-th) {
   background-color: #f8f9fa;
   font-weight: 600;
-  color: var(--cedii-dark);
+  color: #02061E;
 }
 
 :deep(.n-data-table-td) {
@@ -550,14 +645,43 @@ onMounted(() => {
 }
 
 .text-primary {
-  color: var(--cedii-primary) !important;
+  color: #007bff !important;
 }
 
 .text-info {
-  color: var(--cedii-info) !important;
+  color: #0405BF !important;
 }
 
 .bg-primary {
-  background-color: var(--cedii-primary) !important;
+  background-color: #007bff !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .custom-title {
+    font-size: 1.4rem;
+  }
+  
+  .custom-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .custom-header {
+    padding: 1rem;
+  }
+  
+  .custom-icon-primary, 
+  .custom-icon-warning,
+  .custom-icon-danger {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+  
+  .custom-header .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
 }
 </style>

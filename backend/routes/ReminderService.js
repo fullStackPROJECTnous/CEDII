@@ -2,7 +2,7 @@
 const cron = require('node-cron');
 const { Location, Reservation, Client } = require('../models'); // Ex: db.models
 const { Op } = require('sequelize');
-const { transporter } = require('./EmailService'); // Importez votre transporteur
+//const { transporter } = require('./EmailService'); // Importez votre transporteur
 
 async function checkAndSendReminders() {
     const reminderDate = new Date();

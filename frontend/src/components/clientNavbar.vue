@@ -28,7 +28,7 @@
             </router-link>
           </li>
           <li class="nav-item ms-3">
-            <button @click="logout" class="btn btn-sm btn-outline-danger logout-btn">
+            <button @click="logout" class="btn btn-sm custom-btn-danger logout-btn">
               <i class="bi bi-box-arrow-right me-1"></i> Déconnexion
             </button>
           </li>
@@ -59,18 +59,19 @@ function logout() {
 
 <style scoped>
 .cedii-navbar { 
-    background-color: #02061E !important; 
+    background: linear-gradient(135deg, #04058f 0%, #02061e 100%) !important; 
 }
 
 .navbar-brand-text { 
     color: white !important; 
+    font-weight: 600;
 }
 
 .navbar-logo { 
     width: 35px; 
     height: 35px;
     border-radius: 50%; 
-    border: 1px solid white; 
+    border: 2px solid rgba(255, 255, 255, 0.3); 
     object-fit: cover; 
 }
 
@@ -82,20 +83,22 @@ function logout() {
     border-radius: 4px;
     transition: all 0.3s ease;
     position: relative;
+    font-weight: 500;
 }
 
 .nav-link:hover {
     color: white !important;
     background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
 }
 
-/* Style pour les liens actifs - texte blanc avec soulignage bleu marine */
+/* Style pour les liens actifs - texte blanc avec soulignage bleu */
 .nav-link.active {
     color: white !important;
-    background-color: transparent;
+    background-color: rgba(255, 255, 255, 0.15);
     font-weight: 600;
-    border-bottom: 2px solid #04058F;
-    border-radius: 0;
+    border-bottom: 2px solid #007bff;
+    border-radius: 4px 4px 0 0;
 }
 
 /* Supprimer le soulignage par défaut de Bootstrap */
@@ -104,20 +107,23 @@ function logout() {
 }
 
 /* Style pour le bouton de déconnexion */
-.logout-btn {
-    color: #dc3545 !important;
-    border-color: #dc3545 !important;
-    background-color: transparent;
+.custom-btn-danger {
+    background: #5E5E5E !important;
+    border-color: #5E5E5E !important;
+    color: white !important;
 }
 
-.logout-btn:hover {
-    background-color: #dc3545 !important;
+.custom-btn-danger:hover {
+    background: #4a4a4a !important;
+    border-color: #4a4a4a !important;
     color: white !important;
+    transform: translateY(-1px);
 }
 
 /* Styles pour le toggleur en mode mobile */
 .navbar-toggler {
     border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .navbar-toggler-icon {
@@ -125,7 +131,14 @@ function logout() {
 }
 
 .navbar-toggler:focus {
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5);
+}
+
+/* Effets de transition pour tous les éléments interactifs */
+.nav-link,
+.custom-btn-danger,
+.navbar-toggler {
+    transition: all 0.3s ease;
 }
 
 /* Responsive */
@@ -149,9 +162,50 @@ function logout() {
         margin-top: 1rem;
     }
     
-    .logout-btn {
+    .custom-btn-danger {
         width: 100%;
         margin-top: 0.5rem;
+    }
+    
+    .nav-link.active {
+        border-radius: 4px;
+        border-bottom: 2px solid #007bff;
+    }
+}
+
+/* Amélioration du contraste et accessibilité */
+.navbar-brand:focus,
+.nav-link:focus,
+.custom-btn-danger:focus,
+.navbar-toggler:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Animation subtile au survol */
+@keyframes subtleBounce {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+    100% { transform: translateY(0); }
+}
+
+.nav-link:hover,
+.custom-btn-danger:hover {
+    animation: subtleBounce 0.3s ease;
+}
+
+/* Support pour les préférences de réduction des animations */
+@media (prefers-reduced-motion: reduce) {
+    .nav-link,
+    .custom-btn-danger,
+    .navbar-toggler {
+        transition: none;
+    }
+    
+    .nav-link:hover,
+    .custom-btn-danger:hover {
+        animation: none;
+        transform: none;
     }
 }
 </style>
