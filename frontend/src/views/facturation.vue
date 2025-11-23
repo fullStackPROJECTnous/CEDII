@@ -30,130 +30,170 @@
       </div>
     </div>
 
-    <!-- Cartes de statistiques améliorées -->
-    <div class="row mb-4">
-      <div class="col-md-3 mb-3">
-        <n-card class="custom-card-primary h-100" size="small">
-          <div class="d-flex align-items-center">
-            <div class="custom-icon-primary me-3">
-              <i class="bi bi-calendar-check text-white"></i>
+    <!-- CONTENU AVEC SCROLL -->
+    <div class="content-wrapper">
+      <!-- Cartes de statistiques améliorées -->
+      <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+          <n-card class="custom-card-primary h-100" size="small">
+            <div class="d-flex align-items-center">
+              <div class="custom-icon-primary me-3">
+                <i class="bi bi-calendar-check text-white"></i>
+              </div>
+              <div>
+                <h6 class="mb-1 text-white">À Facturer</h6>
+                <h4 class="mb-0 text-warning">{{ locationsAFacturerCount }}</h4>
+              </div>
             </div>
-            <div>
-              <h6 class="mb-1 text-white">Locations Confirmées</h6>
-              <h4 class="mb-0 text-warning">{{ confirmedEvents.length }}</h4>
+          </n-card>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+          <n-card class="custom-card-danger h-100" size="small">
+            <div class="d-flex align-items-center">
+              <div class="custom-icon-danger me-3">
+                <i class="bi bi-clock-history text-white"></i>
+              </div>
+              <div>
+                <h6 class="mb-1 text-white">En Retard</h6>
+                <h4 class="mb-0 text-danger">{{ locationsEnRetard.length }}</h4>
+              </div>
             </div>
-          </div>
-        </n-card>
-      </div>
-      
-      <div class="col-md-3 mb-3">
-        <n-card class="custom-card-danger h-100" size="small">
-          <div class="d-flex align-items-center">
-            <div class="custom-icon-danger me-3">
-              <i class="bi bi-receipt text-white"></i>
+          </n-card>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+          <n-card class="custom-card-success h-100" size="small">
+            <div class="d-flex align-items-center">
+              <div class="custom-icon-success me-3">
+                <i class="bi bi-check-circle text-white"></i>
+              </div>
+              <div>
+                <h6 class="mb-1 text-white">Facturées Payées</h6>
+                <h4 class="mb-0 text-success">{{ locationsPayeesCount }}</h4>
+              </div>
             </div>
-            <div>
-              <h6 class="mb-1 text-white">À Facturer</h6>
-              <h4 class="mb-0 text-danger">{{ confirmedEvents.length }}</h4>
+          </n-card>
+        </div>
+
+        <div class="col-md-3 mb-3">
+          <n-card class="custom-card-warning h-100" size="small">
+            <div class="d-flex align-items-center">
+              <div class="custom-icon-warning me-3">
+                <i class="bi bi-cash-coin text-white"></i>
+              </div>
+              <div>
+                <h6 class="mb-1 text-white">Chiffre d'Affaires</h6>
+                <h4 class="mb-0 text-info">{{ chiffreAffairesTotal }}</h4>
+              </div>
             </div>
-          </div>
-        </n-card>
-      </div>
-      
-      <div class="col-md-3 mb-3">
-        <n-card class="custom-card-success h-100" size="small">
-          <div class="d-flex align-items-center">
-            <div class="custom-icon-success me-3">
-              <i class="bi bi-envelope-check text-white"></i>
-            </div>
-            <div>
-              <h6 class="mb-1 text-white">Factures Envoyées</h6>
-              <h4 class="mb-0 text-success">{{ facturesEnvoyeesCount }}</h4>
-            </div>
-          </div>
-        </n-card>
+          </n-card>
+        </div>
       </div>
 
-      <div class="col-md-3 mb-3">
-        <n-card class="custom-card-warning h-100" size="small">
-          <div class="d-flex align-items-center">
-            <div class="custom-icon-warning me-3">
-              <i class="bi bi-cash-coin text-white"></i>
+      <!-- Nouvelle section Alertes Retards -->
+      <div class="row mb-4" v-if="locationsEnRetard.length > 0">
+        <div class="col-12">
+          <n-alert type="warning">
+            <template #icon>
+              <i class="bi bi-exclamation-triangle"></i>
+            </template>
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ locationsEnRetard.length }} location(s) en retard de paiement</strong>
+                <div class="small">Total des pénalités: {{ totalPenalites }} Ar</div>
+              </div>
+              <n-button @click="sendAllPenaltyNotifications" type="warning" size="small">
+                <i class="bi bi-bell me-1"></i>Notifier tous les clients
+              </n-button>
             </div>
-            <div>
-              <h6 class="mb-1 text-white">Chiffre d'Affaires</h6>
-              <h4 class="mb-0 text-info">{{ chiffreAffairesTotal }}</h4>
-            </div>
-          </div>
-        </n-card>
+          </n-alert>
+        </div>
       </div>
-    </div>
 
-    <!-- Nouvelle section Alertes Retards -->
-    <div class="row mb-4" v-if="locationsEnRetard.length > 0">
-      <div class="col-12">
-        <n-alert type="warning">
-          <template #icon>
-            <i class="bi bi-exclamation-triangle"></i>
-          </template>
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <strong>{{ locationsEnRetard.length }} location(s) en retard de paiement</strong>
-              <div class="small">Total des pénalités: {{ totalPenalites }} Ar</div>
-            </div>
-            <n-button @click="sendAllPenaltyNotifications" type="warning" size="small">
-              <i class="bi bi-bell me-1"></i>Notifier tous les clients
+      <!-- Tableau des locations à facturer -->
+      <n-card class="shadow-lg" title="📍 Locations à Facturer (Confirmées + En Cours + Retard)">
+        <template #header-extra>
+          <div class="d-flex gap-2">
+            <n-button type="info" size="small" @click="fetchAllData">
+              <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
+            </n-button>
+            <n-button type="primary" size="small" @click="facturerTout" :disabled="locationsAFacturerCount === 0">
+              <i class="bi bi-receipt me-2"></i>Facturer Tout
             </n-button>
           </div>
-        </n-alert>
-      </div>
+        </template>
+
+        <div class="card-body">
+          <!-- Loading State -->
+          <div v-if="loadingEvents" class="text-center p-5">
+            <n-spin size="large">
+              <template #description>
+                Chargement des locations...
+              </template>
+            </n-spin>
+          </div>
+
+          <!-- Empty State -->
+          <div v-else-if="locationsAFacturerCount === 0" class="text-center p-5">
+            <n-empty description="Aucune location à facturer">
+              <template #icon>
+                <i class="bi bi-receipt" style="font-size: 3rem; color: #55555E;"></i>
+              </template>
+            </n-empty>
+          </div>
+
+          <!-- Data Table avec scroll -->
+          <div v-else class="table-container">
+            <n-data-table
+              :columns="columnsAFacturer"
+              :data="tableDataAFacturer"
+              :bordered="false"
+              class="custom-table"
+            />
+          </div>
+        </div>
+      </n-card>
+
+      <!-- Section Locations Terminées et Payées -->
+      <n-card class="shadow-lg mt-4" title="💰 Historique des Locations Terminées et Payées">
+        <template #header-extra>
+          <n-tag type="success" size="small">
+            <i class="bi bi-cash-coin me-1"></i>
+            Total Payé: {{ totalPaye }}
+          </n-tag>
+        </template>
+
+        <div class="card-body">
+          <div v-if="loadingTerminated" class="text-center p-3">
+            <n-spin size="small">
+              <template #description>
+                Chargement de l'historique...
+              </template>
+            </n-spin>
+          </div>
+
+          <div v-else-if="locationsTermineesPayees.length === 0" class="text-center p-4">
+            <n-empty description="Aucune location payée dans l'historique">
+              <template #icon>
+                <i class="bi bi-wallet2" style="font-size: 2rem; color: #28a745;"></i>
+              </template>
+            </n-empty>
+          </div>
+
+          <div v-else class="table-container">
+            <n-data-table
+              :columns="columnsTerminees"
+              :data="tableDataTerminees"
+              :bordered="false"
+              class="custom-table"
+            />
+          </div>
+        </div>
+      </n-card>
     </div>
 
-    <!-- Tableau des locations à facturer -->
-    <n-card class="shadow-lg" title="Locations Confirmées à Facturer">
-      <template #header-extra>
-        <div class="d-flex gap-2">
-          <n-button type="info" size="small" @click="fetchConfirmedEvents">
-            <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
-          </n-button>
-          <n-button type="primary" size="small" @click="facturerTout" :disabled="confirmedEvents.length === 0">
-            <i class="bi bi-receipt me-2"></i>Facturer Tout
-          </n-button>
-        </div>
-      </template>
-
-      <div class="card-body">
-        <!-- Loading State -->
-        <div v-if="loadingEvents" class="text-center p-5">
-          <n-spin size="large">
-            <template #description>
-              Chargement des locations...
-            </template>
-          </n-spin>
-        </div>
-
-        <!-- Empty State -->
-        <div v-else-if="confirmedEvents.length === 0" class="text-center p-5">
-          <n-empty description="Aucune location à facturer">
-            <template #icon>
-              <i class="bi bi-receipt" style="font-size: 3rem; color: #55555E;"></i>
-            </template>
-          </n-empty>
-        </div>
-
-        <!-- Data Table -->
-        <div v-else>
-          <n-data-table
-            :columns="columns"
-            :data="tableData"
-            :bordered="false"
-            class="custom-table"
-          />
-        </div>
-      </div>
-    </n-card>
-
-    <!-- Modal de confirmation de facturation (conservé) -->
+    <!-- Modal de confirmation de facturation -->
     <n-modal v-model:show="showConfirmModal" preset="dialog" :mask-closable="false">
       <template #header>
         <div class="d-flex align-items-center">
@@ -268,9 +308,11 @@ import {
 import LocationService from '../services/LocationService';
 import FinanceService from '../services/FinanceService';
 
-// Variables réactives existantes
+// Variables réactives
 const confirmedEvents = ref([]);
+const locationsTermineesPayees = ref([]);
 const loadingEvents = ref(true);
+const loadingTerminated = ref(false);
 const showConfirmModal = ref(false);
 const selectedLocation = ref(null);
 const isSending = ref(false);
@@ -280,46 +322,87 @@ const emailForm = ref({ email: '' });
 const facturesEnvoyeesCount = ref(0);
 const chiffreAffairesTotal = ref('0 Ar');
 
-// NOUVELLES variables pour les pénalités
+// Variables pour les pénalités
 const locationsEnRetard = ref([]);
 const totalPenalites = ref('0 Ar');
 
-// Computed properties existantes
-const tableData = computed(() => {
-  return confirmedEvents.value.map(event => {
-    const clientEmail = event.client?.emailCli || event.reservation?.client?.emailCli || event.emailCli || '';
-    const clientName = event.client ? `${event.client.nomCli} ${event.client.prenomCli || ''}`.trim() :
-      event.reservation?.client ? `${event.reservation.client.nomCli} ${event.reservation.client.prenomCli || ''}`.trim() :
-      event.nomCli && event.prenomCli ? `${event.nomCli} ${event.prenomCli}`.trim() : 'N/A';
+// Computed properties
+const locationsAFacturerCount = computed(() => {
+  return confirmedEvents.value.filter(event => 
+    event.etatLo === 'Confirmée' || event.etatLo === 'En cours'
+  ).length;
+});
 
-    // Calcul des jours de retard et pénalités
-    const finLocation = new Date(event.finLo);
-    const aujourdhui = new Date();
-    const joursRetard = Math.max(0, Math.floor((aujourdhui - finLocation) / (1000 * 60 * 60 * 24)));
-    const tauxPenalite = 0.02;
-    const penalite = joursRetard * tauxPenalite * calculateTarif(event);
+const locationsPayeesCount = computed(() => {
+  return locationsTermineesPayees.value.length;
+});
+
+const totalPaye = computed(() => {
+  const total = locationsTermineesPayees.value.reduce((sum, location) => {
+    return sum + parseFloat(location.montantPaie || 0);
+  }, 0);
+  return formatTarifAriary(total);
+});
+
+// Tableau des locations À FACTURER (Confirmées + En cours)
+const tableDataAFacturer = computed(() => {
+  return confirmedEvents.value
+    .filter(event => event.etatLo === 'Confirmée' || event.etatLo === 'En cours')
+    .map(event => {
+      const clientEmail = event.client?.emailCli || event.reservation?.client?.emailCli || event.emailCli || '';
+      const clientName = event.client ? `${event.client.nomCli} ${event.client.prenomCli || ''}`.trim() :
+        event.reservation?.client ? `${event.reservation.client.nomCli} ${event.reservation.client.prenomCli || ''}`.trim() :
+        event.nomCli && event.prenomCli ? `${event.nomCli} ${event.prenomCli}`.trim() : 'N/A';
+
+      // Calcul des jours de retard et pénalités
+      const finLocation = new Date(event.finLo);
+      const aujourdhui = new Date();
+      const joursRetard = Math.max(0, Math.floor((aujourdhui - finLocation) / (1000 * 60 * 60 * 24)));
+      const tauxPenalite = 0.02;
+      const penalite = joursRetard * tauxPenalite * calculateTarif(event);
+
+      return {
+        id: event.idLo,
+        client: clientName,
+        type: event.typeLo,
+        dateDebut: new Date(event.debLo).toLocaleString('fr-FR'),
+        dateFin: new Date(event.finLo).toLocaleString('fr-FR'),
+        tarif: formatTarifAriary(calculateTarif(event)),
+        statut: event.etatLo,
+        email: clientEmail,
+        hasEmail: !!clientEmail,
+        location: event,
+        tarifNumerique: calculateTarif(event),
+        joursRetard: joursRetard,
+        penalite: formatTarifAriary(penalite),
+        estEnRetard: joursRetard > 0
+      };
+    });
+});
+
+// Tableau des locations TERMINÉES ET PAYÉES
+const tableDataTerminees = computed(() => {
+  return locationsTermineesPayees.value.map(event => {
+    const clientEmail = event.emailCli || '';
+    const clientName = `${event.nomCli || ''} ${event.prenomCli || ''}`.trim() || 'N/A';
 
     return {
       id: event.idLo,
       client: clientName,
       type: event.typeLo,
-      dateDebut: new Date(event.debLo).toLocaleString('fr-FR'),
-      dateFin: new Date(event.finLo).toLocaleString('fr-FR'),
-      tarif: formatTarifAriary(calculateTarif(event)),
-      statut: event.etatLo,
-      email: clientEmail,
-      hasEmail: !!clientEmail,
-      location: event,
-      tarifNumerique: calculateTarif(event),
-      joursRetard: joursRetard,
-      penalite: formatTarifAriary(penalite),
-      estEnRetard: joursRetard > 0
+      dateDebut: new Date(event.debLo).toLocaleDateString('fr-FR'),
+      dateFin: new Date(event.finLo).toLocaleDateString('fr-FR'),
+      tarif: formatTarifAriary(event.tarifTot || 0),
+      dateFacturation: event.dateFacturation ? new Date(event.dateFacturation).toLocaleDateString('fr-FR') : 'N/A',
+      numeroFacture: event.numeroFacture || 'N/A',
+      montantPaye: event.montantPaie ? formatTarifAriary(event.montantPaie) : '0 Ar',
+      statutPaiement: event.statutPaie || 'Payé'
     };
   });
 });
 
-// Configuration des colonnes améliorée
-const columns = [
+// Colonnes pour le tableau À FACTURER
+const columnsAFacturer = [
   {
     title: 'ID',
     key: 'id',
@@ -372,8 +455,8 @@ const columns = [
     width: 120,
     render: (row) => h(NTag, {
       type: row.estEnRetard ? 'error' : 
-            row.statut === 'Terminée' ? 'success' : 
-            row.statut === 'Confirmée' ? 'warning' : 'default',
+            row.statut === 'En cours' ? 'warning' : 
+            row.statut === 'Confirmée' ? 'info' : 'default',
       size: 'small'
     }, { default: () => row.estEnRetard ? 'En retard' : row.statut })
   },
@@ -402,35 +485,128 @@ const columns = [
   }
 ];
 
-// Méthodes principales existantes
-const fetchConfirmedEvents = async () => {
+// Colonnes pour le tableau TERMINÉES ET PAYÉES
+const columnsTerminees = [
+  {
+    title: 'ID Location',
+    key: 'id',
+    width: 100,
+    render: (row) => h('span', { class: 'text-muted fw-bold' }, `#${row.id}`)
+  },
+  {
+    title: 'Client',
+    key: 'client',
+    width: 150
+  },
+  {
+    title: 'Type',
+    key: 'type',
+    width: 100,
+    render: (row) => h(NTag, { 
+      type: row.type === 'Salle' ? 'primary' : row.type === 'Materiel' ? 'info' : 'success',
+      size: 'small'
+    }, { default: () => row.type })
+  },
+  {
+    title: 'Période',
+    key: 'periode',
+    width: 200,
+    render: (row) => h('div', [
+      h('div', { class: 'small' }, row.dateDebut),
+      h('div', { class: 'small text-muted' }, 'au ' + row.dateFin)
+    ])
+  },
+  {
+    title: 'Facture',
+    key: 'facture',
+    width: 180,
+    render: (row) => h('div', [
+      h('div', { class: 'fw-medium text-success' }, row.numeroFacture),
+      h('div', { class: 'small text-muted' }, row.dateFacturation)
+    ])
+  },
+  {
+    title: 'Statut',
+    key: 'statutPaiement',
+    width: 120,
+    render: (row) => h(NTag, {
+      type: 'success',
+      size: 'small'
+    }, { default: () => 'Payé' })
+  },
+  {
+    title: 'Montant Payé',
+    key: 'montantPaye',
+    align: 'right',
+    width: 130,
+    render: (row) => h('strong', { class: 'text-success' }, row.montantPaye)
+  },
+  {
+    title: 'Actions',
+    key: 'actions',
+    width: 100,
+    render: (row) => h('div', { class: 'd-flex gap-1' }, [
+      h(NButton, {
+        size: 'small',
+        type: 'info',
+        onClick: () => telechargerFactureTerminee(row),
+        title: 'Télécharger la facture'
+      }, {
+        default: () => h('i', { class: 'bi bi-download' })
+      })
+    ])
+  }
+];
+
+// Méthodes principales
+const fetchAllData = async () => {
   loadingEvents.value = true;
   try {
-    const response = await LocationService.getConfirmedEvents();
-    confirmedEvents.value = response.data;
-    console.log('✅ Locations confirmées chargées:', response.data.length);
-    
-    // Charger les statistiques
+    await Promise.all([
+      fetchConfirmedEvents(),
+      fetchLocationsTermineesPayees(),
+      loadLocationsEnRetard()
+    ]);
     await loadStats();
-    
-    // NOUVEAU : Charger les locations en retard
-    await loadLocationsEnRetard();
-    
   } catch (error) {
-    console.error("❌ Erreur chargement des locations:", error);
-    alert('Erreur lors du chargement des données');
+    console.error("❌ Erreur chargement des données:", error);
   } finally {
     loadingEvents.value = false;
   }
 };
 
-// NOUVELLE MÉTHODE : Charger les locations en retard
+const fetchConfirmedEvents = async () => {
+  try {
+    const response = await LocationService.getConfirmedEvents();
+    confirmedEvents.value = response.data;
+    console.log('✅ Locations à facturer chargées:', response.data.length);
+  } catch (error) {
+    console.error("❌ Erreur chargement locations à facturer:", error);
+    throw error;
+  }
+};
+
+const fetchLocationsTermineesPayees = async () => {
+  loadingTerminated.value = true;
+  try {
+    const response = await LocationService.getTerminatedLocations();
+    // Filtrer seulement les locations avec paiement EFFECTUÉ
+    locationsTermineesPayees.value = response.data.filter(location => 
+      location.statutPaie === 'Effectué'
+    );
+    console.log('✅ Locations terminées payées chargées:', locationsTermineesPayees.value.length);
+  } catch (error) {
+    console.error("❌ Erreur chargement locations terminées:", error);
+  } finally {
+    loadingTerminated.value = false;
+  }
+};
+
 const loadLocationsEnRetard = async () => {
   try {
     const response = await FinanceService.calculatePenalties();
     locationsEnRetard.value = response.data;
     
-    // Calculer le total des pénalités
     const total = locationsEnRetard.value.reduce((sum, location) => {
       return sum + (location.penalite || 0);
     }, 0);
@@ -442,7 +618,6 @@ const loadLocationsEnRetard = async () => {
   }
 };
 
-// NOUVELLE MÉTHODE : Notifier tous les retards
 const sendAllPenaltyNotifications = async () => {
   if (locationsEnRetard.value.length === 0) {
     alert('Aucune location en retard à notifier.');
@@ -456,8 +631,6 @@ const sendAllPenaltyNotifications = async () => {
   try {
     const response = await FinanceService.sendPenaltyNotifications();
     alert(response.data.message);
-    
-    // Recharger les données
     await loadLocationsEnRetard();
   } catch (error) {
     console.error('❌ Erreur notifications pénalités:', error);
@@ -465,11 +638,10 @@ const sendAllPenaltyNotifications = async () => {
   }
 };
 
-// Méthodes existantes conservées
 const loadStats = async () => {
   try {
     const [chiffreAffaires, facturesEnvoyees] = await Promise.all([
-      calculerChiffreAffaires(),
+      calculerChiffreAffairesReel(),
       compterFacturesEnvoyees()
     ]);
     
@@ -483,15 +655,14 @@ const loadStats = async () => {
   }
 };
 
-const calculerChiffreAffaires = async () => {
+const calculerChiffreAffairesReel = async () => {
   try {
     const response = await FinanceService.getChiffreAffaires();
     return response.data.total || 0;
   } catch (error) {
     console.warn('⚠️ API CA non disponible, calcul local...');
-    return confirmedEvents.value.reduce((total, event) => {
-      const tarif = event.tarifTot || event.tarif || 0;
-      return total + parseFloat(tarif);
+    return locationsTermineesPayees.value.reduce((total, location) => {
+      return total + parseFloat(location.montantPaie || 0);
     }, 0);
   }
 };
@@ -502,9 +673,7 @@ const compterFacturesEnvoyees = async () => {
     return response.data.count || 0;
   } catch (error) {
     console.warn('⚠️ API factures non disponible, calcul local...');
-    return confirmedEvents.value.filter(event => {
-      return event.paiement?.emailEnvoye || event.emailEnvoye || event.factureEnvoyee;
-    }).length;
+    return locationsTermineesPayees.value.length;
   }
 };
 
@@ -549,7 +718,7 @@ const creerEtEnvoyerFacture = async () => {
       console.log('✅ Facture créée et envoyée:', response.data);
       
       await marquerLocationTerminee(selectedLocation.value.id);
-      await fetchConfirmedEvents();
+      await fetchAllData(); // Recharger toutes les données
       
       showConfirmModal.value = false;
       selectedLocation.value = null;
@@ -569,7 +738,7 @@ const creerEtEnvoyerFacture = async () => {
 };
 
 const facturerTout = async () => {
-  const locationsAvecEmail = tableData.value.filter(item => item.hasEmail);
+  const locationsAvecEmail = tableDataAFacturer.value.filter(item => item.hasEmail);
   
   if (locationsAvecEmail.length === 0) {
     alert('Aucune location avec email renseigné pour la facturation groupée.');
@@ -604,7 +773,7 @@ const facturerTout = async () => {
       }
     }
     
-    await fetchConfirmedEvents();
+    await fetchAllData();
     alert(`✅ Facturation groupée terminée:\n• ${succes} succès\n• ${echecs} échecs\n• Locations marquées comme terminées`);
     
   } catch (error) {
@@ -664,6 +833,78 @@ const telechargerFactureDirect = async (location) => {
   }
 };
 
+// CORRECTION : Une seule déclaration de telechargerFactureTerminee
+const telechargerFactureTerminee = async (location) => {
+  try {
+    console.log('📍 Téléchargement facture terminée:', location.id);
+    
+    // Utiliser la NOUVELLE méthode pour les factures payées
+    const response = await FinanceService.downloadPaidInvoice(location.id);
+
+    // Vérifier que la réponse contient des données
+    if (!response.data || response.data.size === 0) {
+      throw new Error('Le fichier PDF est vide');
+    }
+
+    // Vérifier le type MIME
+    const contentType = response.headers['content-type'];
+    if (contentType !== 'application/pdf') {
+      console.warn('⚠️ Type MIME inattendu, tentative de traitement PDF...');
+    }
+
+    // Créer le blob
+    const blob = new Blob([response.data], { 
+      type: 'application/pdf' 
+    });
+
+    // Vérifier la taille
+    if (blob.size === 0) {
+      throw new Error('Fichier PDF corrompu');
+    }
+
+    // Créer l'URL et télécharger
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `facture-${location.id}-${new Date().toISOString().split('T')[0]}.pdf`;
+    link.style.display = 'none';
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    // Nettoyer après téléchargement
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+
+    console.log('✅ Facture payée téléchargée avec succès');
+
+  } catch (error) {
+    console.error('❌ Erreur détaillée téléchargement facture terminée:', error);
+    
+    let message = 'Erreur lors du téléchargement de la facture';
+    
+    if (error.response) {
+      switch (error.response.status) {
+        case 404:
+          message = 'Facture non trouvée pour cette location';
+          break;
+        case 500:
+          message = 'Erreur serveur lors de la génération du PDF';
+          break;
+        default:
+          message = `Erreur serveur (${error.response.status})`;
+      }
+    } else if (error.message) {
+      message = error.message;
+    }
+    
+    // Utiliser le système de notification
+    window.$message?.error(message);
+  }
+};
+
 const calculateTarif = (event) => {
   try {
     if (event.tarifTot && event.tarifTot > 0) {
@@ -703,13 +944,12 @@ const exporterFactures = async () => {
 
 // Cycle de vie
 onMounted(() => {
-  fetchConfirmedEvents();
+  fetchAllData();
 });
 </script>
 
 <style scoped>
-/* COULEURS ORIGINALES */
-
+/* Styles existants conservés */
 .custom-header {
   background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
   color: white;
@@ -728,7 +968,51 @@ onMounted(() => {
   margin: 0;
 }
 
-/* Cartes avec couleurs originales */
+.content-wrapper {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.content-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.content-wrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.table-container {
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+}
+
+.table-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f8f9fa;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #dee2e6;
+  border-radius: 3px;
+}
+
 .custom-card-primary {
   background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
   color: white;
@@ -757,7 +1041,6 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-/* Icônes avec fond original */
 .custom-icon-primary, 
 .custom-icon-danger, 
 .custom-icon-success,
@@ -776,7 +1059,6 @@ onMounted(() => {
 .custom-icon-success { background: rgba(255, 255, 255, 0.2); }
 .custom-icon-warning { background: rgba(255, 255, 255, 0.2); }
 
-/* Table personnalisée */
 .custom-table {
   border-radius: 8px;
   overflow: hidden;
@@ -788,7 +1070,6 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .custom-title {
     font-size: 1.4rem;
@@ -815,6 +1096,15 @@ onMounted(() => {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
+  }
+  
+  .content-wrapper {
+    max-height: none;
+    overflow-y: visible;
+  }
+  
+  .table-container {
+    max-height: 400px;
   }
 }
 </style>

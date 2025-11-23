@@ -4,11 +4,13 @@ const db = require('../models');
 const Location = db.Location; 
 const Reservation = db.Reservation;
 const Client = db.Client; 
-const sequelize = db.Sequelize;
+//const sequelize = db.Sequelize;
 const Op = db.Sequelize.Op;
 const Materiel = db.Materiel;
 const Salle = db.Salle;
-const { QueryTypes } = require('sequelize');
+const { sequelize } = db; // ⬅️ Ajoutez cette ligne
+//const { QueryTypes } = require('sequelize');
+const { QueryTypes } = require('sequelize'); // Gardez cet import
 
 // Requêtes SQL pour le dashboard
 const sqlKpiPending = `
@@ -186,16 +188,16 @@ exports.updateReservationStatus = async (req, res) => {
         res.status(500).send({ message: "Erreur serveur lors de la mise à jour.", error: error.message });
     }
 };
-
-// Dans LocationService.js ou votre contrôleur de locations
 exports.getConfirmedEvents = async (req, res) => {
     try {
+        console.log('📍 getConfirmedEvents - Début');
+        
         const sql = `
             SELECT 
                 l.*,
                 c.nomCli,
                 c.prenomCli,
-                c.emailCli,  -- ⬅️ IMPORTANT
+                c.emailCli,
                 c.telephoneCli,
                 r.typeRes,
                 r.qteMat,
@@ -208,18 +210,28 @@ exports.getConfirmedEvents = async (req, res) => {
             JOIN client c ON r.idCli = c.idCli
             LEFT JOIN materiel m ON r.codeMat = m.codeMat
             LEFT JOIN salle s ON r.idSalle = s.idSalle
-            WHERE l.etatLo = 'Confirmée'
-            AND l.idLo NOT IN (SELECT idLo FROM paiement WHERE statutPaie = 'Effectué')
+            WHERE l.etatLo IN ('Confirmée', 'En cours', 'Terminée')
+            -- SUPPRIMER la condition de paiement pour garder TOUTES les locations actives
+            ORDER BY l.debLo ASC
         `;
 
+        console.log('📍 Exécution requête SQL...');
+        
         const locations = await sequelize.query(sql, {
             type: sequelize.QueryTypes.SELECT
         });
 
+        console.log(`📍 ${locations.length} locations trouvées avec statuts:`, 
+            locations.map(l => `${l.idLo}(${l.etatLo})`).join(', '));
+
         res.status(200).send(locations);
+        
     } catch (error) {
-        console.error("Erreur getConfirmedEvents:", error);
-        res.status(500).send({ message: "Erreur serveur" });
+        console.error("❌ ERREUR getConfirmedEvents:", error);
+        res.status(500).send({ 
+            message: "Erreur serveur",
+            error: error.message 
+        });
     }
 };
 
@@ -328,7 +340,6 @@ exports.validateReservation = async (req, res) => {
         res.status(500).send({ message: "Échec de la validation de la réservation.", error: error.message });
     }
 };
-
 exports.submitEtatLieux = async (req, res) => {
     const { idLo } = req.params;
     const { mode, details } = req.body; 
@@ -342,8 +353,20 @@ exports.submitEtatLieux = async (req, res) => {
     const transaction = await db.sequelize.transaction();
 
     try {
-        const location = await Location.findByPk(idLo, { transaction });
-        if (!location) { await transaction.rollback(); return res.status(404).send({ message: "Location non trouvée." }); }
+        // CORRECTION : Utilisez db.sequelize.query au lieu de sequelize.query
+        const sql = "SELECT * FROM location WHERE idLo = ?";
+        const locations = await db.sequelize.query(sql, {
+            replacements: [idLo],
+            type: db.sequelize.QueryTypes.SELECT, // CORRECTION ici aussi
+            transaction
+        });
+        
+        if (locations.length === 0) { 
+            await transaction.rollback(); 
+            return res.status(404).send({ message: "Location non trouvée." }); 
+        }
+
+        const location = locations[0];
 
         if (normalizedMode === 'depart') {
             await Location.update({ etatLo: 'En cours' }, { where: { idLo: idLo }, transaction });
@@ -360,12 +383,23 @@ exports.submitEtatLieux = async (req, res) => {
                 }
 
                 if (item.estEndommage && item.coutReparation > 0) {
-                    const reservation = await Reservation.findOne({ where: { idRes: location.idRes }, transaction });
+                    // CORRECTION : Utilisez db.sequelize.query
+                    const reservationSql = `
+                        SELECT r.idCli 
+                        FROM reservation r 
+                        JOIN location l ON r.idRes = l.idRes 
+                        WHERE l.idLo = ?
+                    `;
+                    const reservations = await db.sequelize.query(reservationSql, {
+                        replacements: [idLo],
+                        type: db.sequelize.QueryTypes.SELECT, // CORRECTION ici aussi
+                        transaction
+                    });
 
-                    if (db.Paiement && reservation) { 
-                         await db.Paiement.create({ 
+                    if (reservations.length > 0 && db.Paiement) {
+                        await db.Paiement.create({ 
                             idLo: idLo,
-                            idCli: reservation.idCli,
+                            idCli: reservations[0].idCli,
                             dateCre: new Date(),
                             montantPaie: item.coutReparation,
                             statutPaie: 'En attente', 
@@ -389,38 +423,52 @@ exports.submitEtatLieux = async (req, res) => {
         res.status(500).send({ message: "Échec de l'enregistrement de l'état des lieux.", error: error.message });
     }
 };
-
 exports.getLocationDetails = async (req, res) => {
     const { idLo } = req.params;
 
     try {
-        const location = await Location.findByPk(idLo, {
-            include: [{
-                model: Reservation,
-                as: 'reservation', 
-                required: true,
-                include: [{
-                    model: Client,
-                    as: 'client',
-                    attributes: ['nomCli', 'prenomCli']
-                }]
-            }],
+        // CORRECTION : Utilisez db.sequelize.query
+        const sql = `
+            SELECT 
+                l.*,
+                r.idCli,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                c.telephoneCli
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            WHERE l.idLo = ?
+        `;
+
+        const locations = await db.sequelize.query(sql, {
+            replacements: [idLo],
+            type: db.sequelize.QueryTypes.SELECT // CORRECTION ici aussi
         });
 
-        if (!location) {
+        if (locations.length === 0) {
             return res.status(404).send({ message: "Location introuvable." });
         }
+
+        const location = locations[0];
         
         const responseData = {
             idLo: location.idLo,
-            client: location.reservation.client,
+            client: {
+                nomCli: location.nomCli,
+                prenomCli: location.prenomCli,
+                emailCli: location.emailCli,
+                telephoneCli: location.telephoneCli
+            },
             debLo: location.debLo,
             finLo: location.finLo,
             details: []
         };
         
-        if (location.reservation.codeMat) {
-            const materiel = await Materiel.findByPk(location.reservation.codeMat, {
+        // Récupérer les détails du matériel si disponible
+        if (location.codeMat) {
+            const materiel = await Materiel.findByPk(location.codeMat, {
                 attributes: ['codeMat', 'designationMat'] 
             });
 
@@ -433,8 +481,9 @@ exports.getLocationDetails = async (req, res) => {
             }
         } 
         
-        if (location.reservation.idSalle) {
-            const salle = await Salle.findByPk(location.reservation.idSalle, {
+        // Récupérer les détails de la salle si disponible
+        if (location.idSalle) {
+            const salle = await Salle.findByPk(location.idSalle, {
                 attributes: ['idSalle', 'nomSalle']
             });
             
@@ -457,6 +506,7 @@ exports.getLocationDetails = async (req, res) => {
         });
     }
 };
+
 
 exports.createReservation = async (req, res) => {
     const { 
@@ -550,6 +600,119 @@ exports.getReservationDetails = async (req, res) => {
         console.error(`Erreur lors du chargement des détails de la réservation #${idRes}:`, error);
         res.status(500).send({ 
             message: "Erreur serveur lors de la récupération des détails.", 
+            error: error.message 
+        });
+    }
+};
+
+exports.updateReservationStatus = async (req, res) => {
+    const { idRes } = req.params;
+    const { newStatus } = req.body;
+
+    console.log('📍 Backend - updateReservationStatus:');
+    console.log('📍 ID Réservation:', idRes);
+    console.log('📍 Nouveau statut:', newStatus);
+    console.log('📍 Body complet:', req.body);
+
+    // CORRECTION : Validation améliorée
+    if (!newStatus) {
+        return res.status(400).send({ 
+            message: "Le champ 'newStatus' est requis dans le body." 
+        });
+    }
+
+    const statutsValides = ['Confirmée', 'Refusée', 'En attente', 'Annulée'];
+    if (!statutsValides.includes(newStatus)) {
+        return res.status(400).send({ 
+            message: `Statut non valide. Statuts autorisés: ${statutsValides.join(', ')}` 
+        });
+    }
+
+    try {
+        const [numAffectedRows] = await Reservation.update(
+            { etatRes: newStatus }, 
+            {
+                where: { 
+                    idRes: idRes 
+                    // Retirez cette condition si vous voulez pouvoir mettre à jour même les réservations déjà traitées
+                    // etatRes: 'En attente' 
+                }
+            }
+        );
+
+        console.log('📍 Lignes affectées:', numAffectedRows);
+
+        if (numAffectedRows === 1) {
+            res.send({ 
+                message: `Réservation #${idRes} mise à jour à '${newStatus}' avec succès.`,
+                reservationId: idRes,
+                newStatus: newStatus
+            });
+        } else {
+            res.status(404).send({ 
+                message: `Réservation #${idRes} non trouvée ou déjà traitée.` 
+            });
+        }
+    } catch(error) {
+        console.error(`Erreur lors de la mise à jour de la réservation #${idRes}:`, error);
+        res.status(500).send({ 
+            message: "Erreur serveur lors de la mise à jour.", 
+            error: error.message 
+        });
+    }
+};
+
+// 🔥 NOUVELLE MÉTHODE : Mettre à jour le statut d'une LOCATION
+exports.updateLocationStatus = async (req, res) => {
+    const { idLo } = req.params;
+    const { newStatus } = req.body;
+
+    console.log('📍 Backend - updateLocationStatus:');
+    console.log('📍 ID Location:', idLo);
+    console.log('📍 Nouveau statut:', newStatus);
+
+    // CORRECTION : Statuts valides pour les LOCATIONS
+    const statutsValides = ['Confirmée', 'En cours', 'Terminée', 'Annulée'];
+    
+    if (!newStatus) {
+        return res.status(400).send({ 
+            message: "Le champ 'newStatus' est requis dans le body." 
+        });
+    }
+
+    if (!statutsValides.includes(newStatus)) {
+        return res.status(400).send({ 
+            message: `Statut non valide. Statuts autorisés: ${statutsValides.join(', ')}` 
+        });
+    }
+
+    try {
+        const [numAffectedRows] = await Location.update(
+            { etatLo: newStatus }, 
+            {
+                where: { 
+                    idLo: idLo 
+                }
+            }
+        );
+
+        console.log('📍 Lignes affectées:', numAffectedRows);
+
+        if (numAffectedRows === 1) {
+            res.send({ 
+                message: `Location #${idLo} mise à jour à '${newStatus}' avec succès.`,
+                locationId: idLo,
+                newStatus: newStatus
+            });
+        } else {
+            res.status(404).send({ 
+                message: `Location #${idLo} non trouvée.` 
+            });
+        }
+    } catch(error) {
+        console.error(`Erreur lors de la mise à jour de la location #${idLo}:`, error);
+        res.status(500).send({ 
+            message: "Erreur serveur lors de la mise à jour.", 
             error: error.message 
         });
     }
@@ -859,6 +1022,51 @@ exports.createClientReservation = async (req, res) => {
             success: false,
             message: "Erreur serveur lors de la création de la réservation",
             error: error.message
+        });
+    }
+};
+
+// 🔥 NOUVELLE MÉTHODE : Récupérer les locations terminées
+exports.getTerminatedLocations = async (req, res) => {
+    try {
+        const sqlTerminatedLocations = `
+            SELECT 
+                l.*,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                c.telephoneCli,
+                r.typeRes,
+                m.codeMat,
+                m.designationMat,
+                s.idSalle,
+                s.nomSalle,
+                p.numeroFacture,
+                p.montantPaie,
+                p.dateCre,
+                p.statutPaie
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN salle s ON r.idSalle = s.idSalle
+            LEFT JOIN paiement p ON l.idLo = p.idLo
+            WHERE l.etatLo = 'Terminée'
+            AND p.statutPaie = 'Effectué'
+            ORDER BY p.dateCre DESC
+        `;
+
+        const terminatedLocations = await sequelize.query(sqlTerminatedLocations, { 
+            type: sequelize.QueryTypes.SELECT 
+        });
+
+        res.status(200).send(terminatedLocations);
+
+    } catch (error) {
+        console.error("Erreur getTerminatedLocations:", error);
+        res.status(500).send({ 
+            message: "Échec de la récupération des locations terminées",
+            error: error.message 
         });
     }
 };

@@ -32,9 +32,13 @@ router.post('/reservations', locationController.createReservation);
 router.get('/reservations/:idRes/details', locationController.getReservationDetails);
 router.post('/reservations/:idRes/validate', locationController.validateReservation);
 router.put('/reservations/:idRes/status', locationController.updateReservationStatus);
-
+// Dans votre fichier de routes (ex: locationRoutes.js)
+//router.put('/reservations/:idRes/status', locationController.updateReservationStatus);
 // Routes d'événements
+// Ajoutez cette route AVANT les routes paramétrées génériques
+router.put('/:idLo/status', locationController.updateLocationStatus);
 router.get('/events/confirmed', locationController.getConfirmedEvents);
+router.get('/terminated', locationController.getTerminatedLocations);
 
 // 🔥 CORRECTION : Déplacer la route état-lieux AVANT les routes paramétrées génériques
 router.post('/etat-lieux/:idLo', locationController.submitEtatLieux);

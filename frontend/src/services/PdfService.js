@@ -1,5 +1,8 @@
 // frontend/services/PdfService.js
 import jsPDF from 'jspdf';
+//import pdfkit from 'pdfkit';
+  // backend/services/pdfService.js
+;
 
 class PdfService {
   /**
@@ -68,6 +71,58 @@ class PdfService {
     
     return doc;
   }
+
+
+
+/* generateInvoicePDF(invoiceData) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument();
+      const buffers = [];
+
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
+
+      // En-tête
+      doc.fontSize(20).text('CEDII LOCATIONS', { align: 'center' });
+      doc.fontSize(16).text('FACTURE', { align: 'center' });
+      doc.moveDown();
+
+      // Informations facture
+      doc.fontSize(12);
+      doc.text(`Numéro: ${invoiceData.numeroFacture}`);
+      doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`);
+      doc.text(`Statut: ${invoiceData.statutPaie}`);
+      doc.moveDown();
+
+      // Informations client
+      doc.text('CLIENT:');
+      doc.text(`Nom: ${invoiceData.client}`);
+      doc.text(`Email: ${invoiceData.emailCli}`);
+      doc.text(`Téléphone: ${invoiceData.telephoneCli}`);
+      doc.moveDown();
+
+      // Détails location
+      doc.text('DÉTAILS LOCATION:');
+      doc.text(`Référence: #${invoiceData.idLo}`);
+      doc.text(`Type: ${invoiceData.typeLo}`);
+      doc.text(`Période: ${new Date(invoiceData.debLo).toLocaleDateString('fr-FR')} - ${new Date(invoiceData.finLo).toLocaleDateString('fr-FR')}`);
+      doc.moveDown();
+
+      // Montant
+      doc.text(`MONTANT: ${parseFloat(invoiceData.montantPaie).toLocaleString('fr-FR')} Ar`, { align: 'right' });
+      
+      doc.end();
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+}*/
 }
+
 
 export default new PdfService();

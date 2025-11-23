@@ -17,111 +17,101 @@
               </h1>
               <p class="custom-subtitle">Gestion des locations et réservations en temps réel</p>
             </div>
-            <div></div> <!-- Placeholder pour l'alignement -->
+            <div></div>
           </div>
         </div>
       </div>
     </div>
 
-    <hr class="my-4 custom-divider">
+    <!-- Contenu principal avec scroll -->
+    <div class="content-wrapper">
+      <hr class="my-4 custom-divider">
 
-    <!-- Cartes de statistiques -->
-    <div class="row mb-4">
-      <div class="col-md-4 mb-3">
-        <n-card class="custom-card-primary h-100" size="small">
-          <div class="d-flex align-items-center">
-            <div class="custom-icon-primary me-3">
-              <i class="bi bi-calendar-check text-white"></i>
+      <!-- Cartes de statistiques -->
+      <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+          <n-card class="custom-card-primary h-100" size="small">
+            <div class="d-flex align-items-center">
+              <div class="custom-icon-primary me-3">
+                <i class="bi bi-calendar-check text-white"></i>
+              </div>
+              <div>
+                <h6 class="mb-1 text-white">Événements Confirmés</h6>
+                <h4 class="mb-0 text-warning">{{ confirmedEvents.length }}</h4>
+              </div>
             </div>
-            <div>
-              <h6 class="mb-1 text-white">Événements Confirmés</h6>
-              <h4 class="mb-0 text-warning">{{ confirmedEvents.length }}</h4>
+          </n-card>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+          <n-card class="custom-card-warning h-100" size="small">
+            <div class="d-flex align-items-center">
+              <div class="custom-icon-warning me-3">
+                <i class="bi bi-clock-history text-white"></i>
+              </div>
+              <div>
+                <h6 class="mb-1 text-white">En Cours</h6>
+                <h4 class="mb-0 text-warning">{{ enCoursCount }}</h4>
+              </div>
             </div>
-          </div>
-        </n-card>
+          </n-card>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+          <n-card class="custom-card-danger h-100" size="small">
+            <div class="d-flex align-items-center">
+              <div class="custom-icon-danger me-3">
+                <i class="bi bi-check-circle text-white"></i>
+              </div>
+              <div>
+                <h6 class="mb-1 text-white">Terminés</h6>
+                <h4 class="mb-0 text-danger">{{ completedCount }}</h4>
+              </div>
+            </div>
+          </n-card>
+        </div>
       </div>
-      
-      <div class="col-md-4 mb-3">
-        <n-card class="custom-card-warning h-100" size="small">
-          <div class="d-flex align-items-center">
-            <div class="custom-icon-warning me-3">
-              <i class="bi bi-clock-history text-white"></i>
-            </div>
-            <div>
-              <h6 class="mb-1 text-white">En Cours</h6>
-              <h4 class="mb-0 text-warning">{{ enCoursCount }}</h4>
-            </div>
+
+      <!-- Tableau des locations et réservations -->
+      <n-card class="shadow-lg custom-card" title="Vue d'ensemble des Locations et Réservations">
+        <template #header-extra>
+          <n-button type="primary" size="small" class="custom-btn-primary" @click="fetchConfirmedEvents">
+            <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
+          </n-button>
+        </template>
+
+        <div class="card-body">
+          <!-- Loading State -->
+          <div v-if="loadingEvents" class="text-center p-5">
+            <n-spin size="large">
+              <template #description>
+                Chargement des événements...
+              </template>
+            </n-spin>
           </div>
-        </n-card>
-      </div>
-      
-      <div class="col-md-4 mb-3">
-        <n-card class="custom-card-danger h-100" size="small">
-          <div class="d-flex align-items-center">
-            <div class="custom-icon-danger me-3">
-              <i class="bi bi-check-circle text-white"></i>
-            </div>
-            <div>
-              <h6 class="mb-1 text-white">Terminés</h6>
-              <h4 class="mb-0 text-danger">{{ completedCount }}</h4>
-            </div>
+
+          <!-- Empty State -->
+          <div v-else-if="confirmedEvents.length === 0" class="text-center p-5">
+            <n-empty description="Aucun événement trouvé">
+              <template #icon>
+                <i class="bi bi-calendar-x" style="font-size: 3rem; color: #55555E;"></i>
+              </template>
+            </n-empty>
           </div>
-        </n-card>
-      </div>
+
+          <!-- Data Table avec scroll -->
+          <div v-else class="table-container">
+            <n-data-table
+              :columns="columns"
+              :data="tableData"
+              :pagination="pagination"
+              :bordered="false"
+              class="custom-table"
+            />
+          </div>
+        </div>
+      </n-card>
     </div>
-
-    <!-- Tableau des locations et réservations -->
-    <n-card class="shadow-lg custom-card" title="Vue d'ensemble des Locations et Réservations">
-      <template #header-extra>
-        <n-button type="primary" size="small" class="custom-btn-primary" @click="fetchConfirmedEvents">
-          <i class="bi bi-arrow-clockwise me-2"></i>Actualiser
-        </n-button>
-      </template>
-
-      <div class="card-body">
-        <!-- Loading State -->
-        <div v-if="loadingEvents" class="text-center p-5">
-          <n-spin size="large">
-            <template #description>
-              Chargement des événements...
-            </template>
-          </n-spin>
-        </div>
-
-        <!-- Empty State -->
-        <div v-else-if="confirmedEvents.length === 0" class="text-center p-5">
-          <n-empty description="Aucun événement trouvé">
-            <template #icon>
-              <i class="bi bi-calendar-x" style="font-size: 3rem; color: #55555E;"></i>
-            </template>
-          </n-empty>
-        </div>
-
-        <!-- Data Table -->
-        <div v-else>
-          <n-data-table
-            :columns="columns"
-            :data="tableData"
-            :pagination="pagination"
-            :bordered="false"
-            class="custom-table"
-          />
-        </div>
-      </div>
-    </n-card>
-
-    <!-- Détails des données (collapsible) -->
-    <n-collapse class="mt-4" :default-expanded-names="[]">
-      <n-collapse-item title="Détails techniques des données" name="1">
-        <n-alert type="info" class="mb-0">
-          <template #icon>
-            <i class="bi bi-info-circle"></i>
-          </template>
-          <div class="mb-2">Format des données chargées :</div>
-          <pre class="bg-light p-3 rounded small">{{ JSON.stringify(formattedCalendarEvents[0], null, 2) }}</pre>
-        </n-alert>
-      </n-collapse-item>
-    </n-collapse>
 
     <!-- Modals -->
     <EtatLieu 
@@ -169,26 +159,56 @@ const selectedLocationForAction = ref(null);
 const formattedCalendarEvents = computed(() => {
   return confirmedEvents.value.map(event => ({
     id: event.idLo,
-    title: `${event.typeLo} - ${event.reservation?.client ? event.reservation.client.nomCli : 'N/A'}`,
+    title: `${event.typeLo} - ${getClientName(event)}`,
     start: event.debLo,
     end: event.finLo,
     classNames: ['bg-primary']
   }));
 });
 
+// 🔥 CORRECTION : Fonction améliorée pour récupérer le nom du client
+const getClientName = (event) => {
+  console.log('🔍 Recherche nom client pour event:', event.idLo, event);
+  
+  // Essayer différentes structures de données possibles
+  if (event.client && (event.client.nomCli || event.client.prenomCli)) {
+    const nom = `${event.client.nomCli || ''} ${event.client.prenomCli || ''}`.trim();
+    console.log('✅ Nom trouvé via event.client:', nom);
+    return nom;
+  }
+  
+  if (event.reservation?.client && (event.reservation.client.nomCli || event.reservation.client.prenomCli)) {
+    const nom = `${event.reservation.client.nomCli || ''} ${event.reservation.client.prenomCli || ''}`.trim();
+    console.log('✅ Nom trouvé via event.reservation.client:', nom);
+    return nom;
+  }
+  
+  if (event.Reservation?.Client && (event.Reservation.Client.nomCli || event.Reservation.Client.prenomCli)) {
+    const nom = `${event.Reservation.Client.nomCli || ''} ${event.Reservation.Client.prenomCli || ''}`.trim();
+    console.log('✅ Nom trouvé via event.Reservation.Client:', nom);
+    return nom;
+  }
+  
+  if (event.idCli) {
+    console.log('ℹ️  ID client trouvé:', event.idCli);
+    return `Client #${event.idCli}`;
+  }
+  
+  if (event.reservation?.idCli) {
+    console.log('ℹ️  ID client trouvé via reservation:', event.reservation.idCli);
+    return `Client #${event.reservation.idCli}`;
+  }
+  
+  console.log('❌ Aucune information client trouvée');
+  return 'Client non spécifié';
+};
+
 const tableData = computed(() => {
   return confirmedEvents.value.map(event => {
     console.log('🔍 Traitement event:', event.idLo, event);
     
-    let clientName = 'N/A';
+    const clientName = getClientName(event);
     
-    if (event.client && (event.client.nomCli || event.client.prenomCli)) {
-      clientName = `${event.client.nomCli || ''} ${event.client.prenomCli || ''}`.trim();
-    }
-    else if (event.reservation?.client && (event.reservation.client.nomCli || event.reservation.client.prenomCli)) {
-      clientName = `${event.reservation.client.nomCli || ''} ${event.reservation.client.prenomCli || ''}`.trim();
-    }
-
     const rowData = {
       // Identifiants
       id: event.idLo,
@@ -201,12 +221,12 @@ const tableData = computed(() => {
       dateFin: new Date(event.finLo).toLocaleString('fr-FR'),
       tarifTot: event.tarifTot,
       statut: event.etatLo,
-      materiel: event.reservation?.codeMat || event.codeMat || 'N/A',
-      salle: event.reservation?.idSalle || event.idSalle || 'N/A',
+      materiel: event.reservation?.codeMat || event.codeMat || event.Reservation?.codeMat || 'N/A',
+      salle: event.reservation?.idSalle || event.idSalle || event.Reservation?.idSalle || 'N/A',
       
       // Données complètes pour les actions
       _original: event,
-      reservation: event.reservation,
+      reservation: event.reservation || event.Reservation,
       location: event
     };
     
@@ -218,10 +238,6 @@ const tableData = computed(() => {
 // 🔥 CORRECTION : Ajouter le compteur pour "En cours"
 const enCoursCount = computed(() => {
   return confirmedEvents.value.filter(event => event.etatLo === 'En cours').length;
-});
-
-const pendingCount = computed(() => {
-  return confirmedEvents.value.filter(event => event.etatLo === 'En attente').length;
 });
 
 const completedCount = computed(() => {
@@ -430,65 +446,161 @@ const ouvrirRetourMateriel = (location) => {
   
   console.log('📍 Modal retour ouvert avec:', locationAvecId);
 };
-
-const handleEtatLieuxDepartSuccess = (result) => {
+// 🔥 CORRECTION : Utiliser updateLocationStatus au lieu de updateReservationStatus
+const handleEtatLieuxDepartSuccess = async (result) => {
   console.log('✅ État des lieux départ validé:', result);
   
-  // Mettre à jour le statut de la location dans la liste
-  const locationIndex = confirmedEvents.value.findIndex(
-    event => event.idLo === result.locationId
-  );
-  
-  if (locationIndex !== -1) {
-    confirmedEvents.value[locationIndex].etatLo = 'En cours';
-    console.log('📍 Statut mis à jour: Confirmée → En cours');
+  try {
+    const payload = {
+      newStatus: 'En cours'
+    };
+
+    // CORRECTION : Utiliser updateLocationStatus avec l'ID de location
+    await LocationService.updateLocationStatus(result.locationId, payload);
+    
+    // Mettre à jour le statut localement
+    const locationIndex = confirmedEvents.value.findIndex(
+      event => event.idLo === result.locationId
+    );
+    
+    if (locationIndex !== -1) {
+      confirmedEvents.value[locationIndex].etatLo = 'En cours';
+      console.log('📍 Statut mis à jour: Confirmée → En cours');
+    }
+    
+    showEtatLieuxDepartModal.value = false;
+    alert('État des lieux départ enregistré avec succès ! La location est maintenant "En cours".');
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la mise à jour du statut:', error);
+    alert('Erreur lors de la mise à jour du statut: ' + (error.response?.data?.message || error.message));
   }
-  
-  // Fermer le modal après succès
-  showEtatLieuxDepartModal.value = false;
-  
-  alert('État des lieux départ enregistré avec succès ! La location est maintenant "En cours".');
 };
 
-const handleRetourSuccess = (retourData) => {
+// 🔥 CORRECTION : Même chose pour le retour
+const handleRetourSuccess = async (retourData) => {
   console.log('✅ Retour validé:', retourData);
   
-  // Mettre à jour le statut de la location dans la liste
-  const locationIndex = confirmedEvents.value.findIndex(
-    event => event.idLo === retourData.locationId
-  );
-  
-  if (locationIndex !== -1) {
-    confirmedEvents.value[locationIndex].etatLo = 'Terminée';
-    console.log('📍 Statut mis à jour: En cours → Terminée');
+  try {
+    const payload = {
+      newStatus: 'Terminée'
+    };
+
+    // CORRECTION : Utiliser updateLocationStatus
+    await LocationService.updateLocationStatus(retourData.locationId, payload);
     
-    // Optionnel - Supprimer de la liste après un délai
-    setTimeout(() => {
-      confirmedEvents.value = confirmedEvents.value.filter(
-        event => event.idLo !== retourData.locationId
-      );
-      console.log('📍 Location terminée retirée de la liste');
-    }, 2000);
+    // Mettre à jour le statut localement
+    const locationIndex = confirmedEvents.value.findIndex(
+      event => event.idLo === retourData.locationId
+    );
+    
+    if (locationIndex !== -1) {
+      confirmedEvents.value[locationIndex].etatLo = 'Terminée';
+      console.log('📍 Statut mis à jour: En cours → Terminée');
+    }
+    
+    showRetourModal.value = false;
+    alert(`Retour de matériel validé !\nLa location est maintenant "Terminée".\nStock mis à jour.`);
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la mise à jour du statut:', error);
+    alert('Erreur lors de la mise à jour du statut: ' + (error.response?.data?.message || error.message));
   }
-  
-  // Fermer le modal après succès
-  showRetourModal.value = false;
-  
-  alert(`Retour de matériel validé !\nLa location est maintenant "Terminée".\nStock mis à jour.`);
 };
+
+// Dans calendrier.vue - Recherchez cette fonction
+const updateReservationStatus = async (reservationId, newStatus) => {
+  try {
+    console.log('📍 Mise à jour statut - ID:', reservationId, 'Nouveau statut:', newStatus);
+    
+    // CORRECTION : Vérifiez la structure des données envoyées
+    const payload = {
+      newStatus: newStatus // Assurez-vous que c'est le nom exact attendu par le backend
+    };
+
+    console.log('📍 Données envoyées:', payload);
+    
+    const response = await LocationService.updateReservationStatus(reservationId, payload);
+    
+    console.log('✅ Statut mis à jour:', response.data);
+    return response.data;
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la mise à jour du statut:', error);
+    
+    // Afficher plus de détails sur l'erreur
+    if (error.response) {
+      console.error('📍 Statut HTTP:', error.response.status);
+      console.error('📍 Données erreur:', error.response.data);
+      console.error('📍 URL:', error.config.url);
+      console.error('📍 Méthode:', error.config.method);
+    }
+    
+    throw error;
+  }
+};
+
+// 🔥 CORRECTION : Gestion améliorée du retour
+/*const handleRetourSuccess = async (retourData) => {
+  console.log('✅ Retour validé:', retourData);
+  
+  try {
+    // Mettre à jour le statut via l'API
+    await LocationService.updateReservationStatus(retourData.locationId, 'Terminée');
+    
+    // Mettre à jour le statut localement
+    const locationIndex = confirmedEvents.value.findIndex(
+      event => event.idLo === retourData.locationId
+    );
+    
+    if (locationIndex !== -1) {
+      confirmedEvents.value[locationIndex].etatLo = 'Terminée';
+      console.log('📍 Statut mis à jour: En cours → Terminée');
+      
+      // 🔥 IMPORTANT : La location reste dans la liste pour l'évaluation
+      // Elle sera comptée dans "Terminée" mais reste visible
+    }
+    
+    // Fermer le modal après succès
+    showRetourModal.value = false;
+    
+    alert(`Retour de matériel validé !\nLa location est maintenant "Terminée".\nStock mis à jour.`);
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de la mise à jour du statut:', error);
+    alert('Erreur lors de la mise à jour du statut');
+  }
+};*/
+
 
 const fetchConfirmedEvents = async () => {
   loadingEvents.value = true;
   try {
-    const response = await LocationService.getConfirmedEvents();
-    confirmedEvents.value = response.data;
+    console.log('🔄 Chargement DIRECT depuis la base...');
     
-    console.log('Événements chargés:', response.data);
-    if (response.data.length > 0) {
-      console.log('Premier événement complet:', response.data[0]);
+    // Appel DIRECT à l'API existante mais avec logging
+    const response = await LocationService.getConfirmedEvents();
+    
+    console.log('🔍 Réponse brute:', response);
+    console.log('🔍 Données:', response.data);
+    
+    if (response.data && Array.isArray(response.data)) {
+      confirmedEvents.value = response.data;
+      console.log(`✅ ${confirmedEvents.value.length} événements chargés`);
+      
+      // Debug: Afficher tous les IDs et statuts
+      confirmedEvents.value.forEach(event => {
+        console.log(`📍 Event ${event.idLo}: ${event.etatLo} - ${event.nomCli} ${event.prenomCli}`);
+      });
+    } else {
+      console.error('❌ Format de données invalide:', response.data);
+      confirmedEvents.value = [];
     }
+    
   } catch (error) {
-    console.error("Erreur lors du chargement des événements confirmés:", error);
+    console.error("❌ Erreur critique:", error);
+    console.error("📍 Statut:", error.response?.status);
+    console.error("📍 Message:", error.response?.data?.message);
   } finally {
     loadingEvents.value = false;
   }
@@ -501,8 +613,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* COULEURS COHÉRENTES AVEC LE DASHBOARD FINANCIER */
-
+/* Les styles restent identiques */
 .custom-header {
   background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
   color: white;
@@ -524,6 +635,54 @@ onMounted(() => {
 .custom-divider {
   border-color: #007bff;
   opacity: 0.3;
+}
+
+/* NOUVEAU : Conteneur principal avec scroll */
+.content-wrapper {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+/* NOUVEAU : Scrollbar personnalisée */
+.content-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.content-wrapper::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* NOUVEAU : Conteneur pour la table avec scroll */
+.table-container {
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+}
+
+.table-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f8f9fa;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #dee2e6;
+  border-radius: 3px;
 }
 
 /* Cartes avec couleurs cohérentes */
@@ -682,6 +841,16 @@ onMounted(() => {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
+  }
+  
+  /* NOUVEAU : Adaptation responsive du scroll */
+  .content-wrapper {
+    max-height: none;
+    overflow-y: visible;
+  }
+  
+  .table-container {
+    max-height: 400px;
   }
 }
 </style>

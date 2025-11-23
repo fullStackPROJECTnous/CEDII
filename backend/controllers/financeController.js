@@ -110,8 +110,19 @@ exports.getConfirmedLocationsToInvoice = async (req, res) => {
 /**
  * Crée et envoie une facture
  */
+/**
+ * Crée et envoie une facture
+ */
 exports.createAndSendInvoice = async (req, res) => {
   console.log('🔍 Début createAndSendInvoice');
+  
+  const transporter = nodemailer.createTransporter({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER || 'miharinandrasana@gmail.com',
+      pass: process.env.EMAIL_PASS || 'zpaa nrcm eqli jpqf'
+    }
+  });
   
   try {
     const { locationId, clientEmail } = req.body;
@@ -124,7 +135,7 @@ exports.createAndSendInvoice = async (req, res) => {
       });
     }
 
-    // 1. Vérifier que la location existe et est confirmée
+    // 🔥 CORRECTION : Autoriser aussi les locations "En cours"
     const sqlCheckLocation = `
       SELECT 
         l.idLo, l.etatLo, l.tarifTot, l.typeLo, l.debLo, l.finLo,
@@ -137,7 +148,7 @@ exports.createAndSendInvoice = async (req, res) => {
       JOIN client c ON r.idCli = c.idCli
       LEFT JOIN materiel m ON r.codeMat = m.codeMat
       LEFT JOIN salle s ON r.idSalle = s.idSalle
-      WHERE l.idLo = ? AND l.etatLo = 'Confirmée'
+      WHERE l.idLo = ? AND l.etatLo IN ('Confirmée', 'En cours')
     `;
 
     const [locationData] = await sequelize.query(sqlCheckLocation, {
@@ -148,9 +159,11 @@ exports.createAndSendInvoice = async (req, res) => {
     if (!locationData) {
       return res.status(404).json({
         success: false,
-        message: `Location ${locationId} non trouvée ou non confirmée`
+        message: `Location ${locationId} non trouvée ou statut incorrect (doit être "Confirmée" ou "En cours")`
       });
     }
+
+    console.log(`📍 Location trouvée: ${locationData.idLo} - Statut: ${locationData.etatLo}`);
 
     // 2. Calculer les pénalités si la location est en retard
     const finLocation = new Date(locationData.finLo);
@@ -204,7 +217,7 @@ exports.createAndSendInvoice = async (req, res) => {
 
     if (emailFinal) {
       try {
-        await sendInvoiceEmail(emailFinal, locationData, numeroFacture, montantTotal, joursRetard, penalite);
+        await sendInvoiceEmail(transporter, emailFinal, locationData, numeroFacture, montantTotal, joursRetard, penalite);
         emailEnvoye = true;
         
         await sequelize.query(
@@ -258,6 +271,41 @@ exports.createAndSendInvoice = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// 🔥 NOUVELLE MÉTHODE : Annuler un paiement
+exports.cancelPayment = async (req, res) => {
+    const paymentId = req.params.id;
+    
+    try {
+        const [results, metadata] = await sequelize.query(
+            `UPDATE paiement 
+             SET statutPaie = 'Annulé' 
+             WHERE idPaie = :id 
+             AND statutPaie = 'En attente'`,
+            {
+                replacements: { id: paymentId },
+                type: sequelize.QueryTypes.UPDATE
+            }
+        );
+
+        if (metadata.affectedRows === 0) {
+            return res.status(404).send({ 
+                message: `Paiement ${paymentId} non trouvé ou déjà traité.` 
+            });
+        }
+        
+        res.status(200).send({ 
+            message: `Paiement ${paymentId} annulé avec succès.` 
+        });
+
+    } catch (error) {
+        console.error("Erreur cancelPayment:", error);
+        res.status(500).send({ 
+            message: "Échec de l'annulation du paiement.",
+            error: error.message
+        });
+    }
 };
 
 /**
@@ -716,7 +764,7 @@ async function sendInvoiceEmail(email, locationData, numeroFacture, montantTotal
 
 async function sendPenaltyEmail(penalty) {
   const mailOptions = {
-    from: process.env.EMAIL_USER || 'cedii.locations@gmail.com',
+    from: process.env.EMAIL_USER || 'cediifia@gmail.com',
     to: penalty.email,
     subject: `⚠️ Notification de pénalité - Location #${penalty.locationId}`,
     html: `
@@ -786,6 +834,347 @@ function generatePDFContent(invoiceData) {
   `;
 }
 
+/**
+ * Télécharge une facture PDF
+ */exports.downloadInvoice = async (req, res) => {
+  const { locationId } = req.params;
+
+  try {
+    console.log(`📍 Téléchargement facture pour location ${locationId}`);
+
+    const sqlInvoiceData = `
+      SELECT 
+        p.numeroFacture, p.montantPaie, p.statutPaie,
+        l.idLo, l.typeLo, l.debLo, l.finLo,
+        CONCAT(c.nomCli, ' ', c.prenomCli) AS client
+      FROM paiement p
+      JOIN location l ON p.idLo = l.idLo
+      JOIN reservation r ON l.idRes = r.idRes
+      JOIN client c ON r.idCli = c.idCli
+      WHERE l.idLo = ?
+      LIMIT 1
+    `;
+
+    const [invoiceData] = await sequelize.query(sqlInvoiceData, {
+      replacements: [locationId],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (!invoiceData) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Aucune facture trouvée pour cette location" 
+      });
+    }
+
+    // 🔥 CORRECTION SIMPLE : Texte formaté
+    const factureContent = `
+      FACTURE CEDII
+      =============
+      Numéro: ${invoiceData.numeroFacture}
+      Client: ${invoiceData.client}
+      Location: #${invoiceData.idLo} - ${invoiceData.typeLo}
+      Période: ${new Date(invoiceData.debLo).toLocaleDateString('fr-FR')} au ${new Date(invoiceData.finLo).toLocaleDateString('fr-FR')}
+      Montant: ${parseFloat(invoiceData.montantPaie || 0).toLocaleString('fr-FR')} Ar
+      Statut: ${invoiceData.statutPaie}
+      
+      Merci pour votre confiance!
+      CEDII Locations
+    `;
+
+    // 🔥 CORRECTION : Créer un blob côté client
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', `attachment; filename="facture-${invoiceData.numeroFacture}.txt"`);
+    res.send(factureContent);
+
+  } catch (error) {
+    console.error("❌ Erreur téléchargement facture:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+      error: error.message
+    });
+  }1
+};
+
+
+/**
+ * Télécharge une facture PDF pour les locations TERMINÉES ET PAYÉES
+ */
+exports.downloadPaidInvoice = async (req, res) => {
+  const { locationId } = req.params;
+
+  try {
+    console.log(`📍 Téléchargement facture PAYÉE pour location ${locationId}`);
+
+    const sqlInvoiceData = `
+      SELECT 
+        p.idPaie,
+        p.numeroFacture,
+        p.dateCre as dateFacturation,
+        p.montantPaie,
+        p.statutPaie,
+        p.modePaie,
+        l.idLo,
+        l.typeLo,
+        l.debLo,
+        l.finLo,
+        l.tarifTot,
+        l.etatLo,
+        c.idCli,
+        c.nomCli,
+        c.prenomCli,
+        c.emailCli,
+        c.telephoneCli,
+        c.addresseCli,
+        m.designationMat,
+        m.codeMat,
+        s.nomSalle,
+        s.numeroSalle,
+        DATEDIFF(CURDATE(), DATE(l.finLo)) AS joursRetard,
+        CASE 
+          WHEN l.finLo < CURDATE() AND p.statutPaie = 'Effectué' THEN 
+            ROUND((DATEDIFF(CURDATE(), DATE(l.finLo)) * 0.02 * l.tarifTot), 2)
+          ELSE 0 
+        END AS penalite
+      FROM paiement p
+      JOIN location l ON p.idLo = l.idLo
+      JOIN reservation r ON l.idRes = r.idRes
+      JOIN client c ON r.idCli = c.idCli
+      LEFT JOIN materiel m ON r.codeMat = m.codeMat
+      LEFT JOIN salle s ON r.idSalle = s.idSalle
+      WHERE l.idLo = ?
+      AND p.statutPaie = 'Effectué'
+      LIMIT 1
+    `;
+
+    const [invoiceData] = await sequelize.query(sqlInvoiceData, {
+      replacements: [locationId],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (!invoiceData) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Aucune facture payée trouvée pour cette location" 
+      });
+    }
+
+    console.log(`✅ Facture payée trouvée: ${invoiceData.numeroFacture}`);
+
+    // Créer un PDF basique sans pdfkit
+    const pdfBuffer = createSimplePDFBuffer(invoiceData);
+    
+    // Configurer les headers pour le téléchargement PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="facture-${invoiceData.numeroFacture}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    
+    // Envoyer le PDF
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error("❌ Erreur téléchargement facture payée:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la génération du PDF",
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Crée un PDF basique sans dépendances externes
+ */
+function createSimplePDFBuffer(invoiceData) {
+  // Créer un PDF très basique avec en-têtes corrects
+  const pdfContent = `%PDF-1.4
+1 0 obj
+<</Type/Catalog/Pages 2 0 R>>
+endobj
+2 0 obj
+<</Type/Pages/Kids[3 0 R]/Count 1>>
+endobj
+3 0 obj
+<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>
+endobj
+4 0 obj
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>
+endobj
+5 0 obj
+<</Length 800>>
+stream
+BT
+/F1 12 Tf
+50 750 Td (FACTURE CEDII LOCATIONS) Tj
+0 -20 Td (========================) Tj
+0 -20 Td (Numero: ${invoiceData.numeroFacture}) Tj
+0 -15 Td (Date: ${new Date(invoiceData.dateFacturation).toLocaleDateString('fr-FR')}) Tj
+0 -15 Td (Statut: ${invoiceData.statutPaie}) Tj
+0 -15 Td (Mode paiement: ${invoiceData.modePaie || 'Non specifie'}) Tj
+0 -30 Td (CLIENT:) Tj
+0 -15 Td (${invoiceData.prenomCli} ${invoiceData.nomCli}) Tj
+0 -15 Td (Email: ${invoiceData.emailCli || 'Non renseigne'}) Tj
+0 -15 Td (Tel: ${invoiceData.telephoneCli || 'Non renseigne'}) Tj
+0 -30 Td (LOCATION #${invoiceData.idLo}) Tj
+0 -15 Td (Type: ${invoiceData.typeLo}) Tj
+0 -15 Td (Du: ${new Date(invoiceData.debLo).toLocaleDateString('fr-FR')}) Tj
+0 -15 Td (Au: ${new Date(invoiceData.finLo).toLocaleDateString('fr-FR')}) Tj
+${invoiceData.designationMat ? `0 -15 Td (Materiel: ${invoiceData.designationMat}) Tj` : ''}
+${invoiceData.nomSalle ? `0 -15 Td (Salle: ${invoiceData.nomSalle}) Tj` : ''}
+0 -30 Td (MONTANT TOTAL:) Tj
+0 -20 Td (${parseFloat(invoiceData.montantPaie || 0).toLocaleString('fr-FR')} Ar) Tj
+0 -30 Td (Merci pour votre confiance!) Tj
+0 -15 Td (CEDII Locations) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000234 00000 n
+0000000315 00000 n
+trailer
+<</Size 6/Root 1 0 R>>
+startxref
+1125
+%%EOF`;
+
+  return Buffer.from(pdfContent, 'binary');
+}
+/**
+ * Génère un PDF détaillé pour les factures payées
+ */
+function generateDetailedPDF(invoiceData) {
+  const PDFDocument = require('pdfkit');
+  const doc = new PDFDocument({ margin: 50 });
+  const buffers = [];
+
+  doc.on('data', buffers.push.bind(buffers));
+  doc.on('end', () => {
+    // Cette fonction sera appelée quand le PDF est généré
+  });
+
+  // ===== EN-TÊTE =====
+  doc.fontSize(20)
+     .font('Helvetica-Bold')
+     .fillColor('#04058f')
+     .text('CEDII LOCATIONS', 50, 50, { align: 'center' });
+  
+  doc.fontSize(16)
+     .fillColor('#5811ee')
+     .text('FACTURE', 50, 75, { align: 'center' });
+  
+  doc.fontSize(10)
+     .fillColor('#666666')
+     .text('Centre d\'Échange, de Documentation et d\'Information Inter-Institutionnelles', 50, 95, { align: 'center' });
+
+  // Ligne de séparation
+  doc.moveTo(50, 120)
+     .lineTo(550, 120)
+     .strokeColor('#cccccc')
+     .lineWidth(1)
+     .stroke();
+
+  // ===== INFORMATIONS FACTURE =====
+  doc.fontSize(12)
+     .fillColor('#333333')
+     .font('Helvetica-Bold')
+     .text('INFORMATIONS FACTURE:', 50, 140);
+  
+  doc.font('Helvetica')
+     .text(`Numéro: ${invoiceData.numeroFacture}`, 50, 160);
+  doc.text(`Date: ${new Date(invoiceData.dateFacturation).toLocaleDateString('fr-FR')}`, 50, 175);
+  doc.text(`Statut: ${invoiceData.statutPaie}`, 50, 190);
+  doc.text(`Mode de paiement: ${invoiceData.modePaie || 'Non spécifié'}`, 50, 205);
+
+  // ===== INFORMATIONS CLIENT =====
+  doc.font('Helvetica-Bold')
+     .text('CLIENT:', 300, 140);
+  
+  doc.font('Helvetica')
+     .text(`${invoiceData.prenomCli} ${invoiceData.nomCli}`, 300, 160);
+  doc.text(`Email: ${invoiceData.emailCli || 'Non renseigné'}`, 300, 175);
+  doc.text(`Téléphone: ${invoiceData.telephoneCli || 'Non renseigné'}`, 300, 190);
+  
+  if (invoiceData.addresseCli) {
+    doc.text(`Adresse: ${invoiceData.addresseCli}`, 300, 205);
+  }
+
+  // Ligne de séparation
+  doc.moveTo(50, 230)
+     .lineTo(550, 230)
+     .stroke();
+
+  // ===== DÉTAILS LOCATION =====
+  doc.font('Helvetica-Bold')
+     .text('DÉTAILS DE LA LOCATION:', 50, 250);
+  
+  doc.font('Helvetica')
+     .text(`Référence: #${invoiceData.idLo}`, 50, 270);
+  doc.text(`Type: ${invoiceData.typeLo}`, 50, 285);
+  doc.text(`Date début: ${new Date(invoiceData.debLo).toLocaleString('fr-FR')}`, 50, 300);
+  doc.text(`Date fin: ${new Date(invoiceData.finLo).toLocaleString('fr-FR')}`, 50, 315);
+  
+  if (invoiceData.designationMat) {
+    doc.text(`Matériel: ${invoiceData.designationMat}`, 50, 330);
+    doc.text(`Code: ${invoiceData.codeMat}`, 50, 345);
+  }
+  
+  if (invoiceData.nomSalle) {
+    doc.text(`Salle: ${invoiceData.nomSalle} (${invoiceData.numeroSalle})`, 50, 330);
+  }
+
+  // ===== MONTANTS =====
+  const startY = invoiceData.designationMat || invoiceData.nomSalle ? 370 : 350;
+  
+  doc.moveTo(50, startY)
+     .lineTo(550, startY)
+     .stroke();
+  
+  doc.font('Helvetica-Bold')
+     .text('RÉCAPITULATIF DES MONTANTS:', 50, startY + 20);
+  
+  const montantLocation = parseFloat(invoiceData.tarifTot || 0);
+  const penalite = parseFloat(invoiceData.penalite || 0);
+  const montantTotal = parseFloat(invoiceData.montantPaie || 0);
+
+  doc.font('Helvetica')
+     .text(`Montant location:`, 50, startY + 45)
+     .text(`${montantLocation.toLocaleString('fr-FR')} Ar`, 400, startY + 45, { align: 'right' });
+  
+  if (penalite > 0) {
+    doc.text(`Pénalité de retard (${invoiceData.joursRetard} jours):`, 50, startY + 60)
+       .text(`+ ${penalite.toLocaleString('fr-FR')} Ar`, 400, startY + 60, { align: 'right' });
+  }
+
+  doc.moveTo(50, startY + 80)
+     .lineTo(550, startY + 80)
+     .stroke();
+  
+  doc.font('Helvetica-Bold')
+     .fontSize(14)
+     .fillColor('#28a745')
+     .text('MONTANT TOTAL:', 50, startY + 95)
+     .text(`${montantTotal.toLocaleString('fr-FR')} Ar`, 400, startY + 95, { align: 'right' });
+
+  // ===== PIED DE PAGE =====
+  const footerY = 650;
+  
+  doc.fontSize(8)
+     .fillColor('#666666')
+     .text('Merci pour votre confiance!', 50, footerY, { align: 'center' });
+  
+  doc.text('CEDII - Votre partenaire de confiance pour vos locations', 50, footerY + 15, { align: 'center' });
+  doc.text('Contact: contact@cedii.com | Tél: +261 XX XX XXX XX', 50, footerY + 30, { align: 'center' });
+
+  doc.end();
+
+  return Buffer.concat(buffers);
+}
 // Fonctions simplifiées pour les routes manquantes
 exports.getFacturationData = async (req, res) => {
   res.status(200).send({ message: "Fonction en développement" });

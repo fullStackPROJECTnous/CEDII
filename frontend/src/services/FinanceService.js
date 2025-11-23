@@ -40,26 +40,35 @@ class FinanceService {
     return axios.post(`${API_URL}/validate-payment/${paymentId}`);
   }
 
-  // Méthodes statistiques
-  static async getChiffreAffaires() {
-    try {
-      const response = await axios.get(`${API_URL}/chiffre-affaires`);
-      return response;
-    } catch (error) {
-      console.error('Erreur récupération CA:', error);
-      throw error;
-    }
+    getCashflowSynthese() {
+    return axios.get(`${API_URL}/cashflow-synthese`);
   }
 
-  static async getFacturesEnvoyees() {
-    try {
-      const response = await axios.get(`${API_URL}/factures-envoyees`);
-      return response;
-    } catch (error) {
-      console.error('Erreur comptage factures:', error);
-      throw error;
-    }
+
+  getChiffreAffaires() {
+    return axios.get(`${API_URL}/chiffre-affaires`);
   }
+
+  getFacturesEnvoyees() {
+    return axios.get(`${API_URL}/factures-envoyees`);
+  }
+
+// Dans FinanceService.js
+cancelPayment(paymentId) {
+    return axios.post(`${API_URL}/cancel-payment/${paymentId}`);
+}
+
+// Méthode pour télécharger les factures PAYÉES - VERSION CORRIGÉE
+downloadPaidInvoice(locationId) {
+  return axios.get(`${API_URL}/paid-invoices/${locationId}/download`, {
+    responseType: 'blob',
+    timeout: 30000,
+    headers: {
+      'Accept': 'application/pdf',
+      'Cache-Control': 'no-cache'
+    }
+  });
+}
 
   // Autres méthodes
   exportInvoices() {
