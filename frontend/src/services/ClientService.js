@@ -1,7 +1,6 @@
 import axios from 'axios';
 import authHeader from './auth-header';
 
-
 // L'URL de base pour l'API des clients sur votre backend Express
 const API_BASE_URL = 'http://localhost:5000/api/clients'; 
 
@@ -99,53 +98,162 @@ async getClientHistory(idCli) {
     });
 },
 
+// 🆕 MÉTHODE CORRIGÉE POUR RÉCUPÉRER LE PROFIL CLIENT
 async getProfile() {
     try {
+        console.log('🔍 ClientService - Récupération du profil client...');
+        
         const response = await axios.get(`${API_BASE_URL}/profile`, { 
-            headers: authHeader() // 🚨 CRITIQUE : Envoie l'en-tête 'Authorization'
+            headers: authHeader()
         });
+        
+        console.log('✅ Profil client récupéré avec succès:', response.data);
+        
+        // Stocker les informations dans le localStorage pour un accès rapide
+        if (response.data.success && response.data.data) {
+            localStorage.setItem('clientInfo', JSON.stringify(response.data.data));
+            console.log('💾 Profil stocké dans localStorage');
+        }
+        
         return response.data;
     } catch (error) {
-        console.error("Erreur lors de la récupération du profil par token:", error.response.data);
-        throw error.response.data;
+        console.error("❌ Erreur lors de la récupération du profil:", {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+        });
+        throw error;
     }
 },
-    async getClientProfile(idCli) {
-        try {
-            const response = await axios.get(`${API_BASE_URL}/${idCli}`, { headers: authHeader() });
-            return response.data; 
-        } catch (error) {
-            console.error(`Erreur lors de la récupération du profil client (ID: ${idCli}):`, error.response?.data || error);
-            throw error;
+
+// 🆕 MÉTHODE POUR RÉCUPÉRER LE PROFIL PAR ID
+async getClientProfile(idCli) {
+    try {
+        console.log(`🔍 Récupération du profil client ID: ${idCli}`);
+        
+        const response = await axios.get(`${API_BASE_URL}/${idCli}`, { 
+            headers: authHeader() 
+        });
+        
+        console.log('✅ Profil client récupéré:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error(`❌ Erreur récupération profil client (ID: ${idCli}):`, error.response?.data || error);
+        throw error;
+    }
+},
+
+// 🆕 MÉTHODE POUR RÉCUPÉRER SON PROPRE PROFIL (ALIAS)
+async getMyProfile() {
+    try {
+        console.log("🔍 ClientService - Récupération de mon profil...");
+        
+        const response = await axios.get(`${API_BASE_URL}/profile`, { 
+            headers: authHeader() 
+        });
+        
+        console.log('✅ Mon profil récupéré:', response.data);
+        
+        // Stocker automatiquement dans localStorage
+        if (response.data.success && response.data.data) {
+            const clientData = response.data.data;
+            localStorage.setItem('clientInfo', JSON.stringify(clientData));
+            localStorage.setItem('userInfo', JSON.stringify({
+                nom: clientData.nomCli,
+                prenom: clientData.prenomCli,
+                email: clientData.emailCli,
+                telephone: clientData.telephoneCli,
+                addresse: clientData.addresseCli
+            }));
+            console.log('💾 Profils stockés dans localStorage');
         }
-    },
-    
-     async getMyProfile() {
-    try {
-      console.log("🔍 ClientService - appel profile avec token...");
-      
-      // 🚨 CORRECTION : AJOUT DE L'EN-TÊTE D'AUTORISATION
-      const response = await axios.get(`${API_BASE_URL}/profile`, { headers: authHeader() }); 
-      
-      return response.data;
+        
+        return response.data;
     } catch (error) {
-      console.error("Erreur lors de la récupération du profil:", error.response?.data || error);
-      throw error.response?.data || error; 
+        console.error("❌ Erreur récupération mon profil:", error.response?.data || error);
+        throw error;
     }
-  }
-,
-  async getClientReservations(idCli) {
+},
+
+// 🆕 MÉTHODE POUR RÉCUPÉRER LES RÉSERVATIONS DU CLIENT
+async getClientReservations(idCli) {
     try {
-      console.log("🔍 ClientService - appel réservations pour client:", idCli);
-      const response = await axios.get(`${API_BASE_URL}/${idCli}/reservations`);
-      return response.data;
+        console.log("🔍 Récupération des réservations pour client:", idCli);
+        
+        const response = await axios.get(`${API_BASE_URL}/${idCli}/reservations`, {
+            headers: authHeader()
+        });
+        
+        console.log('✅ Réservations récupérées:', response.data);
+        return response.data;
     } catch (error) {
-      console.error("Erreur lors de la récupération des réservations:", error);
-      throw error;
+        console.error("❌ Erreur récupération réservations:", error);
+        throw error;
     }
-  }
+},
+
+// 🆕 MÉTHODE POUR METTRE À JOUR LE PROFIL
+async updateMyProfile(profileData) {
+    try {
+        console.log("🔍 Mise à jour du profil...");
+        
+        const response = await axios.put(`${API_BASE_URL}/profile`, profileData, {
+            headers: authHeader()
+        });
+        
+        console.log('✅ Profil mis à jour:', response.data);
+        
+        // Mettre à jour le localStorage
+        if (response.data.success && response.data.data) {
+            localStorage.setItem('clientInfo', JSON.stringify(response.data.data));
+            console.log('💾 Profil mis à jour dans localStorage');
+        }
+        
+        return response.data;
+    } catch (error) {
+        console.error("❌ Erreur mise à jour profil:", error.response?.data || error);
+        throw error;
+    }
+},
+
+// 🆕 MÉTHODE POUR FORCER LA SYNCHRONISATION DU PROFIL
+async syncProfile() {
+    try {
+        console.log('🔄 Synchronisation du profil client...');
+        
+        const response = await axios.get(`${API_BASE_URL}/profile`, {
+            headers: authHeader()
+        });
+        
+        if (response.data.success && response.data.data) {
+            const clientData = response.data.data;
+            
+            // Stocker dans multiple keys pour compatibilité
+            localStorage.setItem('clientInfo', JSON.stringify(clientData));
+            localStorage.setItem('userInfo', JSON.stringify({
+                nom: clientData.nomCli,
+                prenom: clientData.prenomCli,
+                email: clientData.emailCli,
+                telephone: clientData.telephoneCli,
+                addresse: clientData.addresseCli,
+                nomCli: clientData.nomCli,
+                prenomCli: clientData.prenomCli,
+                emailCli: clientData.emailCli,
+                telephoneCli: clientData.telephoneCli,
+                addresseCli: clientData.addresseCli
+            }));
+            
+            console.log('✅ Profil synchronisé et stocké:', clientData);
+            return clientData;
+        }
+        
+        throw new Error('Données de profil invalides');
+    } catch (error) {
+        console.error('❌ Erreur synchronisation profil:', error);
+        throw error;
+    }
 }
 
+};
 
-;
 export default ClientService;

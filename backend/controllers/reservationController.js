@@ -1,6 +1,294 @@
-const { Reservation, Client, Materiel, Salle, Utilisateur } = require('../models');
+const { Reservation, Client, Materiel, Salle, Utilisateur, Notification } = require('../models');
 const { Op } = require('sequelize');
+const bcrypt = require('bcryptjs');
 
+// 🆕 MÉTHODE POUR CRÉER LES NOTIFICATIONS
+const creerNotificationsReservation = async (reservation, client) => {
+    try {
+        console.log(`🎯 Création de notifications pour la réservation #${reservation.idRes}`);
+        
+        // Notification 1: Nouvelle réservation (Urgence haute)
+        await Notification.create({
+            idRes: reservation.idRes,
+            typeNotif: 'nouvelle_reservation',
+            titre: '📋 Nouvelle Demande de Réservation',
+            message: `Le client ${client.nomCli} ${client.prenomCli || ''} a fait une nouvelle réservation pour ${reservation.typeRes}. Date: ${new Date(reservation.debRes).toLocaleDateString()} ${new Date(reservation.debRes).toLocaleTimeString()} à ${new Date(reservation.finRes).toLocaleDateString()} ${new Date(reservation.finRes).toLocaleTimeString()}`,
+            destinataireRole: 'reception',
+            urgence: 'haute'
+        });
+
+        // Notification 2: Détails de la réservation (Urgence moyenne)
+        await Notification.create({
+            idRes: reservation.idRes,
+            typeNotif: 'details_reservation',
+            titre: '📊 Détails Réservation',
+            message: `Réservation #${reservation.idRes}: ${reservation.typeRes} - ${reservation.nbPerso || reservation.qteMat || 1} ${reservation.typeRes === 'Salle' ? 'personnes' : 'unités'}. Total: ${reservation.tarifTot} MGA`,
+            destinataireRole: 'reception',
+            urgence: 'moyenne'
+        });
+
+        // Notification 3: Rappel de traitement (Urgence faible)
+        await Notification.create({
+            idRes: reservation.idRes,
+            typeNotif: 'rappel',
+            titre: '⏰ Action Requise',
+            message: `Veuillez traiter la réservation #${reservation.idRes} de ${client.nomCli} ${client.prenomCli || ''} dans les plus brefs délais.`,
+            destinataireRole: 'reception',
+            urgence: 'faible'
+        });
+
+        console.log(`✅ 3 notifications créées pour la réservation #${reservation.idRes}`);
+        
+    } catch (error) {
+        console.error('❌ Erreur création notifications:', error);
+    }
+};
+
+// 🆕 MÉTHODE POUR LES CLIENTS PUBLICS
+exports.createPublicReservation = async (req, res) => {
+    try {
+        const {
+            idCatalogue,
+            typeRes,
+            nbPerso,
+            debRes,
+            finRes,
+            tarifTot,
+            qteMat,
+            clientData // Données du client public
+        } = req.body;
+
+        console.log('📨 Réservation publique reçue:', { clientData, reservationData: req.body });
+
+        // Validation des données client
+        if (!clientData || !clientData.nomCli || !clientData.emailCli || !clientData.telephoneCli) {
+            return res.status(400).json({
+                success: false,
+                message: "Informations client incomplètes (nom, email, téléphone requis)"
+            });
+        }
+
+        // Validation des dates
+        if (new Date(debRes) >= new Date(finRes)) {
+            return res.status(400).json({
+                success: false,
+                message: "La date de fin doit être après la date de début"
+            });
+        }
+
+        // Vérifier si le client existe déjà par email
+        let client = await Client.findOne({
+            where: { emailCli: clientData.emailCli }
+        });
+
+        if (!client) {
+            console.log('👤 Création d\'un nouveau client public');
+            
+            // Créer un utilisateur temporaire pour le client
+            const temporaryUser = await Utilisateur.create({
+                loginUti: clientData.emailCli,
+                motDePasseUti: await bcrypt.hash('temporary_password', 10),
+                roleUti: 'client'
+            });
+
+            // Créer le client
+            client = await Client.create({
+                nomCli: clientData.nomCli,
+                prenomCli: clientData.prenomCli || null,
+                emailCli: clientData.emailCli,
+                telephoneCli: clientData.telephoneCli,
+                addresseCli: clientData.addresseCli || 'Non spécifiée',
+                typeCli: 'Public',
+                statutCli: 'Actif',
+                idUti: temporaryUser.idUti
+            });
+        }
+
+        // Vérification des conflits de dates
+        const conflictingReservation = await Reservation.findOne({
+            where: {
+                [Op.or]: [
+                    { debRes: { [Op.lte]: new Date(debRes) }, finRes: { [Op.gt]: new Date(debRes) } },
+                    { debRes: { [Op.lt]: new Date(finRes) }, finRes: { [Op.gte]: new Date(finRes) } },
+                    { debRes: { [Op.gte]: new Date(debRes) }, finRes: { [Op.lte]: new Date(finRes) } }
+                ],
+                etatRes: { [Op.in]: ['En attente', 'Confirmée'] }
+            }
+        });
+
+        if (conflictingReservation) {
+            return res.status(409).json({
+                message: 'Conflit de réservation: la ressource est déjà réservée pour cette période'
+            });
+        }
+
+        // Déterminer idSalle ou codeMat selon le type
+        let idSalle = null;
+        let codeMat = null;
+        
+        if (typeRes === 'Salle') {
+            idSalle = idCatalogue;
+        } else {
+            codeMat = idCatalogue;
+        }
+
+        // Créer la réservation
+        const nouvelleReservation = await Reservation.create({
+            idCli: client.idCli,
+            typeRes,
+            nbPerso: nbPerso || null,
+            debRes: new Date(debRes),
+            finRes: new Date(finRes),
+            tarifTot,
+            idSalle: idSalle,
+            codeMat: codeMat,
+            qteMat: qteMat || 1,
+            dateCre: new Date(),
+            etatRes: 'En attente',
+            notifiedReception: false,
+            receptionViewed: false
+        });
+
+        console.log('✅ Réservation publique créée:', nouvelleReservation.idRes);
+
+        // 🎯 CRÉER LES NOTIFICATIONS POUR LA RÉCEPTION
+        await creerNotificationsReservation(nouvelleReservation, client);
+
+        // 🎯 ÉMETTRE L'ÉVÉNEMENT SOCKET.IO AUX RÉCEPTIONNISTES
+        if (req.app.get('io')) {
+            const io = req.app.get('io');
+            
+            io.to('reception_room').emit('nouvelle_reservation', {
+                type: 'nouvelle_reservation',
+                titre: '📋 Nouvelle Demande Publique',
+                message: `Nouvelle réservation de ${client.nomCli} ${client.prenomCli || ''} (Client public)`,
+                reservation: {
+                    idRes: nouvelleReservation.idRes,
+                    client: `${client.nomCli} ${client.prenomCli || ''}`,
+                    email: client.emailCli,
+                    telephone: client.telephoneCli,
+                    type: typeRes,
+                    dateDebut: debRes,
+                    dateFin: finRes,
+                    tarifTotal: tarifTot
+                },
+                timestamp: new Date(),
+                urgence: 'haute'
+            });
+
+            console.log('📢 Notification Socket.io envoyée aux réceptionnistes');
+        }
+
+        res.status(201).json({
+            success: true,
+            message: "Votre demande de réservation a été envoyée avec succès. Notre équipe vous contactera rapidement.",
+            data: {
+                reservationId: nouvelleReservation.idRes,
+                client: {
+                    nom: client.nomCli,
+                    prenom: client.prenomCli,
+                    email: client.emailCli
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur création réservation publique:', error);
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de l'envoi de votre demande",
+            error: error.message
+        });
+    }
+};
+
+// 🆕 MÉTHODE POUR RÉCUPÉRER LES DEMANDES EN ATTENTE
+exports.getPendingReservations = async (req, res) => {
+    try {
+        const reservations = await Reservation.findAll({
+            where: { 
+                etatRes: 'En attente'
+            },
+            include: [
+                {
+                    model: Client,
+                    attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli', 'typeCli']
+                },
+                {
+                    model: Salle,
+                    attributes: ['idSalle', 'nomSalle', 'numeroSalle']
+                },
+                {
+                    model: Materiel,
+                    attributes: ['codeMat', 'designationMat', 'categorieMat']
+                }
+            ],
+            order: [['dateCre', 'DESC']]
+        });
+
+        // Récupérer aussi les notifications non lues
+        const notifications = await Notification.findAll({
+            where: {
+                destinataireRole: 'reception',
+                statutNotif: 'non_lu'
+            },
+            include: [{
+                model: Reservation,
+                as: 'reservation',
+                include: [{
+                    model: Client,
+                    attributes: ['nomCli', 'prenomCli']
+                }]
+            }],
+            order: [['dateEnvoi', 'DESC']]
+        });
+
+        res.json({
+            success: true,
+            count: reservations.length,
+            pendingCount: reservations.length,
+            reservations: reservations,
+            notifications: notifications
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur récupération réservations en attente:', error);
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la récupération des demandes",
+            error: error.message
+        });
+    }
+};
+
+// 🆕 MÉTHODE POUR METTRE À JOUR LE STATUT DE NOTIFICATION
+exports.marquerNotificationLue = async (req, res) => {
+    try {
+        const { idNotif } = req.params;
+
+        await Notification.update({
+            statutNotif: 'lu',
+            dateLecture: new Date()
+        }, {
+            where: { idNotif }
+        });
+
+        res.json({
+            success: true,
+            message: "Notification marquée comme lue"
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur mise à jour notification:', error);
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la mise à jour de la notification",
+            error: error.message
+        });
+    }
+};
+
+// MÉTHODE EXISTANTE - MODIFIÉE POUR AJOUTER LES NOTIFICATIONS
 exports.createReservation = async (req, res) => {
   try {
     const {
@@ -67,6 +355,14 @@ exports.createReservation = async (req, res) => {
       etatRes: 'En attente'
     });
 
+    // Récupérer le client pour les notifications
+    const client = await Client.findByPk(idCli);
+    
+    // 🎯 CRÉER LES NOTIFICATIONS POUR LA RÉCEPTION
+    if (client) {
+        await creerNotificationsReservation(nouvelleReservation, client);
+    }
+
     // Récupération des données complètes pour la réponse
     const reservationComplete = await Reservation.findByPk(nouvelleReservation.idRes, {
       include: [
@@ -103,6 +399,79 @@ exports.createReservation = async (req, res) => {
   }
 };
 
+// MÉTHODE EXISTANTE - MODIFIÉE POUR LES NOTIFICATIONS D'ANNULATION
+exports.cancelReservation = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const reservation = await Reservation.findByPk(id, {
+        include: [{
+            model: Client,
+            attributes: ['idCli', 'nomCli', 'prenomCli']
+        }]
+    });
+
+    if (!reservation) {
+      return res.status(404).json({
+        message: 'Réservation non trouvée'
+      });
+    }
+
+    // Vérifier si l'annulation est possible
+    if (reservation.etatRes === 'Annulée') {
+      return res.status(400).json({
+        message: 'Cette réservation est déjà annulée'
+      });
+    }
+
+    if (reservation.etatRes === 'Terminée') {
+      return res.status(400).json({
+        message: 'Impossible d\'annuler une réservation terminée'
+      });
+    }
+
+    // Calculer si l'annulation est trop proche de la date de début
+    const now = new Date();
+    const debRes = new Date(reservation.debRes);
+    const diffHeures = (debRes - now) / (1000 * 60 * 60);
+
+    if (diffHeures < 24) {
+      return res.status(400).json({
+        message: 'Annulation impossible moins de 24h avant le début de la réservation'
+      });
+    }
+
+    await Reservation.update(
+      { etatRes: 'Annulée' },
+      { where: { idRes: id } }
+    );
+
+    // 🎯 CRÉER UNE NOTIFICATION D'ANNULATION
+    if (reservation.Client) {
+        await Notification.create({
+            idRes: reservation.idRes,
+            typeNotif: 'annulation',
+            titre: '❌ Réservation Annulée',
+            message: `La réservation #${reservation.idRes} de ${reservation.Client.nomCli} a été annulée.`,
+            destinataireRole: 'reception',
+            urgence: 'moyenne'
+        });
+    }
+
+    res.json({
+      message: 'Réservation annulée avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur annulation réservation:', error);
+    res.status(500).json({
+      message: 'Erreur lors de l\'annulation de la réservation',
+      error: error.message
+    });
+  }
+};
+
+// MÉTHODES EXISTANTES (conservées telles quelles)
 exports.getClientReservations = async (req, res) => {
   try {
     const { clientId } = req.params;
@@ -213,60 +582,6 @@ exports.updateReservation = async (req, res) => {
     console.error('Erreur mise à jour réservation:', error);
     res.status(500).json({
       message: 'Erreur lors de la mise à jour de la réservation',
-      error: error.message
-    });
-  }
-};
-
-exports.cancelReservation = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const reservation = await Reservation.findByPk(id);
-
-    if (!reservation) {
-      return res.status(404).json({
-        message: 'Réservation non trouvée'
-      });
-    }
-
-    // Vérifier si l'annulation est possible
-    if (reservation.etatRes === 'Annulée') {
-      return res.status(400).json({
-        message: 'Cette réservation est déjà annulée'
-      });
-    }
-
-    if (reservation.etatRes === 'Terminée') {
-      return res.status(400).json({
-        message: 'Impossible d\'annuler une réservation terminée'
-      });
-    }
-
-    // Calculer si l'annulation est trop proche de la date de début
-    const now = new Date();
-    const debRes = new Date(reservation.debRes);
-    const diffHeures = (debRes - now) / (1000 * 60 * 60);
-
-    if (diffHeures < 24) {
-      return res.status(400).json({
-        message: 'Annulation impossible moins de 24h avant le début de la réservation'
-      });
-    }
-
-    await Reservation.update(
-      { etatRes: 'Annulée' },
-      { where: { idRes: id } }
-    );
-
-    res.json({
-      message: 'Réservation annulée avec succès'
-    });
-
-  } catch (error) {
-    console.error('Erreur annulation réservation:', error);
-    res.status(500).json({
-      message: 'Erreur lors de l\'annulation de la réservation',
       error: error.message
     });
   }

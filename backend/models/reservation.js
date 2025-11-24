@@ -1,3 +1,4 @@
+// backend/models/reservation.js - VERSION CORRIGÉE
 module.exports = (sequelize, DataTypes) => {
     const Reservation = sequelize.define('Reservation', {
         idRes: {
@@ -78,33 +79,11 @@ module.exports = (sequelize, DataTypes) => {
                 model: 'materiel',
                 key: 'codeMat'
             }
-        },
-        // 🆕 CHAMPS AJOUTÉS POUR LA GESTION
-        dateConfirmation: {
-            type: DataTypes.DATE,
-            allowNull: true
-        },
-        dateAnnulation: {
-            type: DataTypes.DATE,
-            allowNull: true
-        },
-        motifAnnulation: {
-            type: DataTypes.TEXT,
-            allowNull: true
-        },
-        notifiedReception: {
-            type: DataTypes.BOOLEAN,
-            defaultValue: false
-        },
-        receptionViewed: {
-            type: DataTypes.BOOLEAN,
-            defaultValue: false
         }
     }, { 
         tableName: 'reservation', 
-        timestamps: true, // ✅ Active created_at et updated_at
+        timestamps: false, // 🚨 CORRECTION IMPORTANTE
         hooks: {
-            // 🎯 HOOK POUR LA COHÉRENCE DES DONNÉES
             beforeValidate: (reservation) => {
                 // S'assurer que les champs sont cohérents avec le type
                 if (reservation.typeRes === 'Salle') {
@@ -113,16 +92,6 @@ module.exports = (sequelize, DataTypes) => {
                 } else if (reservation.typeRes === 'Materiel') {
                     reservation.idSalle = null;
                     reservation.nbPerso = 0;
-                }
-                
-                // Mettre à jour les dates de statut
-                if (reservation.changed('etatRes')) {
-                    const now = new Date();
-                    if (reservation.etatRes === 'Confirmée') {
-                        reservation.dateConfirmation = now;
-                    } else if (reservation.etatRes === 'Annulée') {
-                        reservation.dateAnnulation = now;
-                    }
                 }
             }
         }
@@ -135,21 +104,33 @@ module.exports = (sequelize, DataTypes) => {
             as: 'client'
         });
         
-        Reservation.belongsTo(models.Salle, {
-            foreignKey: 'idSalle',
-            as: 'salle'
-        });
+        if (models.Salle) {
+            Reservation.belongsTo(models.Salle, {
+                foreignKey: 'idSalle',
+                as: 'salle'
+            });
+        }
         
-        Reservation.belongsTo(models.Materiel, {
-            foreignKey: 'codeMat',
-            as: 'materiel'
-        });
+        if (models.Materiel) {
+            Reservation.belongsTo(models.Materiel, {
+                foreignKey: 'codeMat',
+                as: 'materiel'
+            });
+        }
 
-        // 🆕 ASSOCIATION AVEC LOCATION ACTIVE
-        Reservation.hasOne(models.LocationActive, {
-            foreignKey: 'idRes',
-            as: 'locationActive'
-        });
+        if (models.Location) {
+            Reservation.hasMany(models.Location, {
+                foreignKey: 'idRes',
+                as: 'locations'
+            });
+        }
+
+        if (models.Notification) {
+            Reservation.hasMany(models.Notification, {
+                foreignKey: 'idRes',
+                as: 'notifications'
+            });
+        }
     };
 
     return Reservation;

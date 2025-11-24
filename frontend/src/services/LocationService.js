@@ -1,3 +1,4 @@
+// src/services/LocationService.js - VERSION CORRIGÉE
 import axios from 'axios';
 
 const API_URL = 'http://localhost:5000/api';
@@ -140,27 +141,22 @@ class LocationService {
   static async calculateTarifSalle(idSalle, data) {
     const response = await axios.post(`${API_URL}/salles/${idSalle}/calculate-tarif`, data);
     return response.data;
-<<<<<<< HEAD
   }
-=======
-}
 
-
-// Dans LocationService.js - MÉTHODE SIMPLIFIÉE
-updateLocationStatus(locationId, newStatus) {
-  console.log(`📍 Appel API mise à jour statut: ${locationId} → ${newStatus}`);
-  
-  // Pour l'instant, simuler un appel API réussi
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ data: { success: true, message: 'Statut mis à jour localement' } });
-    }, 100);
-  });
-  
-  // OU si vous voulez vraiment essayer l'API (mais ça échouera probablement) :
-  // return axios.put(`${API_URL}/${locationId}`, { etatLo: newStatus });
-}
->>>>>>> 28a6666ea425312283c7830ffd6898bd864191b3
+  // Méthode pour mettre à jour le statut d'une location
+  updateLocationStatus(locationId, newStatus) {
+    console.log(`📍 Appel API mise à jour statut: ${locationId} → ${newStatus}`);
+    
+    // Pour l'instant, simuler un appel API réussi
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ data: { success: true, message: 'Statut mis à jour localement' } });
+      }, 100);
+    });
+    
+    // OU si vous voulez vraiment essayer l'API (décommentez cette ligne et commentez le Promise ci-dessus) :
+    // return axios.put(`${API_URL}/locations/${locationId}/status`, { etatLo: newStatus });
+  }
 }
 
 export default new LocationService();
