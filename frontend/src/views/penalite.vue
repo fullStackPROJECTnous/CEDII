@@ -116,15 +116,18 @@
         </template>
       </n-empty>
 
-      <!-- Table des pénalités -->
-      <n-data-table
-        v-else
-        :columns="penalitesColumns"
-        :data="penalitesList"
-        :scroll-x="1400"
-        class="custom-table"
-        :row-class-name="rowClassName"
-      />
+      <!-- Table des pénalités avec scroll -->
+      <div v-else class="table-container">
+        <n-data-table
+          :columns="penalitesColumns"
+          :data="penalitesList"
+          :scroll-x="1400"
+          :max-height="500"
+          virtual-scroll
+          class="custom-table"
+          :row-class-name="rowClassName"
+        />
+      </div>
     </n-card>
 
     <!-- Section Litiges Manuels -->
@@ -163,6 +166,7 @@ import FinanceService from '@/services/FinanceService';
 // --- Variables d'état ---
 const penalitesList = ref([]);
 const isLoading = ref(true);
+const loading = ref(false);
 
 // --- Propriétés calculées ---
 const totalBaseAmount = computed(() => {
@@ -274,7 +278,8 @@ const penalitesColumns = [
           type: 'warning',
           size: 'small',
           class: 'custom-btn-warning',
-          onClick: () => sendReminderEmail(row.id, row.client)
+          onClick: () => sendReminderEmail(row),
+          loading: loading.value
         }, {
           default: () => 'Relance',
           icon: () => h('i', { class: 'bi bi-bell' })
@@ -296,7 +301,12 @@ const penalitesColumns = [
 
 // --- Fonctions utilitaires ---
 const formatCurrency = (value) => {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'MGA' }).format(value || 0);
+  return new Intl.NumberFormat('fr-FR', { 
+    style: 'currency', 
+    currency: 'MGA',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(value || 0);
 };
 
 const rowClassName = (row, index) => {
@@ -307,112 +317,109 @@ const rowClassName = (row, index) => {
 const fetchPenalitesData = async () => {
   isLoading.value = true;
   try {
-    if (typeof FinanceService.getPenalitesData === 'function') {
-      const response = await FinanceService.getPenalitesData();
-      
-      penalitesList.value = response.data.map(item => ({
-        id: item.idLo || item.id,
-        client: item.client || `${item.nomCli} ${item.prenomCli}`,
-        email: item.emailCli,
-        daysLate: item.daysLate || 0,
-        baseAmount: item.baseAmount || item.tarifTot || 0,
-        penaltyAmount: item.penaltyAmount || calculatePenalty(item),
-        finalAmount: item.finalAmount || (parseFloat(item.baseAmount || item.tarifTot || 0) + parseFloat(item.penaltyAmount || calculatePenalty(item)))
-      }));
-    } else {
-      console.warn('Méthode getPenalitesData non disponible, utilisation des données de démonstration');
-      penalitesList.value = getDemoData();
-    }
+    console.log('🔄 Chargement des données de pénalités...');
+    const response = await FinanceService.getPenalitesData();
+    
+    penalitesList.value = response.data.map(item => ({
+      id: item.id,
+      client: item.client,
+      email: item.email,
+      telephone: item.telephone,
+      daysLate: item.daysLate || 0,
+      baseAmount: item.baseAmount || 0,
+      penaltyAmount: item.penaltyAmount || 0,
+      finalAmount: item.finalAmount || 0,
+      dateDebut: item.dateDebut,
+      dateFin: item.dateFin,
+      typeLocation: item.typeLocation,
+      statutPaiement: item.statutPaiement
+    }));
+
+    console.log(`✅ ${penalitesList.value.length} pénalités chargées depuis la base de données`);
     
   } catch (error) {
-    console.error("Erreur lors de la récupération des données de pénalités:", error);
-    penalitesList.value = getDemoData();
-    alert("Chargement des données de démonstration - Vérifiez la connexion API");
+    console.error("❌ Erreur lors de la récupération des données de pénalités:", error);
+    // Utiliser alert() au lieu de message.error()
+    alert("Erreur de chargement des pénalités");
+    penalitesList.value = [];
   } finally {
     isLoading.value = false;
   }
 };
 
-// Fonction de calcul de pénalité
-const calculatePenalty = (item) => {
-  const baseAmount = parseFloat(item.baseAmount || item.tarifTot || 0);
-  const daysLate = item.daysLate || 0;
-  const penaltyRate = 0.01;
-  
-  return baseAmount * penaltyRate * daysLate;
-};
-
-// Données de démonstration
-const getDemoData = () => {
-  return [
-    {
-      id: 1,
-      client: "Miary Ma",
-      email: "cecette@gmail.com",
-      daysLate: 5,
-      baseAmount: 250000,
-      penaltyAmount: 12500,
-      finalAmount: 262500
-    },
-    {
-      id: 2,
-      client: "danie rarie", 
-      email: "rariedanie@gmail.com",
-      daysLate: 12,
-      baseAmount: 50000,
-      penaltyAmount: 6000,
-      finalAmount: 56000
-    },
-    {
-      id: 3,
-      client: "daniella rari",
-      email: "elle@gmail.com", 
-      daysLate: 3,
-      baseAmount: 7000,
-      penaltyAmount: 210,
-      finalAmount: 7210
-    },
-    {
-      id: 4,
-      client: "SARL Tech Solutions",
-      email: "contact@techsolutions.mg",
-      daysLate: 8,
-      baseAmount: 150000,
-      penaltyAmount: 12000,
-      finalAmount: 162000
-    }
-  ];
-};
-
-const sendReminderEmail = async (idLo, clientName) => {
-  if (!confirm(`Confirmer l'envoi d'un email de relance au client ${clientName} pour la location #${idLo} ?`)) {
-    return;
-  }
-  
+// Fonction d'envoi de rappel CORRIGÉE (sans useMessage)
+const sendReminderEmail = async (location) => {
   try {
-    const response = await FinanceService.sendPaymentReminder(idLo);
-    alert(response.data.message || "Relance envoyée avec succès");
-    await fetchPenalitesData();
+    loading.value = true;
+    
+    console.log('📧 Envoi rappel pour location:', location);
+
+    // Préparer les données REQUISES
+    const requestData = {
+      locationId: location.id,
+      clientData: {
+        name: location.client,
+        email: location.email,
+        amount: location.finalAmount,
+        phone: location.telephone
+      }
+    };
+
+    // Validation côté frontend
+    if (!requestData.locationId) {
+      alert('ID de location manquant');
+      return;
+    }
+
+    if (!requestData.clientData.email) {
+      alert('Email du client manquant');
+      return;
+    }
+
+    console.log('📤 Envoi rappel avec données:', requestData);
+
+    const response = await FinanceService.sendPenaltyReminder(requestData);
+    
+    if (response.data.success) {
+      alert(`✅ Rappel envoyé à ${requestData.clientData.name}`);
+    } else {
+      throw new Error(response.data.message);
+    }
+    
   } catch (error) {
-    const errorMessage = error.response?.data?.message || "Erreur serveur lors de l'envoi de la relance.";
-    alert(`Échec de l'envoi de la relance: ${errorMessage}`);
-    console.error(error);
+    console.error('❌ Erreur envoi rappel:', error);
+    
+    if (error.response?.status === 400) {
+      alert('❌ Données invalides: ' + (error.response.data.message || 'Vérifiez les informations du client'));
+    } else if (error.response?.status === 404) {
+      alert('❌ Location non trouvée');
+    } else {
+      alert('❌ Erreur lors de l\'envoi du rappel: ' + error.message);
+    }
+  } finally {
+    loading.value = false;
   }
 };
 
 const viewDetails = (locationId) => {
   const location = penalitesList.value.find(item => item.id === locationId);
   if (location) {
-    const message = `
+    const details = `
 Détails de la location #${locationId}:
 
 Client: ${location.client}
+Email: ${location.email || 'Non renseigné'}
+Téléphone: ${location.telephone || 'Non renseigné'}
+Type: ${location.typeLocation || 'Non spécifié'}
+Date début: ${new Date(location.dateDebut).toLocaleDateString('fr-FR')}
+Date fin: ${new Date(location.dateFin).toLocaleDateString('fr-FR')}
 Jours de retard: ${location.daysLate} jours
 Montant initial: ${formatCurrency(location.baseAmount)}
 Frais de retard (1%/jour): ${formatCurrency(location.penaltyAmount)}
 Total à payer: ${formatCurrency(location.finalAmount)}
+Statut: ${location.statutPaiement}
     `;
-    alert(message);
+    alert(details);
   }
 };
 
@@ -508,11 +515,40 @@ onMounted(() => {
   border-color: #ffc107;
 }
 
+/* Conteneur de table avec scroll */
+.table-container {
+  max-height: 500px;
+  overflow: auto;
+  border-radius: 8px;
+  border: 1px solid #e1e5e9;
+}
+
 /* Table personnalisée */
 .custom-table {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-width: 100%;
+}
+
+/* Styles pour le scroll personnalisé */
+.table-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 /* Styles pour les lignes critiques */
@@ -522,6 +558,36 @@ onMounted(() => {
 
 :deep(.table-row-warning) {
   background-color: #fff3cd !important;
+}
+
+/* Amélioration du scroll pour la table Naive UI */
+:deep(.n-data-table) {
+  --n-scrollbar-width: 8px;
+  --n-scrollbar-height: 8px;
+}
+
+:deep(.n-data-table-base-table-body) {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+:deep(.n-data-table-base-table-body::-webkit-scrollbar) {
+  width: 8px;
+  height: 8px;
+}
+
+:deep(.n-data-table-base-table-body::-webkit-scrollbar-track) {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+:deep(.n-data-table-base-table-body::-webkit-scrollbar-thumb) {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+:deep(.n-data-table-base-table-body::-webkit-scrollbar-thumb:hover) {
+  background: #a8a8a8;
 }
 
 /* Responsive */
@@ -552,15 +618,44 @@ onMounted(() => {
     gap: 1rem;
     text-align: center;
   }
+
+  .table-container {
+    max-height: 400px;
+  }
+}
+
+@media (max-width: 576px) {
+  .table-container {
+    max-height: 350px;
+  }
 }
 
 /* Styles pour les tables */
 :deep(.n-data-table .n-data-table-th) {
   background-color: #f8f9fa;
   font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .d-flex.gap-2 {
   gap: 8px;
+}
+
+/* Amélioration de l'apparence du scroll virtuel */
+:deep(.n-data-table .n-data-table-base-table) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+:deep(.n-data-table .n-data-table-td) {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* Effet de survol amélioré */
+:deep(.n-data-table .n-data-table-tr:hover .n-data-table-td) {
+  background-color: #f8f9fa;
+  transition: background-color 0.2s ease;
 }
 </style>

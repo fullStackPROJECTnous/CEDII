@@ -242,85 +242,6 @@
                             </n-card>
                         </div>
                     </div>
-
-                    <!-- Tableaux sous les KPIs -->
-                    <div class="row g-3 mt-3">
-                        <!-- Factures à envoyer -->
-                        <div class="col-lg-7">
-                            <n-card title="Factures Prêtes à l'Envoi Automatique" class="shadow-sm">
-                                <template #header-extra>
-                                    <n-tag type="info" size="small" class="custom-tag">
-                                        {{ invoicesToSend.length }} en attente
-                                    </n-tag>
-                                </template>
-                                
-                                <n-data-table
-                                    :columns="invoiceColumns"
-                                    :data="invoicesToSend"
-                                    :pagination="pagination"
-                                    size="small"
-                                    class="custom-table"
-                                />
-                                
-                                <template #footer v-if="invoicesToSend.length === 0">
-                                    <div class="text-center text-muted py-3">
-                                        Aucune nouvelle facture prête à l'envoi.
-                                    </div>
-                                </template>
-                            </n-card>
-                        </div>
-
-                        <!-- Pénalités -->
-                        <div class="col-lg-5">
-                            <n-card title="Pénalités Requérant Notification" class="shadow-sm">
-                                <template #header-extra>
-                                    <n-tag type="error" size="small" class="custom-tag">
-                                        {{ pendingPenalties.length }} en attente
-                                    </n-tag>
-                                </template>
-
-                                <n-list class="custom-list">
-                                    <n-list-item v-for="penalty in pendingPenalties" :key="penalty.id" class="custom-list-item">
-                                        <template #prefix>
-                                            <div class="custom-icon-danger-small">
-                                                <i class="bi bi-calendar-x-fill text-white"></i>
-                                            </div>
-                                        </template>
-                                        
-                                        <n-thing
-                                            :title="penalty.client"
-                                            :description="`Retard de ${penalty.daysLate} jours`"
-                                        />
-                                        
-                                        <template #suffix>
-                                            <n-button size="small" type="error" class="custom-btn-danger" ghost>
-                                                <template #icon>
-                                                    <i class="bi bi-bell"></i>
-                                                </template>
-                                                Notifier
-                                            </n-button>
-                                        </template>
-                                    </n-list-item>
-                                    
-                                    <n-list-item v-if="pendingPenalties.length === 0" class="custom-list-item">
-                                        <div class="text-center text-muted py-3">
-                                            Aucune pénalité en attente de notification.
-                                        </div>
-                                    </n-list-item>
-                                </n-list>
-
-                                <template #footer>
-                                    <div class="text-end">
-                                        <router-link :to="{ name: 'SuiviPaie' }">
-                                            <n-button size="small" type="default" class="custom-btn-outline">
-                                                Voir tout
-                                            </n-button>
-                                        </router-link>
-                                    </div>
-                                </template>
-                            </n-card>
-                        </div>
-                    </div>
                 </n-layout-content>
             </n-layout>
         </n-layout>
@@ -343,16 +264,11 @@ import {
     NCard, 
     NSpin, 
     NEmpty,
-    NBadge,
-    NDataTable,
-    NList,
-    NListItem,
-    NThing
+    NBadge
 } from 'naive-ui';
 
 import AuthService from '../services/AuthService'; 
 import FinanceService from '../services/FinanceService'; 
-import KpiCard from '../views/KpiCard.vue'; 
 import Chart from 'chart.js/auto';
 
 const router = useRouter();
@@ -382,48 +298,6 @@ const cashflowData = ref({
         soldeNet: 0,
         tauxEpargne: '0%'
     }
-});
-
-// Configuration de la table des factures
-const invoiceColumns = [
-    {
-        title: 'ID Location',
-        key: 'id',
-        width: 120
-    },
-    {
-        title: 'Client',
-        key: 'client',
-        ellipsis: true
-    },
-    {
-        title: 'Montant Calculé',
-        key: 'amount',
-        render: (row) => h('strong', { class: 'text-success' }, formatCurrency(row.amount))
-    },
-    {
-        title: 'Action',
-        key: 'actions',
-        render: (row) => h(
-            NButton,
-            {
-                size: 'small',
-                type: 'primary',
-                class: 'custom-btn-primary',
-                onClick: () => sendInvoiceEmail(row.id)
-            },
-            {
-                default: () => 'Envoyer Email',
-                icon: () => h(NIcon, null, {
-                    default: () => h('i', { class: 'bi bi-send-fill' })
-                })
-            }
-        )
-    }
-];
-
-const pagination = ref({
-    pageSize: 5
 });
 
 // Options du menu avec texte blanc
@@ -596,11 +470,6 @@ const renderCashflowChart = () => {
     });
 };
 
-const sendInvoiceEmail = (invoiceId) => {
-    console.log('Envoi email pour facture:', invoiceId);
-    // Implémentation de l'envoi d'email
-};
-
 const logout = () => {
     const isConfirmed = window.confirm("Êtes-vous sûr de vouloir vous déconnecter ?");
     if (isConfirmed) {
@@ -757,17 +626,6 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.custom-icon-danger-small {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  background: rgba(220, 53, 69, 0.2);
-}
-
 /* Tags */
 .custom-tag {
   font-weight: 600;
@@ -782,24 +640,6 @@ onMounted(() => {
 .custom-btn-primary:hover {
   background: #0056b3;
   border-color: #0056b3;
-}
-
-.custom-btn-danger {
-  background:  #5E5E5E;
-  border-color: #5E5E5E;
-}
-
-.custom-btn-outline {
-  border-color: rgba(255, 255, 255, 0.3);
-  color: #6c757d;
-  background: transparent;
-  transition: all 0.3s ease;
-}
-
-.custom-btn-outline:hover {
-  background-color: #6c757d;
-  color: white;
-  border-color: #6c757d;
 }
 
 /* Actions rapides */
@@ -839,29 +679,13 @@ onMounted(() => {
     width: 100%;
 }
 
-/* Table personnalisée */
-.custom-table {
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Listes */
-.custom-list {
-    background: transparent;
-}
-
-.custom-list-item {
-    border-bottom: 1px solid #dee2e6;
-}
-
 /* Responsive */
 @media (max-width: 992px) {
     .row {
         flex-direction: column;
     }
     
-    .col-lg-6, .col-lg-7, .col-lg-5 {
+    .col-lg-6 {
         width: 100%;
     }
     
@@ -916,15 +740,5 @@ onMounted(() => {
 
 .bg-light {
     background-color: #f8f9fa !important;
-}
-
-/* Styles pour les tables */
-:deep(.n-data-table) {
-    font-size: 0.875rem;
-}
-
-:deep(.n-data-table .n-data-table-th) {
-    background-color: #f8f9fa;
-    font-weight: 600;
 }
 </style>

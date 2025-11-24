@@ -10,11 +10,19 @@ router.get('/facturation', financeController.getFacturationData);
 // Routes pour les paiements
 router.get('/payments', financeController.getPaymentData);
 router.post('/validate-payment/:id', financeController.validatePayment);
-router.post('/send-reminder/:id', financeController.sendPaymentReminder);
+router.post('/send-payment-reminder', financeController.sendPaymentReminder);
 
 // Routes pour la génération de factures
 router.post('/generate-invoices', financeController.generateInvoices);
 router.post('/send-invoice/:id', financeController.sendInvoice);
+
+// Dans votre fichier de routes (ex: financeRoutes.js)
+router.get('/rapports-data', financeController.getRapportsData);
+router.get('/monthly-revenue', financeController.getMonthlyRevenue);
+
+// Dans financeRoutes.js
+router.get('/penalites-data', financeController.getPenalitesData);
+router.post('/send-penalty-reminder', financeController.sendPenaltyReminder);
 
 // Routes pour le backend financier
 router.get('/chiffre-affaires', async (req, res) => {

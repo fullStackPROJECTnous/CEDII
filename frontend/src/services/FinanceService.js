@@ -58,6 +58,44 @@ cancelPayment(paymentId) {
     return axios.post(`${API_URL}/cancel-payment/${paymentId}`);
 }
 
+// Dans FinanceService.js - AJOUTEZ CES MÉTHODES
+
+// Méthodes pour les rapports financiers
+getRapportsData() {
+  return axios.get(`${API_URL}/rapports-data`);
+}
+
+// Dans FinanceService.js - AJOUTEZ CES MÉTHODES
+
+// Méthodes pour les pénalités
+getPenalitesData() {
+  return axios.get(`${API_URL}/penalites-data`);
+}
+
+sendPenaltyReminder(payload) {
+  return axios.post(`${API_URL}/send-penalty-reminder`, payload, {
+    timeout: 10000,
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+}
+
+getMonthlyRevenue() {
+  return axios.get(`${API_URL}/monthly-revenue`);
+}
+
+// FinanceService.js - AMÉLIOREZ la méthode
+sendPaymentReminder(payload) {
+  return axios.post(`${API_URL}/send-payment-reminder`, payload, {
+    timeout: 10000,
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+}
+  
+
 // Méthode pour télécharger les factures PAYÉES - VERSION CORRIGÉE
 downloadPaidInvoice(locationId) {
   return axios.get(`${API_URL}/paid-invoices/${locationId}/download`, {
