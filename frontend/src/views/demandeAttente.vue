@@ -453,6 +453,7 @@ const fetchPendingRequests = async () => {
   }
 };
 
+
 const handleManage = (request) => {
   router.push({ 
     name: 'ReservationValid', 
@@ -486,7 +487,11 @@ const confirmRefuse = async () => {
   } finally {
     refuseLoading.value = false;
   }
+
+
 };
+
+
 
 onMounted(() => {
   fetchPendingRequests();

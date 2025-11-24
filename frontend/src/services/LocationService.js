@@ -1,4 +1,4 @@
-// src/services/LocationService.js - VERSION CORRIGÉE
+// src/services/LocationService.js - VERSION CORRIGÉE ET FUSIONNÉE
 import axios from 'axios';
 
 const API_URL = 'http://localhost:5000/api';
@@ -100,6 +100,78 @@ class LocationService {
     return axios.get(`${API_URL}/locations/${idLo}/details`);
   }
 
+  // Méthode pour créer une réservation (version standard)
+  createReservation(data) {
+    return axios.post(`${API_URL}/reservations`, data);
+  }
+
+  // Méthode pour créer une réservation client (avec authentification)
+  createClientReservation(data) {
+    return axios.post(`${API_URL}/client/reservations`, data);
+  }
+
+  // Méthode updateReservationStatus corrigée
+  async updateReservationStatus(reservationId, payload) {
+    try {
+      console.log('📍 LocationService - updateReservationStatus:');
+      console.log('📍 Reservation ID:', reservationId);
+      console.log('📍 Payload:', payload);
+
+      const response = await axios.put(
+        `${API_URL}/reservations/${reservationId}/status`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('📍 Réponse serveur:', response.data);
+      return response;
+      
+    } catch (error) {
+      console.error('❌ ERREUR LocationService - updateReservationStatus:');
+      console.error('📍 URL:', error.config?.url);
+      console.error('📍 Méthode:', error.config?.method);
+      console.error('📍 Données envoyées:', error.config?.data);
+      console.error('📍 Statut HTTP:', error.response?.status);
+      console.error('📍 Message erreur:', error.response?.data);
+      throw error;
+    }
+  }
+
+  // 🔥 MÉTHODE : Mettre à jour le statut d'une LOCATION
+  async updateLocationStatus(locationId, payload) {
+    try {
+      console.log('📍 LocationService - updateLocationStatus:');
+      console.log('📍 Location ID:', locationId);
+      console.log('📍 Payload:', payload);
+
+      const response = await axios.put(
+        `${API_URL}/${locationId}/status`, // Note: route différente
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('📍 Réponse serveur:', response.data);
+      return response;
+      
+    } catch (error) {
+      console.error('❌ ERREUR LocationService - updateLocationStatus:');
+      console.error('📍 URL:', error.config?.url);
+      console.error('📍 Méthode:', error.config?.method);
+      console.error('📍 Données envoyées:', error.config?.data);
+      console.error('📍 Statut HTTP:', error.response?.status);
+      console.error('📍 Message erreur:', error.response?.data);
+      throw error;
+    }
+  }
+
   getReceptionDashboardData() {
     return axios.get(`${API_URL}/locations/reception/dashboard`);
   }
@@ -112,18 +184,30 @@ class LocationService {
     return axios.get(`${API_URL}/locations/history`); 
   }
 
-  // Méthode pour créer une réservation (version standard)
-  createReservation(data) {
-    return axios.post(`${API_URL}/locations/reservations`, data);
+  // Méthode pour les événements confirmés du calendrier
+  getConfirmedEvents() {
+    // CORRECTION : Utiliser la bonne route locations au lieu de finance
+    return axios.get('http://localhost:5000/api/locations/events/confirmed');
   }
 
-  // Méthode pour créer une réservation client (avec authentification)
-  createClientReservation(data) {
-    return axios.post(`${API_URL}/locations/client/reservations`, data);
+  // Nouvelle méthode pour les locations terminées
+  getTerminatedLocations() {
+    return axios.get(`${API_URL}/terminated`);
   }
 
-  updateReservationStatus(idRes, newStatus) {
-    return axios.put(`${API_URL}/locations/reservations/${idRes}/status`, { newStatus: newStatus });
+  // Méthode alternative pour mettre à jour le statut d'une location (version simplifiée)
+  updateLocationStatusSimple(locationId, newStatus) {
+    console.log(`📍 Appel API mise à jour statut: ${locationId} → ${newStatus}`);
+    
+    // Pour l'instant, simuler un appel API réussi
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ data: { success: true, message: 'Statut mis à jour localement' } });
+      }, 100);
+    });
+    
+    // OU si vous voulez vraiment essayer l'API (mais ça échouera probablement) :
+    // return axios.put(`${API_URL}/${locationId}`, { etatLo: newStatus });
   }
 
   deleteReservation(idRes) {
@@ -134,28 +218,9 @@ class LocationService {
     return axios.get(`${API_URL}/locations/availability`, { params }); 
   }
 
-  getConfirmedEvents() {
-    return axios.get(`${API_URL}/finance/confirmed-locations`);
-  }
-
   static async calculateTarifSalle(idSalle, data) {
     const response = await axios.post(`${API_URL}/salles/${idSalle}/calculate-tarif`, data);
     return response.data;
-  }
-
-  // Méthode pour mettre à jour le statut d'une location
-  updateLocationStatus(locationId, newStatus) {
-    console.log(`📍 Appel API mise à jour statut: ${locationId} → ${newStatus}`);
-    
-    // Pour l'instant, simuler un appel API réussi
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ data: { success: true, message: 'Statut mis à jour localement' } });
-      }, 100);
-    });
-    
-    // OU si vous voulez vraiment essayer l'API (décommentez cette ligne et commentez le Promise ci-dessus) :
-    // return axios.put(`${API_URL}/locations/${locationId}/status`, { etatLo: newStatus });
   }
 }
 

@@ -47,6 +47,9 @@ router.get('/factures-envoyees', async (req, res) => {
   }
 });
 
+// Nouvelle route pour annuler les paiements
+router.post('/cancel-payment/:id', financeController.cancelPayment);
+
 // Nouvelles routes pour l'interface avancée
 router.get('/confirmed-locations', financeController.getConfirmedLocationsToInvoice);
 router.post('/create-and-send-invoice', financeController.createAndSendInvoice);
@@ -66,5 +69,9 @@ router.get('/reports', financeController.getRapportsSyntheseData);
 
 // Ancienne route conservée pour compatibilité
 router.post('/create-invoice/:idLo', financeController.createInvoiceFromLocation);
+// Dans financeRoutes.js
+router.get('/paid-invoices/:locationId/download', financeController.downloadPaidInvoice);
+// Dans financeRoutes.js - AJOUTEZ cette ligne si elle n'existe pas
+
 
 module.exports = router;
