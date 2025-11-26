@@ -1,10 +1,10 @@
 <template>
+  <!-- Le template reste exactement le même -->
   <div class="vh-100 d-flex flex-column">
     <ClientNavbar />
     
     <main class="main-content flex-grow-1 overflow-auto bg-white">
       <div class="container-fluid py-3">
-        <!-- En-tête de page simplifié -->
         <n-card class="mb-3 border-0" content-style="padding: 0;">
           <div class="p-3">
             <n-h1 class="mb-1 fs-4" style="color: #02061E;">
@@ -291,10 +291,12 @@ const router = useRouter();
 
 const isSubmitting = ref(false);
 const loading = reactive({
-  catalogue: true
+  catalogue: true,
+  client: false
 });
 
 const catalogueData = ref([]);
+const clientProfile = ref(null);
 
 const urlCategory = route.query.category;
 const urlResourceId = route.query.resourceId; 
@@ -320,15 +322,173 @@ const validationErrors = reactive({
   nbPerso: null
 });
 
-// FONCTION DE VALIDATION
+// FONCTION POUR RÉCUPÉRER LE PROFIL CLIENT DE FAÇON DYNAMIQUE
+const fetchClientProfile = async () => {
+  loading.client = true;
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.warn('❌ Aucun token trouvé');
+      return;
+    }
+
+    // Essayer de récupérer le profil client depuis l'API
+    const response = await axios.get('http://localhost:5000/api/clients/profile', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (response.data.success) {
+      clientProfile.value = response.data.data;
+      console.log('✅ Profil client récupéré (API):', clientProfile.value);
+      return;
+    }
+  } catch (error) {
+    console.warn('⚠️ Impossible de récupérer le profil client via API:', error.response?.data?.message || error.message);
+  }
+
+  // Si l'API échoue, récupérer depuis le localStorage
+  try {
+    const storedClientData = localStorage.getItem('clientInfo');
+    if (storedClientData) {
+      const parsedData = JSON.parse(storedClientData);
+      
+      // Mapper vers la structure attendue
+      clientProfile.value = {
+        nomCli: parsedData.nom || parsedData.nomCli || '',
+        prenomCli: parsedData.prenom || parsedData.prenomCli || '',
+        emailCli: parsedData.email || parsedData.emailCli || '',
+        telephoneCli: parsedData.telephone || parsedData.telephoneCli || '',
+        addresseCli: parsedData.addresse || parsedData.addresseCli || '',
+        typeClient: parsedData.typeClient || parsedData.type || '',
+        statutCompte: parsedData.statutCompte || parsedData.statut || ''
+      };
+      
+      console.log('✅ Profil récupéré depuis localStorage (clientInfo):', clientProfile.value);
+      return;
+    }
+  } catch (e) {
+    console.warn('❌ Impossible de parser clientInfo:', e);
+  }
+
+  // Essayer d'autres clés possibles
+  const possibleKeys = ['userInfo', 'client', 'user', 'profile', 'currentUser'];
+  for (const key of possibleKeys) {
+    try {
+      const storedData = localStorage.getItem(key);
+      if (storedData) {
+        const data = JSON.parse(storedData);
+        clientProfile.value = {
+          nomCli: data.nomCli || data.nom || data.fullName || '',
+          prenomCli: data.prenomCli || data.prenom || '',
+          emailCli: data.emailCli || data.email || data.loginUti || '',
+          telephoneCli: data.telephoneCli || data.telephone || data.phone || '',
+          addresseCli: data.addresseCli || data.addresse || data.address || '',
+          typeClient: data.typeClient || data.type || '',
+          statutCompte: data.statutCompte || data.statut || ''
+        };
+        console.log(`✅ Profil récupéré depuis localStorage (${key}):`, clientProfile.value);
+        break;
+      }
+    } catch (e) {
+      console.warn(`❌ Impossible de parser ${key}:`, e);
+    }
+  }
+  
+  loading.client = false;
+};
+
+// FONCTION POUR RÉCUPÉRER LES DONNÉES CLIENT DE FAÇON DYNAMIQUE
+const getClientData = () => {
+  // Si on a un profil client récupéré avec des données valides
+  if (clientProfile.value && clientProfile.value.nomCli) {
+    const clientData = {
+      nomCli: clientProfile.value.nomCli || '',
+      prenomCli: clientProfile.value.prenomCli || '',
+      emailCli: clientProfile.value.emailCli || '',
+      telephoneCli: clientProfile.value.telephoneCli || '',
+      addresseCli: clientProfile.value.addresseCli || '',
+      typeClient: clientProfile.value.typeClient || '',
+      statutCompte: clientProfile.value.statutCompte || ''
+    };
+    
+    console.log('📋 Données client structurées:', clientData);
+    return clientData;
+  }
+
+  // Sinon, essayer de récupérer directement depuis localStorage
+  const possibleKeys = ['clientInfo', 'userInfo', 'client', 'user', 'profile', 'currentUser'];
+  for (const key of possibleKeys) {
+    const storedData = localStorage.getItem(key);
+    if (storedData) {
+      try {
+        const data = JSON.parse(storedData);
+        const clientData = {
+          nomCli: data.nomCli || data.nom || data.fullName || '',
+          prenomCli: data.prenomCli || data.prenom || '',
+          emailCli: data.emailCli || data.email || data.loginUti || '',
+          telephoneCli: data.telephoneCli || data.telephone || data.phone || '',
+          addresseCli: data.addresseCli || data.addresse || data.address || '',
+          typeClient: data.typeClient || data.type || '',
+          statutCompte: data.statutCompte || data.statut || ''
+        };
+        
+        // Ne retourner que si on a au moins le nom et l'email
+        if (clientData.nomCli && clientData.emailCli) {
+          console.log(`📋 Données client depuis ${key}:`, clientData);
+          return clientData;
+        }
+      } catch (e) {
+        console.warn(`❌ Impossible de parser ${key}:`, e);
+      }
+    }
+  }
+
+  // Si aucune donnée valide n'est trouvée, retourner des valeurs vides
+  const emptyData = {
+    nomCli: '',
+    prenomCli: '',
+    emailCli: '',
+    telephoneCli: '',
+    addresseCli: '',
+    typeClient: '',
+    statutCompte: ''
+  };
+  
+  console.log('❌ Aucune donnée client valide trouvée');
+  return emptyData;
+};
+
+// FONCTION POUR VALIDER LES DONNÉES CLIENT AVANT SOUMISSION
+const validateClientData = (clientData) => {
+  const errors = [];
+  
+  if (!clientData.nomCli || clientData.nomCli.trim() === '') {
+    errors.push('Le nom est requis');
+  }
+  
+  if (!clientData.emailCli || clientData.emailCli.trim() === '') {
+    errors.push('L\'email est requis');
+  }
+  
+  if (!clientData.telephoneCli || clientData.telephoneCli.trim() === '') {
+    errors.push('Le téléphone est requis');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors: errors
+  };
+};
+
+// FONCTION DE VALIDATION DES QUANTITÉS
 const validateQuantities = () => {
   validationErrors.qteMat = null;
   validationErrors.nbPerso = null;
 
   const resource = selectedResource.value;
   if (!resource) return;
-
-  console.log('🔍 Validation pour:', resource.nom, 'qteTotDispo:', resource.qteTotDispo, 'capaciteSalle:', resource.capaciteSalle);
 
   if (form.typeRes === 'Materiel') {
     if (resource.qteTotDispo === null || resource.qteTotDispo === undefined) {
@@ -432,7 +592,6 @@ const resourceOptions = computed(() => {
 
 const selectedResource = computed(() => {
   const resource = catalogueData.value.find(item => item.id === form.idCatalogue);
-  console.log('🎯 Ressource sélectionnée:', resource);
   return resource;
 });
 
@@ -538,13 +697,30 @@ const calculateTarif = () => {
 const fetchInitialData = async () => {
   loading.catalogue = true;
   try {
+    // Charger en parallèle les ressources et le profil client
+    await Promise.all([
+      fetchResources(),
+      fetchClientProfile()
+    ]);
+
+    // Afficher les données client récupérées
+    const clientData = getClientData();
+    console.log('👤 Données client finales pour notification:', clientData);
+
+  } catch (error) {
+    console.error("Erreur de chargement des données:", error);
+    message.error("Erreur lors du chargement des ressources.");
+  } finally {
+    loading.catalogue = false;
+  }
+};
+
+// FONCTION POUR CHARGER LES RESSOURCES
+const fetchResources = async () => {
+  try {
     const sallesResponse = await LocationService.getSalles();
     const materielsResponse = await LocationService.getMateriels();
 
-    console.log('=== 🏢 DONNÉES SALLES BRUTES ===', sallesResponse);
-    console.log('=== 🛠️ DONNÉES MATÉRIELS BRUTES ===', materielsResponse);
-
-    // MAPPING CORRECT - UTILISER LES PROPRIÉTÉS EXACTES DE LA BD
     const mappedSalles = sallesResponse.map(s => {
       return {
         id: String(s.idSalle),
@@ -576,15 +752,6 @@ const fetchInitialData = async () => {
     });
     
     catalogueData.value = [...mappedSalles, ...mappedMateriels];
-    
-    console.log('=== 📊 DONNÉES MAPPÉES FINALES ===');
-    catalogueData.value.forEach(item => {
-      if (item.type === 'Salle') {
-        console.log(`🏢 ${item.nom}: capaciteSalle = ${item.capaciteSalle}`);
-      } else {
-        console.log(`🛠️ ${item.nom}: qteTotDispo = ${item.qteTotDispo}`);
-      }
-    });
 
     // INITIALISATION PAR URL 
     if (urlResourceId && catalogueData.value.length > 0) {
@@ -594,7 +761,6 @@ const fetchInitialData = async () => {
         form.typeRes = resource.type; 
         form.idCatalogue = resource.id;
         resetQuantities(resource.type); 
-        console.log('🎯 Ressource initialisée depuis URL:', resource);
         
         setTimeout(() => {
           validateQuantities();
@@ -605,14 +771,12 @@ const fetchInitialData = async () => {
     }
 
   } catch (error) {
-    console.error("Erreur de chargement des données:", error);
-    message.error("Erreur lors du chargement des ressources.");
-  } finally {
-    loading.catalogue = false;
+    console.error("Erreur de chargement des ressources:", error);
+    throw error;
   }
 };
 
-// MÉTHODE DE SOUMISSION
+// MÉTHODE DE SOUMISSION CORRIGÉE - COMPLÈTEMENT DYNAMIQUE
 const submitForm = async () => {
   if (!isFormValid.value) {
     message.error('Veuillez corriger les erreurs dans le formulaire');
@@ -626,42 +790,61 @@ const submitForm = async () => {
   isSubmitting.value = true;
   
   try {
-    const token = localStorage.getItem('token');
-    console.log('Token envoyé:', token);
+    // Récupérer les données client de façon dynamique
+    const clientData = getClientData();
+    
+    console.log('📨 Données client pour notification:', clientData);
 
+    // Valider les données client
+    const validation = validateClientData(clientData);
+    if (!validation.isValid) {
+      message.error(`Informations client incomplètes: ${validation.errors.join(', ')}. Veuillez compléter votre profil avant de faire une réservation.`);
+      isSubmitting.value = false;
+      return;
+    }
+
+    // Préparer les données pour l'API
+    const requestData = {
+      idCatalogue: form.idCatalogue,
+      typeRes: form.typeRes,
+      debRes: new Date(form.debRes).toISOString(),
+      finRes: new Date(form.finRes).toISOString(),
+      qteMat: form.qteMat || 0,
+      nbPerso: form.nbPerso || 0,
+      tarifTot: form.tarifTot,
+      clientData: clientData
+    };
+
+    console.log('📤 Données envoyées à l\'API:', requestData);
+
+    // Utiliser l'endpoint PUBLIC
     const response = await axios.post(
-      'http://localhost:5000/api/locations/client/reservations',
-      {
-        idCatalogue: form.idCatalogue,
-        typeRes: form.typeRes,
-        typeDuree: form.typeDuree,
-        debRes: form.debRes,
-        finRes: form.finRes,
-        qteMat: form.qteMat,
-        nbPerso: form.nbPerso,
-        tarifTot: form.tarifTot
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
+      'http://localhost:5000/api/reservations/public/reservations',
+      requestData
     );
 
-    console.log('Réservation créée :', response.data);
+    console.log('✅ Réservation créée avec notifications:', response.data);
 
-    message.success('Réservation enregistrée avec succès !');
+    message.success('Votre demande de réservation a été envoyée avec succès ! Notre équipe vous contactera rapidement.');
+    
+    // Rediriger vers la page des réservations du client
     router.push('/client/mes-reservations');
 
   } catch (error) {
     console.error('❌ Erreur réservation:', error);
-
+    console.error('❌ Détails de l\'erreur:', error.response?.data);
+    
     if (error.response?.status === 401) {
       message.error('Session expirée. Veuillez vous reconnecter.');
       router.push('/');
+    } else if (error.response?.data?.message) {
+      message.error('Erreur: ' + error.response.data.message);
+    } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
+      message.error('Erreur de connexion. Vérifiez votre connexion internet.');
+    } else if (error.response?.status === 400) {
+      message.error('Données invalides. Vérifiez les informations saisies.');
     } else {
-      message.error('❌ Échec de l\'enregistrement');
+      message.error('Erreur lors de l\'envoi de votre demande. Veuillez réessayer.');
     }
   } finally {
     isSubmitting.value = false;
@@ -674,7 +857,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Votre CSS reste inchangé */
+/* Le CSS reste exactement le même */
 .main-content {
   background-color: #ffffff;
 }
