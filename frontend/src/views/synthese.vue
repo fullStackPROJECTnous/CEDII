@@ -124,10 +124,15 @@
                             <n-tag type="info" class="custom-tag">{{ monthlyTrend.length }} mois</n-tag>
                         </template>
                         
-                        <div class="chart-container">
-                            <canvas ref="chartCanvas" id="revenueChart"></canvas>
+                        <div class="chart-container" style="height: 300px; position: relative;">
+                            <!-- Canvas avec ID explicite et dimensions fixes -->
+                            <canvas 
+                                ref="chartCanvas" 
+                                id="revenueChart"
+                                style="width: 100%; height: 100%;"
+                            ></canvas>
                             
-                            <div v-if="monthlyTrend && monthlyTrend.length === 0" class="text-center p-5 text-muted">
+                            <div v-if="monthlyTrend && monthlyTrend.length === 0" class="text-center p-5 text-muted position-absolute top-50 start-50 translate-middle">
                                 <i class="bi bi-bar-chart-line me-2"></i> Aucune donnée de revenus disponible
                             </div>
                         </div>
@@ -177,13 +182,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, computed } from 'vue';
+import { ref, onMounted, nextTick, computed, watch } from 'vue';
 import { NCard, NTag, NList, NListItem, NThing } from 'naive-ui';
 import FinanceService from '@/services/FinanceService'; 
 import Chart from 'chart.js/auto'; 
 
 // --- Variables d'état ---
-const rapportData = ref({});
+const rapportData = ref({
+  totalRevenue: 0,
+  pendingAmount: 0,
+  activeLocationsCount: 0,
+  paymentMethodDistribution: [],
+  averagePaymentDelay: 0
+});
 const isLoading = ref(true);
 const monthlyTrend = ref([]);
 let revenueChartInstance = null;
@@ -191,158 +202,221 @@ const chartCanvas = ref(null);
 
 // --- Propriétés calculées ---
 const totalTransactions = computed(() => {
-    if (!rapportData.value.paymentMethodDistribution) return 0;
-    return rapportData.value.paymentMethodDistribution.reduce((sum, method) => sum + method.count, 0);
+  if (!rapportData.value.paymentMethodDistribution) return 0;
+  return rapportData.value.paymentMethodDistribution.reduce((sum, method) => sum + method.count, 0);
 });
 
 const averagePaymentDelay = computed(() => {
-    return rapportData.value.averagePaymentDelay || 3;
+  return rapportData.value.averagePaymentDelay || 3;
 });
 
 // Fonction pour formater en Malagasy Ariary (MGA)
 const formatCurrency = (value) => {
-    const numValue = parseFloat(value); 
-    if (isNaN(numValue)) return '0 Ar'; 
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'MGA' }).format(numValue);
+  const numValue = parseFloat(value); 
+  if (isNaN(numValue)) return '0 Ar'; 
+  return new Intl.NumberFormat('fr-FR', { 
+    style: 'currency', 
+    currency: 'MGA',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(numValue);
 };
 
 // --- Calcul des indicateurs ---
 const calculateConversionRate = () => {
-    const total = parseFloat(rapportData.value.totalRevenue || 0);
-    const pending = parseFloat(rapportData.value.pendingAmount || 0);
-    if (total + pending === 0) return 0;
-    return Math.round((total / (total + pending)) * 100);
+  const total = parseFloat(rapportData.value.totalRevenue || 0);
+  const pending = parseFloat(rapportData.value.pendingAmount || 0);
+  if (total + pending === 0) return 0;
+  return Math.round((total / (total + pending)) * 100);
 };
 
 const calculateMonthlyGrowth = () => {
-    if (monthlyTrend.value.length < 2) return 0;
-    const current = monthlyTrend.value[monthlyTrend.value.length - 1]?.totalMensuel || 0;
-    const previous = monthlyTrend.value[monthlyTrend.value.length - 2]?.totalMensuel || 0;
-    if (previous === 0) return 100;
-    return Math.round(((current - previous) / previous) * 100);
+  if (monthlyTrend.value.length < 2) return 0;
+  const current = monthlyTrend.value[monthlyTrend.value.length - 1]?.totalMensuel || 0;
+  const previous = monthlyTrend.value[monthlyTrend.value.length - 2]?.totalMensuel || 0;
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 100);
 };
 
-// --- Récupération des données ---
 const fetchRapportsData = async () => {
-    isLoading.value = true;
-    try {
-        const response = await FinanceService.getRapportsData();
-        rapportData.value = response.data;
-    } catch (error) {
-        console.error("Erreur lors de la récupération des données de rapport:", error);
-        rapportData.value = {
-            totalRevenue: 0,
-            activeLocationsCount: 0,
-            pendingAmount: 0,
-            paymentMethodDistribution: []
-        };
-    }
+  isLoading.value = true;
+  try {
+    const response = await FinanceService.getRapportsData();
+    rapportData.value = response.data;
+    console.log('📊 Données réelles chargées:', rapportData.value);
+  } catch (error) {
+    console.error("ERREUR CRITIQUE - Impossible de charger les données:", error);
+    // Ne pas utiliser de données de démo
+    rapportData.value = {
+      totalRevenue: 0,
+      pendingAmount: 0,
+      activeLocationsCount: 0,
+      paymentMethodDistribution: [],
+      averagePaymentDelay: 0
+    };
+  }
 };
-
 const fetchMonthlyTrend = async () => {
-    try {
-        const response = await FinanceService.getMonthlyRevenue();
-        monthlyTrend.value = response.data;
-        
-        if (monthlyTrend.value.length > 0) {
-            await nextTick(); 
-            renderRevenueChart();
+  try {
+    const response = await FinanceService.getMonthlyRevenue();
+    monthlyTrend.value = response.data;
+    console.log('📈 Tendance mensuelle chargée:', monthlyTrend.value);
+    
+    // Attendre que le DOM soit mis à jour avant de rendre le graphique
+    await nextTick();
+    
+    // Vérifier que le canvas est disponible
+    if (chartCanvas.value) {
+      renderRevenueChart();
+    } else {
+      console.warn('Canvas non disponible, réessayer dans 100ms');
+      setTimeout(() => {
+        if (chartCanvas.value) {
+          renderRevenueChart();
+        } else {
+          console.error('Canvas toujours non disponible après délai');
         }
-    } catch (error) {
-        console.error("Erreur lors de la récupération de la tendance mensuelle:", error);
-        monthlyTrend.value = [];
-    } finally {
-        isLoading.value = false;
+      }, 100);
     }
+  } catch (error) {
+    console.error("Erreur lors de la récupération de la tendance mensuelle:", error);
+    monthlyTrend.value = [];
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 // --- Fonction de Rendu du Graphique ---
 const renderRevenueChart = () => {
-    if (typeof Chart === 'undefined') {
-        console.error("Erreur: Chart.js n'est pas disponible.");
-        return;
-    }
+  console.log('🔄 Début du rendu du graphique...');
+  
+  if (typeof Chart === 'undefined') {
+    console.error("Erreur: Chart.js n'est pas disponible.");
+    return;
+  }
 
-    const canvasElement = chartCanvas.value;
-    if (!canvasElement) {
-        console.warn("L'élément canvas est introuvable");
-        return;
-    }
+  const canvasElement = chartCanvas.value;
+  if (!canvasElement) {
+    console.error("❌ L'élément canvas est introuvable - vérifiez la référence");
+    return;
+  }
 
-    if (revenueChartInstance) {
-        revenueChartInstance.destroy();
-    }
+  console.log('✅ Canvas trouvé:', canvasElement);
 
+  // Détruire l'instance précédente si elle existe
+  if (revenueChartInstance) {
+    console.log('🗑️ Destruction instance précédente du graphique');
+    revenueChartInstance.destroy();
+    revenueChartInstance = null;
+  }
+
+  // Vérifier qu'il y a des données à afficher
+  if (!monthlyTrend.value || monthlyTrend.value.length === 0) {
+    console.warn('⚠️ Aucune donnée pour le graphique');
+    return;
+  }
+
+  try {
     const ctx = canvasElement.getContext('2d');
-    const labels = monthlyTrend.value.map(item => `${item.mois}/${item.annee}`);
+    
+    // Préparer les données pour le graphique
+    const labels = monthlyTrend.value.map(item => `${item.moisNom} ${item.annee}`);
     const dataValues = monthlyTrend.value.map(item => item.totalMensuel);
 
+    console.log('📊 Données du graphique:', { labels, dataValues });
+
     revenueChartInstance = new Chart(ctx, {
-        type: 'line', 
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Revenus Mensuels (Ar)',
-                data: dataValues,
-                backgroundColor: 'rgba(78, 115, 223, 0.5)',
-                borderColor: 'rgba(78, 115, 223, 1)',
-                borderWidth: 2,
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            maintainAspectRatio: false,
-            responsive: true, 
-            height: 300,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Montant (MGA)'
-                    },
-                    ticks: {
-                        callback: function(value) {
-                            return formatCurrency(value); 
-                        }
-                    }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Mois/Année'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top',
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.y !== null) {
-                                label += formatCurrency(context.parsed.y);
-                            }
-                            return label;
-                        }
-                    }
-                }
+      type: 'line', 
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Revenus Mensuels (Ar)',
+          data: dataValues,
+          backgroundColor: 'rgba(78, 115, 223, 0.1)',
+          borderColor: 'rgba(78, 115, 223, 1)',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        responsive: true,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return `Revenus: ${formatCurrency(context.parsed.y)}`;
+              }
             }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Montant (MGA)'
+            },
+            ticks: {
+              callback: function(value) {
+                return formatCurrency(value); 
+              }
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Mois/Année'
+            }
+          }
         }
+      }
     });
+
+    console.log('✅ Graphique rendu avec succès');
+  } catch (error) {
+    console.error('❌ Erreur lors du rendu du graphique:', error);
+  }
 };
 
+// Surveiller les changements de données pour re-rendre le graphique
+watch(monthlyTrend, (newValue) => {
+  if (newValue && newValue.length > 0) {
+    console.log('🔄 Données mensuelles mises à jour, re-rendu du graphique');
+    // Petit délai pour s'assurer que le DOM est prêt
+    setTimeout(() => {
+      if (chartCanvas.value) {
+        renderRevenueChart();
+      }
+    }, 100);
+  }
+});
+
 // --- Montage ---
-onMounted(() => {
-    fetchRapportsData();
-    fetchMonthlyTrend(); 
+onMounted(async () => {
+  console.log('🚀 Composant Synthese monté');
+  
+  // Charger les données en parallèle
+  await Promise.all([
+    fetchRapportsData(),
+    fetchMonthlyTrend()
+  ]);
+  
+  console.log('✅ Toutes les données chargées');
+});
+
+// Nettoyage lors du démontage du composant
+import { onUnmounted } from 'vue';
+onUnmounted(() => {
+  if (revenueChartInstance) {
+    revenueChartInstance.destroy();
+    revenueChartInstance = null;
+  }
 });
 </script>
 
@@ -437,8 +511,8 @@ onMounted(() => {
 
 /* Conteneur de graphique */
 .chart-container {
-    height: 300px;
     position: relative;
+    min-height: 300px;
 }
 
 /* Responsive */
@@ -486,5 +560,11 @@ onMounted(() => {
 
 .fs-1 {
     font-size: 2.5rem !important;
+}
+
+/* Assurer que le canvas est visible */
+canvas {
+    display: block;
+    max-width: 100%;
 }
 </style>

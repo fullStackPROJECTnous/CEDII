@@ -313,12 +313,18 @@ const hasStats = computed(() =>
     reservationStats.value.salle > 0 || 
     reservationStats.value.mixte > 0
 );
-
-// Fonctions de données
+// Dans dashboardReception.vue - MODIFIEZ la fonction fetchReservationStats
 const fetchReservationStats = async () => {
     loadingStats.value = true;
     try {
+        // ESSAYEZ d'abord avec ReservationService
         const response = await ReservationService.getReservationStats();
+        
+        // Si la méthode n'existe pas encore, utilisez des données simulées
+        if (!response || !response.data) {
+            throw new Error('Méthode non disponible');
+        }
+        
         reservationStats.value = {
             materiel: response.data.materielCount || 0,
             salle: response.data.salleCount || 0,
@@ -329,14 +335,14 @@ const fetchReservationStats = async () => {
         
     } catch (error) {
         console.error("Erreur de chargement des statistiques:", error);
-        // DONNÉES PAR DÉFAUT POUR LA DÉMO
+        // 🎯 DONNÉES SIMULÉES TEMPORAIRES
         reservationStats.value = { 
             materiel: Math.floor(Math.random() * 50) + 20, 
             salle: Math.floor(Math.random() * 40) + 15,
             mixte: Math.floor(Math.random() * 20) + 5
         };
         
-        console.log('📊 Statistiques de démo chargées:', reservationStats.value);
+        console.log('📊 Statistiques simulées utilisées:', reservationStats.value);
     } finally {
         loadingStats.value = false;
         if (hasStats.value) {

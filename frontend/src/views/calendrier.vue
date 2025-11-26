@@ -155,40 +155,52 @@ const showEtatLieuxDepartModal = ref(false);
 const showRetourModal = ref(false);
 const selectedLocationForAction = ref(null);
 
-// Computed properties
-const formattedCalendarEvents = computed(() => {
-  return confirmedEvents.value.map(event => ({
-    id: event.idLo,
-    title: `${event.typeLo} - ${getClientName(event)}`,
-    start: event.debLo,
-    end: event.finLo,
-    classNames: ['bg-primary']
-  }));
-});
-
-// 🔥 CORRECTION : Fonction améliorée pour récupérer le nom du client
+// 🔥 CORRECTION COMPLÈTE : Fonction pour récupérer le nom du client
 const getClientName = (event) => {
   console.log('🔍 Recherche nom client pour event:', event.idLo, event);
   
-  // Essayer différentes structures de données possibles
+  // Essayer toutes les structures de données possibles
+  let clientInfo = null;
+  
+  // Structure 1: client direct
   if (event.client && (event.client.nomCli || event.client.prenomCli)) {
-    const nom = `${event.client.nomCli || ''} ${event.client.prenomCli || ''}`.trim();
-    console.log('✅ Nom trouvé via event.client:', nom);
-    return nom;
+    clientInfo = event.client;
+    console.log('✅ Structure trouvée: event.client');
+  }
+  // Structure 2: via reservation.client
+  else if (event.reservation?.client && (event.reservation.client.nomCli || event.reservation.client.prenomCli)) {
+    clientInfo = event.reservation.client;
+    console.log('✅ Structure trouvée: event.reservation.client');
+  }
+  // Structure 3: via Reservation.Client (avec majuscule)
+  else if (event.Reservation?.Client && (event.Reservation.Client.nomCli || event.Reservation.Client.prenomCli)) {
+    clientInfo = event.Reservation.Client;
+    console.log('✅ Structure trouvée: event.Reservation.Client');
+  }
+  // Structure 4: champs directs sur l'event
+  else if (event.nomCli || event.prenomCli) {
+    clientInfo = {
+      nomCli: event.nomCli,
+      prenomCli: event.prenomCli
+    };
+    console.log('✅ Structure trouvée: champs directs');
+  }
+  // Structure 5: via reservation avec champs directs
+  else if (event.reservation?.nomCli || event.reservation?.prenomCli) {
+    clientInfo = {
+      nomCli: event.reservation.nomCli,
+      prenomCli: event.reservation.prenomCli
+    };
+    console.log('✅ Structure trouvée: reservation champs directs');
   }
   
-  if (event.reservation?.client && (event.reservation.client.nomCli || event.reservation.client.prenomCli)) {
-    const nom = `${event.reservation.client.nomCli || ''} ${event.reservation.client.prenomCli || ''}`.trim();
-    console.log('✅ Nom trouvé via event.reservation.client:', nom);
-    return nom;
+  if (clientInfo) {
+    const nom = `${clientInfo.nomCli || ''} ${clientInfo.prenomCli || ''}`.trim();
+    console.log('✅ Nom client trouvé:', nom);
+    return nom || `Client #${clientInfo.idCli || event.idCli || 'Inconnu'}`;
   }
   
-  if (event.Reservation?.Client && (event.Reservation.Client.nomCli || event.Reservation.Client.prenomCli)) {
-    const nom = `${event.Reservation.Client.nomCli || ''} ${event.Reservation.Client.prenomCli || ''}`.trim();
-    console.log('✅ Nom trouvé via event.Reservation.Client:', nom);
-    return nom;
-  }
-  
+  // Fallback: chercher un ID client
   if (event.idCli) {
     console.log('ℹ️  ID client trouvé:', event.idCli);
     return `Client #${event.idCli}`;
@@ -199,9 +211,31 @@ const getClientName = (event) => {
     return `Client #${event.reservation.idCli}`;
   }
   
-  console.log('❌ Aucune information client trouvée');
+  if (event.Reservation?.idCli) {
+    console.log('ℹ️  ID client trouvé via Reservation:', event.Reservation.idCli);
+    return `Client #${event.Reservation.idCli}`;
+  }
+  
+  console.log('❌ Aucune information client trouvée dans les structures:', {
+    event: event.client,
+    reservation: event.reservation?.client,
+    Reservation: event.Reservation?.Client,
+    champsDirects: { nomCli: event.nomCli, prenomCli: event.prenomCli }
+  });
+  
   return 'Client non spécifié';
 };
+
+// Computed properties
+const formattedCalendarEvents = computed(() => {
+  return confirmedEvents.value.map(event => ({
+    id: event.idLo,
+    title: `${event.typeLo} - ${getClientName(event)}`,
+    start: event.debLo,
+    end: event.finLo,
+    classNames: ['bg-primary']
+  }));
+});
 
 const tableData = computed(() => {
   return confirmedEvents.value.map(event => {
