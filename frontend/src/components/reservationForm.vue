@@ -322,142 +322,104 @@ const validationErrors = reactive({
   nbPerso: null
 });
 
-// FONCTION POUR RÉCUPÉRER LE PROFIL CLIENT DE FAÇON DYNAMIQUE
+// FONCTION POUR RÉCUPÉRER LE PROFIL CLIENT DEPUIS L'API
 const fetchClientProfile = async () => {
-  loading.client = true;
   try {
     const token = localStorage.getItem('token');
     if (!token) {
       console.warn('❌ Aucun token trouvé');
-      return;
+      return null;
     }
 
-    // Essayer de récupérer le profil client depuis l'API
     const response = await axios.get('http://localhost:5000/api/clients/profile', {
       headers: {
         Authorization: `Bearer ${token}`
       }
     });
 
-    if (response.data.success) {
-      clientProfile.value = response.data.data;
-      console.log('✅ Profil client récupéré (API):', clientProfile.value);
-      return;
+    if (response.data && response.data.idCli) {
+      console.log('✅ Profil client récupéré via API:', response.data);
+      return response.data;
+    } else {
+      console.warn('❌ Réponse API incomplète:', response.data);
     }
   } catch (error) {
     console.warn('⚠️ Impossible de récupérer le profil client via API:', error.response?.data?.message || error.message);
   }
-
-  // Si l'API échoue, récupérer depuis le localStorage
-  try {
-    const storedClientData = localStorage.getItem('clientInfo');
-    if (storedClientData) {
-      const parsedData = JSON.parse(storedClientData);
-      
-      // Mapper vers la structure attendue
-      clientProfile.value = {
-        nomCli: parsedData.nom || parsedData.nomCli || '',
-        prenomCli: parsedData.prenom || parsedData.prenomCli || '',
-        emailCli: parsedData.email || parsedData.emailCli || '',
-        telephoneCli: parsedData.telephone || parsedData.telephoneCli || '',
-        addresseCli: parsedData.addresse || parsedData.addresseCli || '',
-        typeClient: parsedData.typeClient || parsedData.type || '',
-        statutCompte: parsedData.statutCompte || parsedData.statut || ''
-      };
-      
-      console.log('✅ Profil récupéré depuis localStorage (clientInfo):', clientProfile.value);
-      return;
-    }
-  } catch (e) {
-    console.warn('❌ Impossible de parser clientInfo:', e);
-  }
-
-  // Essayer d'autres clés possibles
-  const possibleKeys = ['userInfo', 'client', 'user', 'profile', 'currentUser'];
-  for (const key of possibleKeys) {
-    try {
-      const storedData = localStorage.getItem(key);
-      if (storedData) {
-        const data = JSON.parse(storedData);
-        clientProfile.value = {
-          nomCli: data.nomCli || data.nom || data.fullName || '',
-          prenomCli: data.prenomCli || data.prenom || '',
-          emailCli: data.emailCli || data.email || data.loginUti || '',
-          telephoneCli: data.telephoneCli || data.telephone || data.phone || '',
-          addresseCli: data.addresseCli || data.addresse || data.address || '',
-          typeClient: data.typeClient || data.type || '',
-          statutCompte: data.statutCompte || data.statut || ''
-        };
-        console.log(`✅ Profil récupéré depuis localStorage (${key}):`, clientProfile.value);
-        break;
-      }
-    } catch (e) {
-      console.warn(`❌ Impossible de parser ${key}:`, e);
-    }
-  }
-  
-  loading.client = false;
+  return null;
 };
 
-// FONCTION POUR RÉCUPÉRER LES DONNÉES CLIENT DE FAÇON DYNAMIQUE
-const getClientData = () => {
-  // Si on a un profil client récupéré avec des données valides
-  if (clientProfile.value && clientProfile.value.nomCli) {
+// FONCTION COMPLÈTEMENT CORRIGÉE POUR RÉCUPÉRER LES DONNÉES CLIENT (SANS DONNÉES DE TEST)
+const getClientData = async () => {
+  console.log('🔄 Récupération des données client...');
+  
+  // 1. Essayer de récupérer depuis l'API d'abord
+  const apiProfile = await fetchClientProfile();
+  if (apiProfile && apiProfile.idCli) {
     const clientData = {
-      nomCli: clientProfile.value.nomCli || '',
-      prenomCli: clientProfile.value.prenomCli || '',
-      emailCli: clientProfile.value.emailCli || '',
-      telephoneCli: clientProfile.value.telephoneCli || '',
-      addresseCli: clientProfile.value.addresseCli || '',
-      typeClient: clientProfile.value.typeClient || '',
-      statutCompte: clientProfile.value.statutCompte || ''
+      idCli: apiProfile.idCli,
+      nomCli: apiProfile.nomCli || '',
+      prenomCli: apiProfile.prenomCli || '',
+      emailCli: apiProfile.emailCli || '',
+      telephoneCli: apiProfile.telephoneCli || '',
+      addresseCli: apiProfile.addresseCli || '',
+      typeClient: apiProfile.typeClient || 'Particulier',
+      statutCompte: apiProfile.statutCompte || 'Actif'
     };
     
-    console.log('📋 Données client structurées:', clientData);
+    console.log('✅ Données client réelles depuis API:', clientData);
     return clientData;
   }
 
-  // Sinon, essayer de récupérer directement depuis localStorage
-  const possibleKeys = ['clientInfo', 'userInfo', 'client', 'user', 'profile', 'currentUser'];
+  // 2. Si l'API échoue, essayer de récupérer depuis localStorage avec toutes les clés possibles
+  const possibleKeys = ['clientInfo', 'userInfo', 'currentUser', 'clientProfile', 'user', 'client'];
+  
   for (const key of possibleKeys) {
     const storedData = localStorage.getItem(key);
     if (storedData) {
       try {
         const data = JSON.parse(storedData);
-        const clientData = {
-          nomCli: data.nomCli || data.nom || data.fullName || '',
-          prenomCli: data.prenomCli || data.prenom || '',
-          emailCli: data.emailCli || data.email || data.loginUti || '',
-          telephoneCli: data.telephoneCli || data.telephone || data.phone || '',
-          addresseCli: data.addresseCli || data.addresse || data.address || '',
-          typeClient: data.typeClient || data.type || '',
-          statutCompte: data.statutCompte || data.statut || ''
-        };
+        console.log(`📁 Données ${key} trouvées:`, data);
         
-        // Ne retourner que si on a au moins le nom et l'email
-        if (clientData.nomCli && clientData.emailCli) {
-          console.log(`📋 Données client depuis ${key}:`, clientData);
+        // Vérifier si ces données contiennent des informations client valides
+        const hasClientInfo = (data.idCli || data.id) && (data.nomCli || data.nom) && (data.emailCli || data.email);
+        
+        if (hasClientInfo) {
+          const clientData = {
+            idCli: data.idCli || data.id || null,
+            nomCli: data.nomCli || data.nom || '',
+            prenomCli: data.prenomCli || data.prenom || '',
+            emailCli: data.emailCli || data.email || '',
+            telephoneCli: data.telephoneCli || data.telephone || '',
+            addresseCli: data.addresseCli || data.addresse || '',
+            typeClient: data.typeClient || data.type || 'Particulier',
+            statutCompte: data.statutCompte || data.statut || 'Actif'
+          };
+          
+          console.log(`✅ Données client valides depuis ${key}:`, clientData);
           return clientData;
         }
       } catch (e) {
-        console.warn(`❌ Impossible de parser ${key}:`, e);
+        console.warn(`❌ Erreur parsing ${key}:`, e);
       }
     }
   }
 
-  // Si aucune donnée valide n'est trouvée, retourner des valeurs vides
-  const emptyData = {
+  // 3. Si AUCUNE donnée client n'est trouvée, afficher une erreur claire
+  console.error('❌ Aucune donnée client valide trouvée');
+  message.error('Impossible de récupérer vos informations client. Veuillez vous reconnecter ou contacter l\'administrateur.');
+  
+  // Retourner des données vides pour éviter les erreurs
+  return {
+    idCli: null,
     nomCli: '',
     prenomCli: '',
     emailCli: '',
     telephoneCli: '',
     addresseCli: '',
-    typeClient: '',
-    statutCompte: ''
+    typeClient: 'Particulier',
+    statutCompte: 'Actif'
   };
-  
-  console.log('❌ Aucune donnée client valide trouvée');
-  return emptyData;
 };
 
 // FONCTION POUR VALIDER LES DONNÉES CLIENT AVANT SOUMISSION
@@ -474,6 +436,10 @@ const validateClientData = (clientData) => {
   
   if (!clientData.telephoneCli || clientData.telephoneCli.trim() === '') {
     errors.push('Le téléphone est requis');
+  }
+  
+  if (!clientData.idCli) {
+    errors.push('ID client manquant - impossible de créer la réservation');
   }
   
   return {
@@ -697,14 +663,11 @@ const calculateTarif = () => {
 const fetchInitialData = async () => {
   loading.catalogue = true;
   try {
-    // Charger en parallèle les ressources et le profil client
-    await Promise.all([
-      fetchResources(),
-      fetchClientProfile()
-    ]);
+    // Charger les ressources
+    await fetchResources();
 
-    // Afficher les données client récupérées
-    const clientData = getClientData();
+    // Récupérer les données client
+    const clientData = await getClientData();
     console.log('👤 Données client finales pour notification:', clientData);
 
   } catch (error) {
@@ -776,7 +739,7 @@ const fetchResources = async () => {
   }
 };
 
-// MÉTHODE DE SOUMISSION CORRIGÉE - COMPLÈTEMENT DYNAMIQUE
+// MÉTHODE DE SOUMISSION CORRIGÉE
 const submitForm = async () => {
   if (!isFormValid.value) {
     message.error('Veuillez corriger les erreurs dans le formulaire');
@@ -790,8 +753,8 @@ const submitForm = async () => {
   isSubmitting.value = true;
   
   try {
-    // Récupérer les données client de façon dynamique
-    const clientData = getClientData();
+    // Récupérer les données client (TOUJOURS fraîches depuis l'API/localStorage)
+    const clientData = await getClientData();
     
     console.log('📨 Données client pour notification:', clientData);
 
@@ -799,6 +762,12 @@ const submitForm = async () => {
     const validation = validateClientData(clientData);
     if (!validation.isValid) {
       message.error(`Informations client incomplètes: ${validation.errors.join(', ')}. Veuillez compléter votre profil avant de faire une réservation.`);
+      
+      // Rediriger vers la page de profil si les données sont manquantes
+      setTimeout(() => {
+        router.push('/client/mon-compte');
+      }, 2000);
+      
       isSubmitting.value = false;
       return;
     }
@@ -827,8 +796,10 @@ const submitForm = async () => {
 
     message.success('Votre demande de réservation a été envoyée avec succès ! Notre équipe vous contactera rapidement.');
     
-    // Rediriger vers la page des réservations du client
-    router.push('/client/mes-reservations');
+    // Rediriger vers le tableau de bord client
+    setTimeout(() => {
+      router.push('/compteClient'); 
+    }, 1500);
 
   } catch (error) {
     console.error('❌ Erreur réservation:', error);
@@ -857,7 +828,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Le CSS reste exactement le même */
+/* Les styles restent inchangés */
 .main-content {
   background-color: #ffffff;
 }

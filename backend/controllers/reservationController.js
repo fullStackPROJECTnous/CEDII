@@ -1,6 +1,27 @@
-const { Reservation, Client, Materiel, Salle, Utilisateur, Notification } = require('../models');
+const { Reservation, Client, Materiel, Salle, Utilisateur, Notification, Catalogue } = require('../models');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
+
+// 🆕 MAPPING MANUEL idCatalogue → Ressources
+const getRessourceFromCatalogue = (idCatalogue, typeRes) => {
+    const mapping = {
+        // Salles
+        'CAT001': { idSalle: 1, codeMat: null },
+        'CAT002': { idSalle: 2, codeMat: null },
+        'CAT003': { idSalle: 3, codeMat: null },
+        
+        // Matériels  
+        'CAT401': { idSalle: null, codeMat: 'MAT-A2024-CEDII/001' },
+        'CAT402': { idSalle: null, codeMat: 'MAT-A2024-CEDII/002' },
+        'CAT501': { idSalle: null, codeMat: 'MAT-A2025-CEDII/001' },
+        'CAT502': { idSalle: null, codeMat: 'MAT-A2025-CEDII/002' },
+        'CAT503': { idSalle: null, codeMat: 'MAT-A2025-CEDII/003' },
+        'CAT504': { idSalle: null, codeMat: 'MAT-A2025-CEDII/004' },
+        'CAT505': { idSalle: null, codeMat: 'MAT-A2025-CEDII/005' }
+    };
+    
+    return mapping[idCatalogue] || { idSalle: null, codeMat: null };
+};
 
 // 🆕 MÉTHODE POUR CRÉER LES NOTIFICATIONS
 const creerNotificationsReservation = async (reservation, client) => {
@@ -44,7 +65,7 @@ const creerNotificationsReservation = async (reservation, client) => {
     }
 };
 
-// 🆕 MÉTHODE POUR LES CLIENTS PUBLICS
+// 🆕 MÉTHODE POUR LES CLIENTS PUBLICS - VERSION CORRIGÉE
 exports.createPublicReservation = async (req, res) => {
     try {
         const {
@@ -55,24 +76,50 @@ exports.createPublicReservation = async (req, res) => {
             finRes,
             tarifTot,
             qteMat,
-            clientData // Données du client public
+            clientData
         } = req.body;
 
-        console.log('📨 Réservation publique reçue:', { clientData, reservationData: req.body });
+        console.log('📨 Réservation publique reçue:', { 
+            idCatalogue, typeRes, debRes, finRes, 
+            client: { nom: clientData?.nomCli, email: clientData?.emailCli } 
+        });
 
-        // Validation des données client
-        if (!clientData || !clientData.nomCli || !clientData.emailCli || !clientData.telephoneCli) {
-            return res.status(400).json({
-                success: false,
-                message: "Informations client incomplètes (nom, email, téléphone requis)"
-            });
+        // 🎯 VALIDATION RENFORCÉE
+        const errors = [];
+
+        if (!idCatalogue || idCatalogue === 'null' || idCatalogue === 'undefined') {
+            errors.push('La ressource (idCatalogue) est requise');
         }
 
-        // Validation des dates
-        if (new Date(debRes) >= new Date(finRes)) {
+        if (!typeRes) {
+            errors.push('Le type de réservation est requis');
+        }
+
+        if (!debRes) {
+            errors.push('La date de début est requise');
+        }
+
+        if (!finRes) {
+            errors.push('La date de fin est requise');
+        }
+
+        if (debRes && finRes && new Date(debRes) >= new Date(finRes)) {
+            errors.push('La date de fin doit être après la date de début');
+        }
+
+        if (!clientData?.nomCli) {
+            errors.push('Le nom du client est requis');
+        }
+
+        if (!clientData?.emailCli) {
+            errors.push('L\'email du client est requis');
+        }
+
+        if (errors.length > 0) {
             return res.status(400).json({
                 success: false,
-                message: "La date de fin doit être après la date de début"
+                message: 'Données invalides',
+                errors: errors
             });
         }
 
@@ -96,7 +143,7 @@ exports.createPublicReservation = async (req, res) => {
                 nomCli: clientData.nomCli,
                 prenomCli: clientData.prenomCli || null,
                 emailCli: clientData.emailCli,
-                telephoneCli: clientData.telephoneCli,
+                telephoneCli: clientData.telephoneCli || '+261000000000',
                 addresseCli: clientData.addresseCli || 'Non spécifiée',
                 typeCli: 'Public',
                 statutCli: 'Actif',
@@ -104,52 +151,90 @@ exports.createPublicReservation = async (req, res) => {
             });
         }
 
-        // Vérification des conflits de dates
+        // 🎯 VÉRIFICATION DES CONFLITS - VERSION CORRIGÉE
+        console.log('🔍 Vérification des conflits...');
+        
+        const whereClause = {
+            etatRes: { [Op.in]: ['Confirmée', 'En cours'] }, // Seulement les réservations actives
+            typeRes: typeRes,
+            idCatalogue: idCatalogue,
+            [Op.and]: [
+                { debRes: { [Op.lt]: new Date(finRes) } },
+                { finRes: { [Op.gt]: new Date(debRes) } }
+            ]
+        };
+
+        console.log('🔍 Clause WHERE:', JSON.stringify(whereClause, null, 2));
+
         const conflictingReservation = await Reservation.findOne({
-            where: {
-                [Op.or]: [
-                    { debRes: { [Op.lte]: new Date(debRes) }, finRes: { [Op.gt]: new Date(debRes) } },
-                    { debRes: { [Op.lt]: new Date(finRes) }, finRes: { [Op.gte]: new Date(finRes) } },
-                    { debRes: { [Op.gte]: new Date(debRes) }, finRes: { [Op.lte]: new Date(finRes) } }
-                ],
-                etatRes: { [Op.in]: ['En attente', 'Confirmée'] }
-            }
+            where: whereClause,
+            attributes: ['idRes', 'etatRes', 'debRes', 'finRes', 'idCatalogue', 'typeRes']
         });
 
         if (conflictingReservation) {
+            console.log('🚨 CONFLIT DÉTECTÉ:', conflictingReservation.toJSON());
             return res.status(409).json({
-                message: 'Conflit de réservation: la ressource est déjà réservée pour cette période'
+                success: false,
+                message: `La ressource est déjà réservée du ${formatDate(conflictingReservation.debRes)} au ${formatDate(conflictingReservation.finRes)}`,
+                conflit: {
+                    reservationId: conflictingReservation.idRes,
+                    periode: `${formatDate(conflictingReservation.debRes)} - ${formatDate(conflictingReservation.finRes)}`,
+                    statut: conflictingReservation.etatRes
+                }
             });
         }
 
-        // Déterminer idSalle ou codeMat selon le type
-        let idSalle = null;
-        let codeMat = null;
-        
-        if (typeRes === 'Salle') {
-            idSalle = idCatalogue;
-        } else {
-            codeMat = idCatalogue;
-        }
+        console.log('✅ Aucun conflit détecté - Création de la réservation...');
 
-        // Créer la réservation
-        const nouvelleReservation = await Reservation.create({
+        // 🎯 CORRECTION : Gestion des valeurs avec MAPPING
+        const reservationData = {
             idCli: client.idCli,
-            typeRes,
-            nbPerso: nbPerso || null,
+            idCatalogue: idCatalogue,
+            typeRes: typeRes,
+            typeDuree: 'Jour',
             debRes: new Date(debRes),
             finRes: new Date(finRes),
-            tarifTot,
-            idSalle: idSalle,
-            codeMat: codeMat,
-            qteMat: qteMat || 1,
-            dateCre: new Date(),
+            tarifTot: parseFloat(tarifTot),
             etatRes: 'En attente',
-            notifiedReception: false,
-            receptionViewed: false
-        });
+            dateCre: new Date()
+        };
 
-        console.log('✅ Réservation publique créée:', nouvelleReservation.idRes);
+        // 🆕 ASSOCIATION AUTOMATIQUE DES RESSOURCES VIA MAPPING
+        const ressourceMapping = getRessourceFromCatalogue(idCatalogue, typeRes);
+        reservationData.idSalle = ressourceMapping.idSalle;
+        reservationData.codeMat = ressourceMapping.codeMat;
+
+        console.log('🗺️ Mapping ressource:', { idCatalogue, typeRes, ressourceMapping });
+
+        // 🎯 CORRECTION : Gestion conditionnelle AVEC VALEURS PAR DÉFAUT
+        if (typeRes.toLowerCase() === 'materiel') {
+            reservationData.qteMat = qteMat || 1; // Au moins 1 pour le matériel
+            reservationData.nbPerso = 0; // 0 pour le matériel au lieu de null
+            // S'assurer que codeMat est défini pour le matériel
+            if (!reservationData.codeMat) {
+                console.warn('⚠️ Aucun codeMat défini pour le matériel, utilisation de idCatalogue');
+                reservationData.codeMat = idCatalogue; // Fallback
+            }
+        } else if (typeRes.toLowerCase() === 'salle') {
+            reservationData.nbPerso = nbPerso || 1; // Au moins 1 pour les salles
+            reservationData.qteMat = 0; // 0 pour les salles au lieu de null
+            // S'assurer que idSalle est défini pour la salle
+            if (!reservationData.idSalle) {
+                console.warn('⚠️ Aucun idSalle défini pour la salle, utilisation par défaut');
+                reservationData.idSalle = 1; // Fallback - première salle
+            }
+        } else {
+            // Pour les autres types, valeurs par défaut
+            reservationData.qteMat = qteMat || 0;
+            reservationData.nbPerso = nbPerso || 0;
+        }
+
+        console.log('📦 Données réservation préparées:', reservationData);
+
+        // 🎯 CRÉATION DE LA RÉSERVATION
+        const nouvelleReservation = await Reservation.create(reservationData);
+
+        console.log('🎉 RÉSERVATION CRÉÉE:', nouvelleReservation.idRes);
 
         // 🎯 CRÉER LES NOTIFICATIONS POUR LA RÉCEPTION
         await creerNotificationsReservation(nouvelleReservation, client);
@@ -179,24 +264,60 @@ exports.createPublicReservation = async (req, res) => {
             console.log('📢 Notification Socket.io envoyée aux réceptionnistes');
         }
 
+        // 🎯 RÉCUPÉRER LA RÉSERVATION COMPLÈTE AVEC LES ASSOCIATIONS
+        const reservationComplete = await Reservation.findByPk(nouvelleReservation.idRes, {
+            include: [
+                {
+                    model: Client,
+                    as: 'client',
+                    attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli']
+                },
+                {
+                    model: Salle,
+                    as: 'salle',
+                    attributes: ['idSalle', 'nomSalle', 'numeroSalle'],
+                    required: false
+                },
+                {
+                    model: Materiel,
+                    as: 'materiel',
+                    attributes: ['codeMat', 'designationMat', 'categorieMat'],
+                    required: false
+                }
+            ]
+        });
+
         res.status(201).json({
             success: true,
-            message: "Votre demande de réservation a été envoyée avec succès. Notre équipe vous contactera rapidement.",
+            message: "✅ Votre demande de réservation a été envoyée avec succès ! Notre équipe vous contactera rapidement.",
             data: {
                 reservationId: nouvelleReservation.idRes,
                 client: {
                     nom: client.nomCli,
                     prenom: client.prenomCli,
                     email: client.emailCli
+                },
+                reservation: reservationComplete,
+                details: {
+                    type: typeRes,
+                    dates: `${new Date(debRes).toLocaleDateString()} - ${new Date(finRes).toLocaleDateString()}`,
+                    statut: 'En attente'
                 }
             }
         });
 
     } catch (error) {
         console.error('❌ Erreur création réservation publique:', error);
+        
+        // Message d'erreur plus détaillé
+        let errorMessage = "Erreur technique lors de l'envoi de votre demande";
+        if (error.name === 'SequelizeValidationError') {
+            errorMessage = "Erreur de validation des données: " + error.errors.map(e => e.message).join(', ');
+        }
+        
         res.status(500).json({
             success: false,
-            message: "Erreur lors de l'envoi de votre demande",
+            message: errorMessage,
             error: error.message
         });
     }
@@ -205,6 +326,8 @@ exports.createPublicReservation = async (req, res) => {
 // 🆕 MÉTHODE POUR RÉCUPÉRER LES DEMANDES EN ATTENTE
 exports.getPendingReservations = async (req, res) => {
     try {
+        console.log('📍 Récupération des réservations en attente...');
+        
         const reservations = await Reservation.findAll({
             where: { 
                 etatRes: 'En attente'
@@ -212,43 +335,32 @@ exports.getPendingReservations = async (req, res) => {
             include: [
                 {
                     model: Client,
+                    as: 'client',
                     attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli', 'typeCli']
                 },
                 {
                     model: Salle,
-                    attributes: ['idSalle', 'nomSalle', 'numeroSalle']
+                    as: 'salle',
+                    attributes: ['idSalle', 'nomSalle', 'numeroSalle', 'capaciteSalle'],
+                    required: false
                 },
                 {
                     model: Materiel,
-                    attributes: ['codeMat', 'designationMat', 'categorieMat']
+                    as: 'materiel',
+                    attributes: ['codeMat', 'designationMat', 'categorieMat', 'tarifJour'],
+                    required: false
                 }
             ],
             order: [['dateCre', 'DESC']]
         });
 
-        // Récupérer aussi les notifications non lues
-        const notifications = await Notification.findAll({
-            where: {
-                destinataireRole: 'reception',
-                statutNotif: 'non_lu'
-            },
-            include: [{
-                model: Reservation,
-                as: 'reservation',
-                include: [{
-                    model: Client,
-                    attributes: ['nomCli', 'prenomCli']
-                }]
-            }],
-            order: [['dateEnvoi', 'DESC']]
-        });
+        console.log(`✅ ${reservations.length} réservation(s) en attente trouvée(s)`);
 
         res.json({
             success: true,
             count: reservations.length,
             pendingCount: reservations.length,
-            reservations: reservations,
-            notifications: notifications
+            reservations: reservations
         });
 
     } catch (error) {
@@ -266,12 +378,19 @@ exports.marquerNotificationLue = async (req, res) => {
     try {
         const { idNotif } = req.params;
 
-        await Notification.update({
+        const [updated] = await Notification.update({
             statutNotif: 'lu',
             dateLecture: new Date()
         }, {
             where: { idNotif }
         });
+
+        if (!updated) {
+            return res.status(404).json({
+                success: false,
+                message: "Notification non trouvée"
+            });
+        }
 
         res.json({
             success: true,
@@ -288,480 +407,634 @@ exports.marquerNotificationLue = async (req, res) => {
     }
 };
 
-// MÉTHODE EXISTANTE - MODIFIÉE POUR AJOUTER LES NOTIFICATIONS
+// MÉTHODE POUR LES RÉSERVATIONS CLIENTS AUTHENTIFIÉS
 exports.createReservation = async (req, res) => {
-  try {
-    const {
-      idCli,
-      typeRes,
-      nbPerso,
-      debRes,
-      finRes,
-      tarifTot,
-      idSalle,
-      codeMat,
-      qteMat
-    } = req.body;
+    try {
+        const {
+            idCatalogue,
+            typeRes,
+            nbPerso,
+            debRes,
+            finRes,
+            tarifTot,
+            qteMat
+        } = req.body;
 
-    // Validation des données requises
-    if (!idCli || !typeRes || !debRes || !finRes || !tarifTot) {
-      return res.status(400).json({
-        message: 'Données manquantes: idCli, typeRes, debRes, finRes et tarifTot sont obligatoires'
-      });
-    }
+        const clientId = req.user.idCli || req.user.id;
+        console.log('👤 Client authentifié ID:', clientId);
 
-    // Vérification des conflits de dates
-    const conflictingReservation = await Reservation.findOne({
-      where: {
-        [Op.or]: [
-          // Conflit: nouvelle réservation commence pendant une existante
-          {
-            debRes: { [Op.lte]: new Date(debRes) },
-            finRes: { [Op.gt]: new Date(debRes) }
-          },
-          // Conflit: nouvelle réservation termine pendant une existante
-          {
-            debRes: { [Op.lt]: new Date(finRes) },
-            finRes: { [Op.gte]: new Date(finRes) }
-          },
-          // Conflit: nouvelle réservation englobe une existante
-          {
-            debRes: { [Op.gte]: new Date(debRes) },
-            finRes: { [Op.lte]: new Date(finRes) }
-          }
-        ],
-        etatRes: { [Op.in]: ['En attente', 'Confirmée'] }
-      }
-    });
-
-    if (conflictingReservation) {
-      return res.status(409).json({
-        message: 'Conflit de réservation: la ressource est déjà réservée pour cette période'
-      });
-    }
-
-    // Création de la réservation
-    const nouvelleReservation = await Reservation.create({
-      idCli,
-      typeRes,
-      nbPerso: nbPerso || null,
-      debRes: new Date(debRes),
-      finRes: new Date(finRes),
-      tarifTot,
-      idSalle: idSalle || null,
-      codeMat: codeMat || null,
-      qteMat: qteMat || 1,
-      dateCre: new Date(),
-      etatRes: 'En attente'
-    });
-
-    // Récupérer le client pour les notifications
-    const client = await Client.findByPk(idCli);
-    
-    // 🎯 CRÉER LES NOTIFICATIONS POUR LA RÉCEPTION
-    if (client) {
-        await creerNotificationsReservation(nouvelleReservation, client);
-    }
-
-    // Récupération des données complètes pour la réponse
-    const reservationComplete = await Reservation.findByPk(nouvelleReservation.idRes, {
-      include: [
-        {
-          model: Client,
-          attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli'],
-          include: [{
-            model: Utilisateur,
-            attributes: ['loginUti']
-          }]
-        },
-        {
-          model: Salle,
-          attributes: ['idSalle', 'nomSalle', 'numeroSalle', 'capaciteSalle']
-        },
-        {
-          model: Materiel,
-          attributes: ['codeMat', 'designationMat', 'categorieMat']
+        // Validation des données
+        if (!clientId || !typeRes || !debRes || !finRes || !tarifTot) {
+            return res.status(400).json({
+                success: false,
+                message: 'Données manquantes: typeRes, debRes, finRes et tarifTot sont obligatoires'
+            });
         }
-      ]
-    });
 
-    res.status(201).json({
-      message: 'Réservation créée avec succès',
-      reservation: reservationComplete
-    });
+        // Vérifier que le client existe
+        const client = await Client.findByPk(clientId);
+        if (!client) {
+            return res.status(404).json({
+                success: false,
+                message: 'Client non trouvé'
+            });
+        }
 
-  } catch (error) {
-    console.error('Erreur création réservation:', error);
-    res.status(500).json({
-      message: 'Erreur lors de la création de la réservation',
-      error: error.message
-    });
-  }
-};
+        // Vérification des conflits
+        const conflictingReservation = await Reservation.findOne({
+            where: {
+                etatRes: { [Op.in]: ['Confirmée', 'En cours'] },
+                typeRes: typeRes,
+                idCatalogue: idCatalogue,
+                [Op.and]: [
+                    { debRes: { [Op.lt]: new Date(finRes) } },
+                    { finRes: { [Op.gt]: new Date(debRes) } }
+                ]
+            }
+        });
 
-// MÉTHODE EXISTANTE - MODIFIÉE POUR LES NOTIFICATIONS D'ANNULATION
-exports.cancelReservation = async (req, res) => {
-  try {
-    const { id } = req.params;
+        if (conflictingReservation) {
+            return res.status(409).json({
+                success: false,
+                message: `Conflit de réservation: la ressource est déjà réservée du ${formatDate(conflictingReservation.debRes)} au ${formatDate(conflictingReservation.finRes)}`
+            });
+        }
 
-    const reservation = await Reservation.findByPk(id, {
-        include: [{
-            model: Client,
-            attributes: ['idCli', 'nomCli', 'prenomCli']
-        }]
-    });
+        // CORRECTION : Gestion conditionnelle avec MAPPING
+        const reservationData = {
+            idCli: clientId,
+            idCatalogue: idCatalogue,
+            typeRes: typeRes,
+            typeDuree: 'Jour',
+            debRes: new Date(debRes),
+            finRes: new Date(finRes),
+            tarifTot: parseFloat(tarifTot),
+            etatRes: 'En attente',
+            dateCre: new Date()
+        };
 
-    if (!reservation) {
-      return res.status(404).json({
-        message: 'Réservation non trouvée'
-      });
-    }
+        // 🆕 ASSOCIATION AUTOMATIQUE DES RESSOURCES VIA MAPPING
+        const ressourceMapping = getRessourceFromCatalogue(idCatalogue, typeRes);
+        reservationData.idSalle = ressourceMapping.idSalle;
+        reservationData.codeMat = ressourceMapping.codeMat;
 
-    // Vérifier si l'annulation est possible
-    if (reservation.etatRes === 'Annulée') {
-      return res.status(400).json({
-        message: 'Cette réservation est déjà annulée'
-      });
-    }
+        console.log('🗺️ Mapping ressource:', { idCatalogue, typeRes, ressourceMapping });
 
-    if (reservation.etatRes === 'Terminée') {
-      return res.status(400).json({
-        message: 'Impossible d\'annuler une réservation terminée'
-      });
-    }
+        // 🎯 CORRECTION : Gestion conditionnelle AVEC VALEURS PAR DÉFAUT
+        if (typeRes.toLowerCase() === 'materiel') {
+            reservationData.qteMat = qteMat || 1;
+            reservationData.nbPerso = 0; // 0 pour le matériel au lieu de null
+            if (!reservationData.codeMat) {
+                reservationData.codeMat = idCatalogue; // Fallback
+            }
+        } else if (typeRes.toLowerCase() === 'salle') {
+            reservationData.nbPerso = nbPerso || 1;
+            reservationData.qteMat = 0; // 0 pour les salles au lieu de null
+            if (!reservationData.idSalle) {
+                reservationData.idSalle = 1; // Fallback
+            }
+        } else {
+            reservationData.qteMat = qteMat || 0;
+            reservationData.nbPerso = nbPerso || 0;
+        }
 
-    // Calculer si l'annulation est trop proche de la date de début
-    const now = new Date();
-    const debRes = new Date(reservation.debRes);
-    const diffHeures = (debRes - now) / (1000 * 60 * 60);
+        // Création de la réservation
+        const nouvelleReservation = await Reservation.create(reservationData);
 
-    if (diffHeures < 24) {
-      return res.status(400).json({
-        message: 'Annulation impossible moins de 24h avant le début de la réservation'
-      });
-    }
+        console.log('✅ Réservation client créée:', nouvelleReservation.idRes);
 
-    await Reservation.update(
-      { etatRes: 'Annulée' },
-      { where: { idRes: id } }
-    );
+        // Créer les notifications
+        await creerNotificationsReservation(nouvelleReservation, client);
 
-    // 🎯 CRÉER UNE NOTIFICATION D'ANNULATION
-    if (reservation.Client) {
-        await Notification.create({
-            idRes: reservation.idRes,
-            typeNotif: 'annulation',
-            titre: '❌ Réservation Annulée',
-            message: `La réservation #${reservation.idRes} de ${reservation.Client.nomCli} a été annulée.`,
-            destinataireRole: 'reception',
-            urgence: 'moyenne'
+        // Récupération des données complètes
+        const reservationComplete = await Reservation.findByPk(nouvelleReservation.idRes, {
+            include: [
+                {
+                    model: Client,
+                    as: 'client',
+                    attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli']
+                },
+                {
+                    model: Salle,
+                    as: 'salle',
+                    attributes: ['idSalle', 'nomSalle', 'numeroSalle'],
+                    required: false
+                },
+                {
+                    model: Materiel,
+                    as: 'materiel',
+                    attributes: ['codeMat', 'designationMat', 'categorieMat'],
+                    required: false
+                }
+            ]
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Réservation créée avec succès',
+            data: reservationComplete
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur création réservation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la création de la réservation',
+            error: error.message
         });
     }
-
-    res.json({
-      message: 'Réservation annulée avec succès'
-    });
-
-  } catch (error) {
-    console.error('Erreur annulation réservation:', error);
-    res.status(500).json({
-      message: 'Erreur lors de l\'annulation de la réservation',
-      error: error.message
-    });
-  }
 };
 
-// MÉTHODES EXISTANTES (conservées telles quelles)
-exports.getClientReservations = async (req, res) => {
-  try {
-    const { clientId } = req.params;
-
-    const reservations = await Reservation.findAll({
-      where: { idCli: clientId },
-      include: [
-        {
-          model: Salle,
-          attributes: ['idSalle', 'nomSalle', 'numeroSalle']
-        },
-        {
-          model: Materiel,
-          attributes: ['codeMat', 'designationMat', 'categorieMat']
-        }
-      ],
-      order: [['debRes', 'DESC']]
-    });
-
-    res.json({
-      message: `Réservations du client ${clientId} récupérées avec succès`,
-      count: reservations.length,
-      reservations
-    });
-
-  } catch (error) {
-    console.error('Erreur récupération réservations client:', error);
-    res.status(500).json({
-      message: 'Erreur lors de la récupération des réservations',
-      error: error.message
-    });
-  }
-};
-
-exports.getReservationById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const reservation = await Reservation.findByPk(id, {
-      include: [
-        {
-          model: Client,
-          attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli'],
-          include: [{
-            model: Utilisateur,
-            attributes: ['loginUti']
-          }]
-        },
-        {
-          model: Salle,
-          attributes: ['idSalle', 'nomSalle', 'numeroSalle', 'capaciteSalle']
-        },
-        {
-          model: Materiel,
-          attributes: ['codeMat', 'designationMat', 'categorieMat', 'tarifJour']
-        }
-      ]
-    });
-
-    if (!reservation) {
-      return res.status(404).json({
-        message: 'Réservation non trouvée'
-      });
-    }
-
-    res.json({
-      message: 'Réservation récupérée avec succès',
-      reservation
-    });
-
-  } catch (error) {
-    console.error('Erreur récupération réservation:', error);
-    res.status(500).json({
-      message: 'Erreur lors de la récupération de la réservation',
-      error: error.message
-    });
-  }
-};
-
-exports.updateReservation = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-
-    // Ne pas permettre la modification du statut via cette route
-    if (updates.etatRes) {
-      delete updates.etatRes;
-    }
-
-    const [updated] = await Reservation.update(updates, {
-      where: { idRes: id }
-    });
-
-    if (!updated) {
-      return res.status(404).json({
-        message: 'Réservation non trouvée'
-      });
-    }
-
-    const reservationUpdated = await Reservation.findByPk(id);
-
-    res.json({
-      message: 'Réservation mise à jour avec succès',
-      reservation: reservationUpdated
-    });
-
-  } catch (error) {
-    console.error('Erreur mise à jour réservation:', error);
-    res.status(500).json({
-      message: 'Erreur lors de la mise à jour de la réservation',
-      error: error.message
-    });
-  }
-};
-
+// MÉTHODE POUR METTRE À JOUR LE STATUT D'UNE RÉSERVATION
 exports.updateReservationStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { etatRes } = req.body;
+    try {
+        const { id } = req.params;
+        const { etatRes } = req.body;
 
-    const statutsValides = ['En attente', 'Confirmée', 'Annulée', 'Terminée'];
-    
-    if (!statutsValides.includes(etatRes)) {
-      return res.status(400).json({
-        message: 'Statut invalide',
-        statutsValides
-      });
+        console.log(`📍 Mise à jour statut réservation #${id} -> ${etatRes}`);
+
+        const statutsValides = ['En attente', 'Confirmée', 'Refusée', 'Annulée', 'Terminée'];
+        
+        if (!statutsValides.includes(etatRes)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Statut invalide',
+                statutsValides
+            });
+        }
+
+        const reservation = await Reservation.findByPk(id, {
+            include: [
+                {
+                    model: Client,
+                    as: 'client',
+                    attributes: ['idCli', 'nomCli', 'prenomCli']
+                }
+            ]
+        });
+        
+        if (!reservation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Réservation non trouvée'
+            });
+        }
+
+        // Mettre à jour le statut
+        await reservation.update({ etatRes });
+
+        // Créer une notification pour le changement de statut
+        if (etatRes === 'Refusée' || etatRes === 'Confirmée') {
+            await Notification.create({
+                idRes: reservation.idRes,
+                typeNotif: 'statut_modifie',
+                titre: etatRes === 'Confirmée' ? '✅ Réservation Confirmée' : '❌ Réservation Refusée',
+                message: `La réservation #${reservation.idRes} de ${reservation.client.nomCli} a été ${etatRes.toLowerCase()}.`,
+                destinataireRole: 'reception',
+                urgence: 'moyenne'
+            });
+        }
+
+        console.log(`✅ Statut réservation #${id} mis à jour avec succès: ${etatRes}`);
+
+        res.json({
+            success: true,
+            message: `Statut de la réservation #${id} mis à jour avec succès: ${etatRes}`,
+            data: {
+                idRes: reservation.idRes,
+                etatRes: reservation.etatRes,
+                client: reservation.client
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur changement statut réservation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors du changement de statut',
+            error: error.message
+        });
     }
-
-    const [updated] = await Reservation.update(
-      { etatRes },
-      { where: { idRes: id } }
-    );
-
-    if (!updated) {
-      return res.status(404).json({
-        message: 'Réservation non trouvée'
-      });
-    }
-
-    res.json({
-      message: `Statut de la réservation mis à jour: ${etatRes}`
-    });
-
-  } catch (error) {
-    console.error('Erreur changement statut réservation:', error);
-    res.status(500).json({
-      message: 'Erreur lors du changement de statut',
-      error: error.message
-    });
-  }
 };
 
+// MÉTHODE POUR ANNULER UNE RÉSERVATION
+exports.cancelReservation = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const reservation = await Reservation.findByPk(id, {
+            include: [{
+                model: Client,
+                as: 'client',
+                attributes: ['idCli', 'nomCli', 'prenomCli']
+            }]
+        });
+
+        if (!reservation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Réservation non trouvée'
+            });
+        }
+
+        // Vérifier si l'annulation est possible
+        if (reservation.etatRes === 'Annulée') {
+            return res.status(400).json({
+                success: false,
+                message: 'Cette réservation est déjà annulée'
+            });
+        }
+
+        if (reservation.etatRes === 'Terminée') {
+            return res.status(400).json({
+                success: false,
+                message: 'Impossible d\'annuler une réservation terminée'
+            });
+        }
+
+        // Calculer si l'annulation est trop proche de la date de début
+        const now = new Date();
+        const debRes = new Date(reservation.debRes);
+        const diffHeures = (debRes - now) / (1000 * 60 * 60);
+
+        if (diffHeures < 24) {
+            return res.status(400).json({
+                success: false,
+                message: 'Annulation impossible moins de 24h avant le début de la réservation'
+            });
+        }
+
+        await reservation.update({ etatRes: 'Annulée' });
+
+        // Créer une notification d'annulation
+        if (reservation.client) {
+            await Notification.create({
+                idRes: reservation.idRes,
+                typeNotif: 'annulation',
+                titre: '❌ Réservation Annulée',
+                message: `La réservation #${reservation.idRes} de ${reservation.client.nomCli} a été annulée.`,
+                destinataireRole: 'reception',
+                urgence: 'moyenne'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Réservation annulée avec succès'
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur annulation réservation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de l\'annulation de la réservation',
+            error: error.message
+        });
+    }
+};
+
+// MÉTHODE POUR RÉCUPÉRER LES RÉSERVATIONS D'UN CLIENT
+exports.getClientReservations = async (req, res) => {
+    try {
+        const { clientId } = req.params;
+
+        const reservations = await Reservation.findAll({
+            where: { idCli: clientId },
+            include: [
+                {
+                    model: Salle,
+                    as: 'salle',
+                    attributes: ['idSalle', 'nomSalle', 'numeroSalle'],
+                    required: false
+                },
+                {
+                    model: Materiel,
+                    as: 'materiel',
+                    attributes: ['codeMat', 'designationMat', 'categorieMat'],
+                    required: false
+                }
+            ],
+            order: [['debRes', 'DESC']]
+        });
+
+        res.json({
+            success: true,
+            message: `Réservations du client ${clientId} récupérées avec succès`,
+            count: reservations.length,
+            data: reservations
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur récupération réservations client:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des réservations',
+            error: error.message
+        });
+    }
+};
+
+// MÉTHODE POUR RÉCUPÉRER UNE RÉSERVATION PAR ID
+exports.getReservationById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const reservation = await Reservation.findByPk(id, {
+            include: [
+                {
+                    model: Client,
+                    as: 'client',
+                    attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli']
+                },
+                {
+                    model: Salle,
+                    as: 'salle',
+                    attributes: ['idSalle', 'nomSalle', 'numeroSalle', 'capaciteSalle'],
+                    required: false
+                },
+                {
+                    model: Materiel,
+                    as: 'materiel',
+                    attributes: ['codeMat', 'designationMat', 'categorieMat', 'tarifJour'],
+                    required: false
+                }
+            ]
+        });
+
+        if (!reservation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Réservation non trouvée'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Réservation récupérée avec succès',
+            data: reservation
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur récupération réservation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération de la réservation',
+            error: error.message
+        });
+    }
+};
+
+// MÉTHODE POUR METTRE À JOUR UNE RÉSERVATION
+exports.updateReservation = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+
+        // Ne pas permettre la modification du statut via cette route
+        if (updates.etatRes) {
+            delete updates.etatRes;
+        }
+
+        const [updated] = await Reservation.update(updates, {
+            where: { idRes: id }
+        });
+
+        if (!updated) {
+            return res.status(404).json({
+                success: false,
+                message: 'Réservation non trouvée'
+            });
+        }
+
+        const reservationUpdated = await Reservation.findByPk(id);
+
+        res.json({
+            success: true,
+            message: 'Réservation mise à jour avec succès',
+            data: reservationUpdated
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur mise à jour réservation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la mise à jour de la réservation',
+            error: error.message
+        });
+    }
+};
+
+// MÉTHODE POUR RÉCUPÉRER LES RÉSERVATIONS PAR STATUT
 exports.getReservationsByStatus = async (req, res) => {
-  try {
-    const { status } = req.params;
+    try {
+        const { status } = req.params;
 
-    const reservations = await Reservation.findAll({
-      where: { etatRes: status },
-      include: [
-        {
-          model: Client,
-          attributes: ['idCli', 'nomCli', 'prenomCli']
-        }
-      ],
-      order: [['debRes', 'ASC']]
-    });
+        const reservations = await Reservation.findAll({
+            where: { etatRes: status },
+            include: [
+                {
+                    model: Client,
+                    as: 'client',
+                    attributes: ['idCli', 'nomCli', 'prenomCli']
+                }
+            ],
+            order: [['debRes', 'ASC']]
+        });
 
-    res.json({
-      message: `Réservations avec statut ${status} récupérées`,
-      count: reservations.length,
-      reservations
-    });
+        res.json({
+            success: true,
+            message: `Réservations avec statut ${status} récupérées`,
+            count: reservations.length,
+            data: reservations
+        });
 
-  } catch (error) {
-    console.error('Erreur récupération réservations par statut:', error);
-    res.status(500).json({
-      message: 'Erreur lors de la récupération des réservations',
-      error: error.message
-    });
-  }
-};
-
-exports.getAllReservations = async (req, res) => {
-  try {
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * limit;
-
-    const { count, rows: reservations } = await Reservation.findAndCountAll({
-      include: [
-        {
-          model: Client,
-          attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli']
-        },
-        {
-          model: Salle,
-          attributes: ['nomSalle']
-        },
-        {
-          model: Materiel,
-          attributes: ['designationMat']
-        }
-      ],
-      order: [['dateCre', 'DESC']],
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
-
-    res.json({
-      message: 'Toutes les réservations récupérées',
-      count,
-      totalPages: Math.ceil(count / limit),
-      currentPage: parseInt(page),
-      reservations
-    });
-
-  } catch (error) {
-    console.error('Erreur récupération toutes les réservations:', error);
-    res.status(500).json({
-      message: 'Erreur lors de la récupération des réservations',
-      error: error.message
-    });
-  }
-};
-
-exports.deleteReservation = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const deleted = await Reservation.destroy({
-      where: { idRes: id }
-    });
-
-    if (!deleted) {
-      return res.status(404).json({
-        message: 'Réservation non trouvée'
-      });
+    } catch (error) {
+        console.error('❌ Erreur récupération réservations par statut:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des réservations',
+            error: error.message
+        });
     }
-
-    res.json({
-      message: 'Réservation supprimée avec succès'
-    });
-
-  } catch (error) {
-    console.error('Erreur suppression réservation:', error);
-    res.status(500).json({
-      message: 'Erreur lors de la suppression de la réservation',
-      error: error.message
-    });
-  }
 };
 
+// MÉTHODE POUR RÉCUPÉRER TOUTES LES RÉSERVATIONS
+exports.getAllReservations = async (req, res) => {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+        const offset = (page - 1) * limit;
+
+        const { count, rows: reservations } = await Reservation.findAndCountAll({
+            include: [
+                {
+                    model: Client,
+                    as: 'client',
+                    attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli']
+                },
+                {
+                    model: Salle,
+                    as: 'salle',
+                    attributes: ['nomSalle'],
+                    required: false
+                },
+                {
+                    model: Materiel,
+                    as: 'materiel',
+                    attributes: ['designationMat'],
+                    required: false
+                }
+            ],
+            order: [['dateCre', 'DESC']],
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+        });
+
+        res.json({
+            success: true,
+            message: 'Toutes les réservations récupérées',
+            count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: parseInt(page),
+            data: reservations
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur récupération toutes les réservations:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des réservations',
+            error: error.message
+        });
+    }
+};
+
+// MÉTHODE POUR SUPPRIMER UNE RÉSERVATION
+exports.deleteReservation = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const deleted = await Reservation.destroy({
+            where: { idRes: id }
+        });
+
+        if (!deleted) {
+            return res.status(404).json({
+                success: false,
+                message: 'Réservation non trouvée'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Réservation supprimée avec succès'
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur suppression réservation:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la suppression de la réservation',
+            error: error.message
+        });
+    }
+};
+
+// MÉTHODE POUR RÉCUPÉRER LES RÉSERVATIONS PAR PÉRIODE
 exports.getReservationsByPeriod = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.params;
+    try {
+        const { startDate, endDate } = req.params;
 
-    const reservations = await Reservation.findAll({
-      where: {
-        debRes: {
-          [Op.between]: [new Date(startDate), new Date(endDate)]
-        }
-      },
-      include: [
-        {
-          model: Client,
-          attributes: ['nomCli', 'prenomCli']
-        },
-        {
-          model: Salle,
-          attributes: ['nomSalle']
-        },
-        {
-          model: Materiel,
-          attributes: ['designationMat']
-        }
-      ],
-      order: [['debRes', 'ASC']]
-    });
+        const reservations = await Reservation.findAll({
+            where: {
+                debRes: {
+                    [Op.between]: [new Date(startDate), new Date(endDate)]
+                }
+            },
+            include: [
+                {
+                    model: Client,
+                    as: 'client',
+                    attributes: ['nomCli', 'prenomCli']
+                },
+                {
+                    model: Salle,
+                    as: 'salle',
+                    attributes: ['nomSalle'],
+                    required: false
+                },
+                {
+                    model: Materiel,
+                    as: 'materiel',
+                    attributes: ['designationMat'],
+                    required: false
+                }
+            ],
+            order: [['debRes', 'ASC']]
+        });
 
-    res.json({
-      message: `Réservations pour la période ${startDate} à ${endDate}`,
-      count: reservations.length,
-      reservations
-    });
+        res.json({
+            success: true,
+            message: `Réservations pour la période ${startDate} à ${endDate}`,
+            count: reservations.length,
+            data: reservations
+        });
 
-  } catch (error) {
-    console.error('Erreur récupération réservations par période:', error);
-    res.status(500).json({
-      message: 'Erreur lors de la récupération des réservations',
-      error: error.message
-    });
-  }
+    } catch (error) {
+        console.error('❌ Erreur récupération réservations par période:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des réservations',
+            error: error.message
+        });
+    }
 };
+
+// MÉTHODE POUR RÉCUPÉRER LES NOTIFICATIONS NON LUES
+exports.getUnreadNotifications = async (req, res) => {
+    try {
+        const notifications = await Notification.findAll({
+            where: {
+                destinataireRole: 'reception',
+                statutNotif: 'non_lu'
+            },
+            include: [{
+                model: Reservation,
+                as: 'reservation',
+                include: [{
+                    model: Client,
+                    as: 'client',
+                    attributes: ['nomCli', 'prenomCli']
+                }]
+            }],
+            order: [['dateEnvoi', 'DESC']]
+        });
+
+        res.json({
+            success: true,
+            count: notifications.length,
+            data: notifications
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur récupération notifications:', error);
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la récupération des notifications",
+            error: error.message
+        });
+    }
+};
+
+// FONCTION UTILITAIRE POUR FORMATER LES DATES
+function formatDate(date) {
+    return new Date(date).toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// 🆕 AJOUTEZ CETTE LIGNE POUR VÉRIFIER LES EXPORTS
+console.log('✅ Reservation Controller exports:', Object.keys(exports));

@@ -89,9 +89,9 @@
           </n-empty>
         </div>
 
-        <!-- Tableau des demandes avec scroll -->
+        <!-- Tableau des demandes avec scroll amélioré -->
         <div v-else class="table-scroll-container">
-          <div class="table-container">
+          <div class="table-wrapper">
             <n-data-table
               :columns="columns"
               :data="pendingRequests"
@@ -99,8 +99,10 @@
               class="demandes-table custom-table"
               size="small"
               :single-line="false"
-              :max-height="500"
+              :max-height="600"
+              :scroll-x="1200"
               virtual-scroll
+              flex-height
             />
           </div>
         </div>
@@ -211,6 +213,7 @@ const columns = [
     key: 'idRes',
     width: 80,
     align: 'center',
+    fixed: 'left',
     render: (row) => {
       return h(NTag, { type: 'info', size: 'small', bordered: false, class: 'custom-tag' }, {
         default: () => `#${row.idRes}`
@@ -221,13 +224,16 @@ const columns = [
     title: 'Demandeur',
     key: 'client',
     width: 200,
+    ellipsis: {
+      tooltip: true
+    },
     render: (row) => {
       return h('div', { class: 'client-info' }, [
         h('div', { class: 'client-name fw-bold' }, 
-          `${row.client.nomCli} ${row.client.prenomCli}`
+          `${row.client?.nomCli || 'N/A'} ${row.client?.prenomCli || ''}`
         ),
         h('div', { class: 'client-id small text-muted' }, 
-          `ID: ${row.client.idCli}`
+          `ID: ${row.client?.idCli || 'N/A'}`
         )
       ]);
     }
@@ -439,20 +445,58 @@ const getRessourceType = (request) => {
   return typeMap[request.typeRes] || 'Non spécifié';
 };
 
+// FONCTION CORRIGÉE POUR RÉCUPÉRER LES DEMANDES
 const fetchPendingRequests = async () => {
   loading.value = true;
   errorMessage.value = null;
   try {
     const response = await LocationService.getPendingReservations();
-    pendingRequests.value = response.data;
+    
+    // CORRECTION : S'assurer que pendingRequests est toujours un tableau
+    if (response && response.data) {
+      // Si response.data est un tableau, l'utiliser directement
+      if (Array.isArray(response.data)) {
+        pendingRequests.value = response.data;
+      } 
+      // Si response.data est un objet avec une propriété contenant le tableau
+      else if (response.data.data && Array.isArray(response.data.data)) {
+        pendingRequests.value = response.data.data;
+      }
+      // Si response.data est un objet avec d'autres propriétés
+      else if (typeof response.data === 'object') {
+        // Chercher une propriété qui contient un tableau
+        const arrayKey = Object.keys(response.data).find(key => 
+          Array.isArray(response.data[key])
+        );
+        if (arrayKey) {
+          pendingRequests.value = response.data[arrayKey];
+        } else {
+          // Si aucun tableau n'est trouvé, créer un tableau vide
+          pendingRequests.value = [];
+          console.warn('Aucun tableau trouvé dans la réponse:', response.data);
+        }
+      }
+      // Fallback : s'assurer que c'est un tableau
+      else {
+        pendingRequests.value = [];
+        console.warn('Format de réponse inattendu:', response.data);
+      }
+    } else {
+      pendingRequests.value = [];
+      console.warn('Réponse vide ou invalide:', response);
+    }
+    
+    console.log('Demandes chargées:', pendingRequests.value);
+    
   } catch (error) {
     console.error("Erreur lors de la récupération des demandes:", error);
     errorMessage.value = `Impossible de charger les demandes : ${error.response?.data?.message || error.message}`;
+    // S'assurer que pendingRequests reste un tableau même en cas d'erreur
+    pendingRequests.value = [];
   } finally {
     loading.value = false;
   }
 };
-
 
 const handleManage = (request) => {
   router.push({ 
@@ -487,11 +531,7 @@ const confirmRefuse = async () => {
   } finally {
     refuseLoading.value = false;
   }
-
-
 };
-
-
 
 onMounted(() => {
   fetchPendingRequests();
@@ -590,20 +630,21 @@ onMounted(() => {
   justify-content: center;
 }
 
-/* Table Scroll Container */
+/* Table Scroll Container amélioré */
 .table-scroll-container {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
-/* Table Container */
-.table-container {
+.table-wrapper {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 400px;
 }
 
 /* Modal Content */
@@ -611,28 +652,37 @@ onMounted(() => {
   padding: 1rem 0;
 }
 
-/* Custom Table Styles */
+/* Custom Table Styles avec scroll amélioré */
 :deep(.demandes-table) {
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100% !important;
 }
 
 :deep(.demandes-table .n-data-table-base) {
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100% !important;
 }
 
 :deep(.demandes-table .n-data-table-base-table) {
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100% !important;
 }
 
 :deep(.demandes-table .n-data-table-base-table-body) {
   flex: 1;
   overflow-y: auto !important;
+  overflow-x: auto !important;
+  max-height: 600px !important;
+}
+
+:deep(.demandes-table .n-data-table-base-table-body .n-data-table-tr) {
+  height: 60px;
 }
 
 :deep(.demandes-table .n-data-table-thead) {
@@ -650,6 +700,7 @@ onMounted(() => {
   padding: 12px 16px;
   position: sticky;
   top: 0;
+  z-index: 11;
 }
 
 :deep(.demandes-table .n-data-table-td) {
@@ -702,24 +753,35 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Scrollbar personnalisée */
+/* Scrollbar personnalisée améliorée */
 :deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar) {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 :deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-track) {
   background: #f1f1f1;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 :deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-thumb) {
   background: #007bff;
-  border-radius: 4px;
+  border-radius: 6px;
+  border: 2px solid #f1f1f1;
 }
 
 :deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-thumb:hover) {
   background: #0056b3;
+}
+
+:deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-corner) {
+  background: #f1f1f1;
+}
+
+/* Scroll horizontal amélioré */
+:deep(.demandes-table .n-data-table-base-table-body) {
+  scrollbar-width: thin;
+  scrollbar-color: #007bff #f1f1f1;
 }
 
 /* Supprimer la pagination et les outils */
@@ -781,11 +843,19 @@ onMounted(() => {
   .table-scroll-container {
     overflow-x: auto;
   }
+  
+  :deep(.demandes-table .n-data-table-base-table-body) {
+    max-height: 500px !important;
+  }
 }
 
 @media (max-width: 576px) {
-  .table-container {
-    min-width: 600px;
+  .table-wrapper {
+    min-width: 800px;
+  }
+  
+  :deep(.demandes-table) {
+    min-width: 800px;
   }
 }
 </style>

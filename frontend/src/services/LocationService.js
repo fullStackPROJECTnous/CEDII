@@ -1,4 +1,4 @@
-// src/services/LocationService.js - VERSION CORRIGÉE ET FUSIONNÉE
+// src/services/LocationService.js - VERSION COMPLÈTE ET CORRIGÉE
 import axios from 'axios';
 
 const API_URL = 'http://localhost:5000/api';
@@ -110,16 +110,16 @@ class LocationService {
     return axios.post(`${API_URL}/client/reservations`, data);
   }
 
-  // Méthode updateReservationStatus corrigée
-  async updateReservationStatus(reservationId, payload) {
+  // 🔥 CORRECTION : Méthode updateReservationStatus avec le bon chemin et paramètres
+  async updateReservationStatus(reservationId, statutRes) {
     try {
       console.log('📍 LocationService - updateReservationStatus:');
       console.log('📍 Reservation ID:', reservationId);
-      console.log('📍 Payload:', payload);
+      console.log('📍 Nouveau statut:', statutRes);
 
-      const response = await axios.put(
+      const response = await axios.patch(
         `${API_URL}/reservations/${reservationId}/status`,
-        payload,
+        { etatRes: statutRes }, // ✅ Utiliser 'etatRes' comme dans le backend
         {
           headers: {
             'Content-Type': 'application/json'
@@ -149,7 +149,7 @@ class LocationService {
       console.log('📍 Payload:', payload);
 
       const response = await axios.put(
-        `${API_URL}/${locationId}/status`, // Note: route différente
+        `${API_URL}/locations/${locationId}/status`,
         payload,
         {
           headers: {
@@ -176,8 +176,9 @@ class LocationService {
     return axios.get(`${API_URL}/locations/reception/dashboard`);
   }
 
+  // 🔥 CORRECTION : Utiliser le bon chemin pour les demandes en attente
   getPendingReservations() {
-    return axios.get(`${API_URL}/locations/reservations/pending`); 
+    return axios.get(`${API_URL}/reservations/pending/requests`); 
   }
 
   getLocationHistory() {
@@ -186,13 +187,12 @@ class LocationService {
 
   // Méthode pour les événements confirmés du calendrier
   getConfirmedEvents() {
-    // CORRECTION : Utiliser la bonne route locations au lieu de finance
-    return axios.get('http://localhost:5000/api/locations/events/confirmed');
+    return axios.get(`${API_URL}/locations/events/confirmed`);
   }
 
   // Nouvelle méthode pour les locations terminées
   getTerminatedLocations() {
-    return axios.get(`${API_URL}/terminated`);
+    return axios.get(`${API_URL}/locations/terminated`);
   }
 
   // Méthode alternative pour mettre à jour le statut d'une location (version simplifiée)
@@ -205,13 +205,10 @@ class LocationService {
         resolve({ data: { success: true, message: 'Statut mis à jour localement' } });
       }, 100);
     });
-    
-    // OU si vous voulez vraiment essayer l'API (mais ça échouera probablement) :
-    // return axios.put(`${API_URL}/${locationId}`, { etatLo: newStatus });
   }
 
   deleteReservation(idRes) {
-    return axios.delete(`${API_URL}/locations/reservations/${idRes}`);
+    return axios.delete(`${API_URL}/reservations/${idRes}`);
   }
 
   checkAvailability(params) {
@@ -221,6 +218,21 @@ class LocationService {
   static async calculateTarifSalle(idSalle, data) {
     const response = await axios.post(`${API_URL}/salles/${idSalle}/calculate-tarif`, data);
     return response.data;
+  }
+
+  // 🔥 NOUVELLE MÉTHODE : Marquer une notification comme lue
+  marquerNotificationLue(idNotif) {
+    return axios.patch(`${API_URL}/reservations/notifications/${idNotif}/read`);
+  }
+
+  // 🔥 NOUVELLE MÉTHODE : Créer une réservation publique
+  createPublicReservation(data) {
+    return axios.post(`${API_URL}/reservations/public/reservations`, data);
+  }
+
+  // 🔥 NOUVELLE MÉTHODE : Récupérer les notifications
+  getNotifications() {
+    return axios.get(`${API_URL}/reservations/notifications`);
   }
 }
 
