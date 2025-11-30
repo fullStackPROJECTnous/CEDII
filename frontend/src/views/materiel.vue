@@ -150,24 +150,24 @@
             </div>
 
             <div class="col-4">
-              <n-form-item label="Stock total" path="qteTotDispo">
+              <n-form-item label="Stock Total" path="qteActuelStock"> 
                 <n-input-number
-                  v-model:value="currentMateriel.qteTotDispo"
-                  :min="1"
-                  :show-button="false"
-                  @update:value="onQuantityInput"
-                />
+                v-model:value="currentMateriel.qteActuelStock"
+                :min="1"
+                :show-button="false"
+                @update:value="onQuantityInput" />
               </n-form-item>
             </div>
 
             <div class="col-4">
-              <n-form-item label="Stock actuel" path="qteActuelStock">
+              <n-form-item label="Disponible" path="qteTotDispo"> 
                 <n-input-number
-                  v-model:value="currentMateriel.qteActuelStock"
-                  :min="0"
-                  :max="currentMateriel.qteTotDispo"
-                  :show-button="false"
-                  @update:value="onQuantityInput"
+                v-model:value="currentMateriel.qteTotDispo"
+                :min="0"
+                :max="currentMateriel.qteActuelStock - currentMateriel.qteEnLocation"
+                :show-button="false"
+                :disabled="currentMateriel.qteEnLocation > 0"
+                @update:value="onQuantityInput"
                 />
               </n-form-item>
             </div>
@@ -413,28 +413,31 @@ const statistiques = computed(() => {
 
 // Règles de validation
 const rules = {
-  designationMat: { required: true, message: 'La désignation est requise', trigger: 'blur' },
-  qteTotDispo: { 
-    required: true, 
-    type: 'number', 
-    min: 1, 
-    message: 'Le stock total doit être au moins de 1', 
-    trigger: 'blur' 
-  },
-  qteActuelStock: { 
-    required: true, 
-    type: 'number', 
-    min: 0, 
-    message: 'Le stock actuel ne peut pas être négatif', 
-    trigger: 'blur' 
-  },
-  qteEnLocation: { 
-    required: true, 
-    type: 'number', 
-    min: 0, 
-    message: 'La quantité en location ne peut pas être négative', 
-    trigger: 'blur' 
-  },
+  designationMat: { required: true, message: 'La désignation est requise', trigger: 'blur' },
+  
+  // CORRIGÉ: qteActuelStock est le Stock Total, doit être >= 1
+  qteActuelStock: { 
+    required: true, 
+    type: 'number', 
+    min: 1, 
+    message: 'Le stock total doit être au moins de 1', 
+    trigger: 'blur' 
+  },
+  // CORRIGÉ: qteTotDispo est la Quantité Disponible, doit être >= 0
+  qteTotDispo: { 
+    required: true, 
+    type: 'number', 
+    min: 0, 
+    message: 'La quantité disponible ne peut pas être négative', 
+    trigger: 'blur' 
+  },
+  qteEnLocation: { 
+    required: true, 
+    type: 'number', 
+    min: 0, 
+    message: 'La quantité en location ne peut pas être négative', 
+    trigger: 'blur' 
+  },
   tarifHeure: { required: true, type: 'number', min: 0, message: 'Le tarif horaire est requis', trigger: 'blur' },
   tarifDemiJournee: { required: true, type: 'number', min: 0, message: 'Le tarif demi-journée est requis', trigger: 'blur' },
   tarifJour: { required: true, type: 'number', min: 0, message: 'Le tarif journalier est requis', trigger: 'blur' },
@@ -483,35 +486,61 @@ const columns = [
     key: 'quantites',
     width: 140,
     render: (row) => h('div', { class: 'text-center' }, [
+      // Ligne 1: Quantité Totale (qteActuelStock)
       h('div', { class: 'd-flex justify-content-between small' }, [
         h('span', { class: 'text-muted' }, 'Total:'),
-        h('span', row.qteTotDispo)
+        // qteTotDispo (Quantité Disponible) - Nous laissons le violet pour le Stock Actuel
+        h('span', row.qteTotDispo) 
       ]),
+
+      // Ligne 2: Stock Actuel (qteActuelStock)
       h('div', { class: 'd-flex justify-content-between small' }, [
         h('span', { class: 'text-muted' }, 'Stock:'),
         h('span', { 
-          class: row.qteActuelStock <= 2 ? 'text-danger fw-bold' : '' 
+          // 🟣 Appliquer la classe 'text-purple' (violet) pour qteActuelStock
+          // Maintenir la classe 'text-danger' si le stock est bas
+          class: row.qteActuelStock <= 2 ? 'text-danger fw-bold' : 'text-purple fw-bold' 
         }, row.qteActuelStock)
       ]),
+
+      // Ligne 3: En Location (qteEnLocation)
       h('div', { class: 'd-flex justify-content-between small' }, [
         h('span', { class: 'text-muted' }, 'Loc:'),
         h('span', { 
-          class: row.qteEnLocation > 0 ? 'text-warning fw-bold' : '' 
+          // 🟢 Appliquer la classe 'text-success' (vert) pour qteEnLocation
+          // Maintenir la classe 'text-warning' si > 0 (vous aviez warning, je passe au vert/success)
+          class: row.qteEnLocation > 0 ? 'text-success fw-bold' : 'text-muted' 
         }, row.qteEnLocation)
       ])
     ])
-  },
+},
   {
-    title: 'Tarifs',
-    key: 'tarifs',
-    width: 120,
-    render: (row) => h('div', { class: 'text-center' }, [
-      h('div', { class: 'small' }, `H: ${formatCurrency(row.tarifHeure)}`),
-      h('div', { class: 'small' }, `J: ${formatCurrency(row.tarifJour)}`)
-    ])
-  },
+        title: 'Tarifs',
+        key: 'tarifs',
+        width: 140, // Augmenté légèrement la largeur pour accommoder "Demi-journée"
+        render: (row) => h('div', { class: 'text-center' }, [
+            
+            // 🎯 Tarif Heure
+            h('div', { class: 'd-flex justify-content-between small' }, [
+                h('span', { class: 'text-muted' }, 'Heure:'),
+                h('span', { class: 'fw-bold text-success' }, formatCurrency(row.tarifHeure))
+            ]),
+            
+            // 🎯 Tarif Demi-journée
+            h('div', { class: 'd-flex justify-content-between small' }, [
+                h('span', { class: 'text-muted' }, '½ Jour:'), // Raccourci le libellé pour gagner de la place
+                h('span', formatCurrency(row.tarifDemiJournee))
+            ]),
+            
+            // 🎯 Tarif Jour
+            h('div', { class: 'd-flex justify-content-between small' }, [
+                h('span', { class: 'text-muted' }, 'Jour:'),
+                h('span', { class: 'fw-bold text-primary' }, formatCurrency(row.tarifJour))
+            ])
+        ])
+    },
   {
-    title: 'Date Acquis.',
+    title: 'Date Acquisition',
     key: 'dateAcquisition',
     width: 110,
     render: (row) => h('span', { class: 'small' }, formatDate(row.dateAcquisition))
@@ -688,21 +717,22 @@ async function updateEtatMateriel() {
 
 // Gestion des quantités - CORRIGÉE
 function updateQuantities() {
-  const total = Number(currentMateriel.value.qteTotDispo) || 0;
-  const stock = Number(currentMateriel.value.qteActuelStock) || 0;
-  const location = Number(currentMateriel.value.qteEnLocation) || 0;
-  
-  // Validation de cohérence
-  if (stock > total) {
-    quantityWarning.value = 'Erreur: Stock actuel > Stock total';
-    hasQuantityError.value = true;
-  } else if (location > stock) {
-    quantityWarning.value = 'Erreur: En location > Stock actuel';
+  // L'utilisateur peut modifier Stock Total (qteActuelStock) et En Location (qteEnLocation)
+  const total = Number(currentMateriel.value.qteActuelStock) || 0;
+  const dispo = Number(currentMateriel.value.qteTotDispo) || 0;
+  const location = Number(currentMateriel.value.qteEnLocation) || 0;
+  
+  // Validation de cohérence Front-end
+  if (dispo + location > total) {
+    quantityWarning.value = 'Erreur: La somme (Disponible + En location) est supérieure au Stock Total.';
+    hasQuantityError.value = true;
+  } else if (location < 0 || dispo < 0) {
+    quantityWarning.value = 'Erreur: Les quantités ne peuvent pas être négatives.';
     hasQuantityError.value = true;
   } else {
-    quantityWarning.value = '';
-    hasQuantityError.value = false;
-  }
+    quantityWarning.value = '';
+    hasQuantityError.value = false;
+  }
 }
 
 const onQuantityInput = () => {
@@ -766,33 +796,35 @@ function showMessage(msg, error = false) {
 
 // Fonctions d'interface
 function openModal(mode, materielData = null) {
-  isEditMode.value = mode === 'edit';
-  hasQuantityError.value = false;
-  
-  if (isEditMode.value && materielData) {
-    currentMateriel.value = { ...materielData };
-    if (currentMateriel.value.dateAcquisition) {
-      currentMateriel.value.dateAcquisition = new Date(currentMateriel.value.dateAcquisition).getTime();
-    }
-    updateQuantities();
-  } else {
-    currentMateriel.value = {
-      designationMat: '',
-      categorieMat: '',
-      descriptionMat: '',
-      qteTotDispo: 1,
-      qteActuelStock: 1,
-      qteEnLocation: 0,
-      tarifHeure: 0,
-      tarifDemiJournee: 0,
-      tarifJour: 0,
-      etatMat: 'Bon état',
-      dateAcquisition: Date.now()
-    };
-    quantityWarning.value = '';
-  }
-  
-  showMaterielModal.value = true;
+  isEditMode.value = mode === 'edit';
+  hasQuantityError.value = false;
+  
+  if (isEditMode.value && materielData) {
+    currentMateriel.value = { ...materielData };
+    if (currentMateriel.value.dateAcquisition) {
+      currentMateriel.value.dateAcquisition = new Date(currentMateriel.value.dateAcquisition).getTime();
+    }
+    updateQuantities();
+  } else {
+    currentMateriel.value = {
+      designationMat: '',
+      categorieMat: '',
+      descriptionMat: '',
+      // CORRIGÉ: Stock Total (qteActuelStock) initialisé à 1
+      qteActuelStock: 1, 
+      // CORRIGÉ: Disponible (qteTotDispo) initialisé à 1
+      qteTotDispo: 1,
+      qteEnLocation: 0,
+      tarifHeure: 0,
+      tarifDemiJournee: 0,
+      tarifJour: 0,
+      etatMat: 'Bon état',
+      dateAcquisition: Date.now()
+    };
+    quantityWarning.value = '';
+  }
+  
+  showMaterielModal.value = true;
 }
 
 function openEtatModal(materiel) {

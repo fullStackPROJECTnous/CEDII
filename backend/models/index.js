@@ -38,7 +38,7 @@ db.Salle = require("./salle.js")(sequelize, DataTypes);
 db.MaterielBureau = require('./materielModel.js')(sequelize, DataTypes) ;
 db.HistoriqueEmail = require('./historiqueEmail.js')(sequelize, DataTypes);
 db.Paiement = require("./paiement.js")(sequelize, DataTypes); 
-
+db.Notification = require('./notification.js')(sequelize, DataTypes);
 
 
 

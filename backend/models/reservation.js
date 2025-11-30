@@ -1,3 +1,4 @@
+// backend/models/reservation.js - VERSION CORRIGÉE
 module.exports = (sequelize, DataTypes) => {
     const Reservation = sequelize.define('Reservation', {
         idRes: {
@@ -5,29 +6,42 @@ module.exports = (sequelize, DataTypes) => {
             primaryKey: true,
             autoIncrement: true
         },
-        idCli: { // Clé étrangère vers Client
+        idCli: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: false,
+            references: {
+                model: 'client',
+                key: 'idCli'
+            }
         },
         idCatalogue: {
             type: DataTypes.STRING(50),
-            allowNull: true
+            allowNull: true,
+            comment: 'ID de la ressource (salle ou matériel)'
         },
         dateCre: {
-            type: DataTypes.DATEONLY,
-            allowNull: false
+            type: DataTypes.DATE,
+            allowNull: false,
+            defaultValue: DataTypes.NOW
         },
         qteMat: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: false,
+            defaultValue: 0,
+            validate: {
+                min: 0
+            }
         },
         typeRes: {
-            type: DataTypes.ENUM('Salle', 'Materiel', 'Mixte'),
+            type: DataTypes.ENUM('Salle', 'Materiel'),
             allowNull: false
         },
         nbPerso: {
             type: DataTypes.INTEGER,
-            allowNull: true
+            allowNull: true,
+            validate: {
+                min: 0
+            }
         },
         debRes: {
             type: DataTypes.DATE,
@@ -39,45 +53,85 @@ module.exports = (sequelize, DataTypes) => {
         },
         tarifTot: {
             type: DataTypes.DECIMAL(12, 2),
-            allowNull: false
+            allowNull: false,
+            defaultValue: 0.00,
+            validate: {
+                min: 0
+            }
         },
         etatRes: {
-            type: DataTypes.ENUM('En attente', 'Confirmée', 'Annulée'),
+            type: DataTypes.ENUM('En attente', 'Confirmée', 'Refusée', 'Annulée', 'En cours', 'Terminée'),
             defaultValue: 'En attente',
-            allowNull: true
+            allowNull: false
         },
-        idSalle: { // Clé étrangère vers Salle
+        idSalle: {
             type: DataTypes.INTEGER,
-            allowNull: true
+            allowNull: true,
+            references: {
+                model: 'salle',
+                key: 'idSalle'
+            }
         },
-        codeMat: { // Clé étrangère vers Materiel
+        codeMat: {
             type: DataTypes.STRING(30),
-            allowNull: true
+            allowNull: true,
+            references: {
+                model: 'materiel',
+                key: 'codeMat'
+            }
         }
     }, { 
         tableName: 'reservation', 
-        timestamps: false 
+        timestamps: false, // 🚨 CORRECTION IMPORTANTE
+        hooks: {
+            beforeValidate: (reservation) => {
+                // S'assurer que les champs sont cohérents avec le type
+                if (reservation.typeRes === 'Salle') {
+                    reservation.codeMat = null;
+                    reservation.qteMat = 0;
+                } else if (reservation.typeRes === 'Materiel') {
+                    reservation.idSalle = null;
+                    reservation.nbPerso = 0;
+                }
+            }
+        }
     });
 
-   // Définition des associations
-Reservation.associate = (models) => {
-        // La réservation appartient à un Client (c'est l'association que vous essayez d'inclure)
+    // Définition des associations
+    Reservation.associate = (models) => {
         Reservation.belongsTo(models.Client, {
-            foreignKey: 'idCli', // ⬅️ Clé étrangère dans la table 'reservation'
-            as: 'client'         // ⬅️ DOIT CORRESPONDRE à l'alias utilisé dans locationController.js
+            foreignKey: 'idCli',
+            as: 'client'
         });
         
-        // Ajoutez vos autres associations ici (ex: Salle, Materiel, si non déjà fait)
-        Reservation.belongsTo(models.Salle, {
-            foreignKey: 'idSalle',
-            as: 'salle'
-        });
-          Reservation.belongsTo(models.Materiel, {
-            foreignKey: 'codeMat',
-            as: 'materiel'
-        });
-    };
+        if (models.Salle) {
+            Reservation.belongsTo(models.Salle, {
+                foreignKey: 'idSalle',
+                as: 'salle'
+            });
+        }
+        
+        if (models.Materiel) {
+            Reservation.belongsTo(models.Materiel, {
+                foreignKey: 'codeMat',
+                as: 'materiel'
+            });
+        }
 
+        if (models.Location) {
+            Reservation.hasMany(models.Location, {
+                foreignKey: 'idRes',
+                as: 'locations'
+            });
+        }
+
+        if (models.Notification) {
+            Reservation.hasMany(models.Notification, {
+                foreignKey: 'idRes',
+                as: 'notifications'
+            });
+        }
+    };
 
     return Reservation;
 };

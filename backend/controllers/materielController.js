@@ -11,17 +11,13 @@ exports.getAllMateriel = async (req, res) => {
         
         let whereClause = {};
         
-        // Filtre par état
+        // Filtres existants...
         if (etat && etat !== 'tous') {
             whereClause.etatMat = etat;
         }
-        
-        // Filtre par catégorie
         if (categorie && categorie !== 'toutes') {
             whereClause.categorieMat = categorie;
         }
-        
-        // Recherche par désignation ou code
         if (search) {
             whereClause[Op.or] = [
                 { designationMat: { [Op.like]: `%${search}%` } },
@@ -34,11 +30,17 @@ exports.getAllMateriel = async (req, res) => {
             order: [['designationMat', 'ASC']]
         });
         
-        res.status(200).json(materiels);
+        // ✅ FORMAT SIMILAIRE AUX SALLES
+        res.status(200).json({
+            success: true,
+            count: materiels.length,
+            data: materiels
+        });
         
     } catch (error) {
         console.error("Erreur de chargement du matériel:", error);
         res.status(500).json({ 
+            success: false,
             message: "Erreur serveur lors de la récupération du matériel.", 
             error: error.message 
         });
@@ -108,7 +110,7 @@ exports.createMateriel = async (req, res) => {
         
         // 4. Création de l'enregistrement
         const materiel = await Materiel.create({
-            codeMat,
+            codeMat,// champ généré
             designationMat, 
             categorieMat, 
             descriptionMat, 

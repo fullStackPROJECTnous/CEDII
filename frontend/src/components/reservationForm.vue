@@ -1,10 +1,10 @@
 <template>
+  <!-- Le template reste exactement le même -->
   <div class="vh-100 d-flex flex-column">
     <ClientNavbar />
     
     <main class="main-content flex-grow-1 overflow-auto bg-white">
       <div class="container-fluid py-3">
-        <!-- En-tête de page simplifié -->
         <n-card class="mb-3 border-0" content-style="padding: 0;">
           <div class="p-3">
             <n-h1 class="mb-1 fs-4" style="color: #02061E;">
@@ -86,26 +86,38 @@
                       <n-grid :cols="form.typeRes === 'Salle' ? 1 : 2" :x-gap="12" class="mb-3">
                         <!-- Quantité pour matériel -->
                         <n-gi v-if="form.typeRes === 'Materiel'">
-                          <n-form-item label="Quantité" :required="true">
+                          <n-form-item 
+                            label="Quantité" 
+                            :required="true"
+                            :feedback="qteMatFeedback"
+                            :validation-status="qteMatValidationStatus"
+                          >
                             <n-input-number
                               v-model:value="form.qteMat"
                               :min="1"
-                              :max="100"
+                              :max="selectedResource ? selectedResource.qteTotDispo : null"
                               placeholder="Quantité"
                               class="w-100"
+                              @update:value="validateQuantities"
                             />
                           </n-form-item>
                         </n-gi>
                         
                         <!-- Nombre de personnes pour salle -->
                         <n-gi v-if="form.typeRes === 'Salle'">
-                          <n-form-item label="Personnes" :required="true">
+                          <n-form-item 
+                            label="Personnes" 
+                            :required="true"
+                            :feedback="nbPersoFeedback"
+                            :validation-status="nbPersoValidationStatus"
+                          >
                             <n-input-number
                               v-model:value="form.nbPerso"
                               :min="1"
-                              :max="500"
+                              :max="selectedResource ? selectedResource.capaciteSalle : null"
                               placeholder="Nombre"
                               class="w-100"
+                              @update:value="validateQuantities"
                             />
                           </n-form-item>
                         </n-gi>
@@ -183,7 +195,12 @@
                             <n-text strong style="color: #02061E;">{{ selectedResource?.nom || 'Non sélectionné' }}</n-text>
                           </n-descriptions-item>
                           <n-descriptions-item :label="form.typeRes === 'Salle' ? 'Personnes' : 'Quantité'">
-                            <n-text strong style="color: #067186;">{{ form.typeRes === 'Salle' ? form.nbPerso : form.qteMat }}</n-text>
+                            <n-text 
+                              strong 
+                              :style="{ color: hasValidationErrors ? '#ff4d4f' : '#067186' }"
+                            >
+                              {{ form.typeRes === 'Salle' ? form.nbPerso : form.qteMat }}
+                            </n-text>
                           </n-descriptions-item>
                           <n-descriptions-item label="Durée">
                             <n-tag :type="getDurationTagType(form.typeDuree)" size="small">
@@ -212,7 +229,7 @@
                   <n-button 
                     type="primary" 
                     size="large" 
-                    :disabled="!isFormValid" 
+                    :disabled="!isFormValid || isSubmitting || hasValidationErrors" 
                     :loading="isSubmitting"
                     @click="submitForm"
                     class="cedii-btn-primary fw-bold"
@@ -261,20 +278,25 @@ import {
   NDescriptionsItem,
   NTag,
   NSpace,
-  NDivider
+  NDivider,
+  useMessage
 } from 'naive-ui';
 import ClientNavbar from '../components/clientNavbar.vue';
 import LocationService from '../services/LocationService'; 
+import axios from 'axios';
 
+const message = useMessage(); 
 const route = useRoute();
 const router = useRouter();
 
 const isSubmitting = ref(false);
 const loading = reactive({
-  catalogue: true
+  catalogue: true,
+  client: false
 });
 
 const catalogueData = ref([]);
+const clientProfile = ref(null);
 
 const urlCategory = route.query.category;
 const urlResourceId = route.query.resourceId; 
@@ -294,13 +316,205 @@ const initialFormState = {
 
 const form = reactive({ ...initialFormState });
 
-// Watcher pour le type de ressource
-watch(() => form.typeRes, (newType, oldType) => {
-  if (newType !== oldType) {
-    form.idCatalogue = ''; 
-  }
-  resetQuantities(newType);
+// VARIABLES DE VALIDATION
+const validationErrors = reactive({
+  qteMat: null,
+  nbPerso: null
 });
+
+// FONCTION POUR RÉCUPÉRER LE PROFIL CLIENT DEPUIS L'API
+const fetchClientProfile = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.warn('❌ Aucun token trouvé');
+      return null;
+    }
+
+    const response = await axios.get('http://localhost:5000/api/clients/profile', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (response.data && response.data.idCli) {
+      console.log('✅ Profil client récupéré via API:', response.data);
+      return response.data;
+    } else {
+      console.warn('❌ Réponse API incomplète:', response.data);
+    }
+  } catch (error) {
+    console.warn('⚠️ Impossible de récupérer le profil client via API:', error.response?.data?.message || error.message);
+  }
+  return null;
+};
+
+// FONCTION COMPLÈTEMENT CORRIGÉE POUR RÉCUPÉRER LES DONNÉES CLIENT (SANS DONNÉES DE TEST)
+const getClientData = async () => {
+  console.log('🔄 Récupération des données client...');
+  
+  // 1. Essayer de récupérer depuis l'API d'abord
+  const apiProfile = await fetchClientProfile();
+  if (apiProfile && apiProfile.idCli) {
+    const clientData = {
+      idCli: apiProfile.idCli,
+      nomCli: apiProfile.nomCli || '',
+      prenomCli: apiProfile.prenomCli || '',
+      emailCli: apiProfile.emailCli || '',
+      telephoneCli: apiProfile.telephoneCli || '',
+      addresseCli: apiProfile.addresseCli || '',
+      typeClient: apiProfile.typeClient || 'Particulier',
+      statutCompte: apiProfile.statutCompte || 'Actif'
+    };
+    
+    console.log('✅ Données client réelles depuis API:', clientData);
+    return clientData;
+  }
+
+  // 2. Si l'API échoue, essayer de récupérer depuis localStorage avec toutes les clés possibles
+  const possibleKeys = ['clientInfo', 'userInfo', 'currentUser', 'clientProfile', 'user', 'client'];
+  
+  for (const key of possibleKeys) {
+    const storedData = localStorage.getItem(key);
+    if (storedData) {
+      try {
+        const data = JSON.parse(storedData);
+        console.log(`📁 Données ${key} trouvées:`, data);
+        
+        // Vérifier si ces données contiennent des informations client valides
+        const hasClientInfo = (data.idCli || data.id) && (data.nomCli || data.nom) && (data.emailCli || data.email);
+        
+        if (hasClientInfo) {
+          const clientData = {
+            idCli: data.idCli || data.id || null,
+            nomCli: data.nomCli || data.nom || '',
+            prenomCli: data.prenomCli || data.prenom || '',
+            emailCli: data.emailCli || data.email || '',
+            telephoneCli: data.telephoneCli || data.telephone || '',
+            addresseCli: data.addresseCli || data.addresse || '',
+            typeClient: data.typeClient || data.type || 'Particulier',
+            statutCompte: data.statutCompte || data.statut || 'Actif'
+          };
+          
+          console.log(`✅ Données client valides depuis ${key}:`, clientData);
+          return clientData;
+        }
+      } catch (e) {
+        console.warn(`❌ Erreur parsing ${key}:`, e);
+      }
+    }
+  }
+
+  // 3. Si AUCUNE donnée client n'est trouvée, afficher une erreur claire
+  console.error('❌ Aucune donnée client valide trouvée');
+  message.error('Impossible de récupérer vos informations client. Veuillez vous reconnecter ou contacter l\'administrateur.');
+  
+  // Retourner des données vides pour éviter les erreurs
+  return {
+    idCli: null,
+    nomCli: '',
+    prenomCli: '',
+    emailCli: '',
+    telephoneCli: '',
+    addresseCli: '',
+    typeClient: 'Particulier',
+    statutCompte: 'Actif'
+  };
+};
+
+// FONCTION POUR VALIDER LES DONNÉES CLIENT AVANT SOUMISSION
+const validateClientData = (clientData) => {
+  const errors = [];
+  
+  if (!clientData.nomCli || clientData.nomCli.trim() === '') {
+    errors.push('Le nom est requis');
+  }
+  
+  if (!clientData.emailCli || clientData.emailCli.trim() === '') {
+    errors.push('L\'email est requis');
+  }
+  
+  if (!clientData.telephoneCli || clientData.telephoneCli.trim() === '') {
+    errors.push('Le téléphone est requis');
+  }
+  
+  if (!clientData.idCli) {
+    errors.push('ID client manquant - impossible de créer la réservation');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors: errors
+  };
+};
+
+// FONCTION DE VALIDATION DES QUANTITÉS
+const validateQuantities = () => {
+  validationErrors.qteMat = null;
+  validationErrors.nbPerso = null;
+
+  const resource = selectedResource.value;
+  if (!resource) return;
+
+  if (form.typeRes === 'Materiel') {
+    if (resource.qteTotDispo === null || resource.qteTotDispo === undefined) {
+      console.warn('⚠️ Quantité non disponible pour la validation');
+      return;
+    }
+    
+    const maxQte = resource.qteTotDispo;
+    if (form.qteMat > maxQte) {
+      validationErrors.qteMat = `Quantité indisponible. Maximum disponible : ${maxQte} unités`;
+    } else if (form.qteMat < 1) {
+      validationErrors.qteMat = 'La quantité doit être au moins 1';
+    }
+  } else if (form.typeRes === 'Salle') {
+    if (resource.capaciteSalle === null || resource.capaciteSalle === undefined) {
+      console.warn('⚠️ Capacité non disponible pour la validation');
+      return;
+    }
+    
+    const maxCapacite = resource.capaciteSalle;
+    if (form.nbPerso > maxCapacite) {
+      validationErrors.nbPerso = `Capacité dépassée. Maximum : ${maxCapacite} personnes`;
+    } else if (form.nbPerso < 1) {
+      validationErrors.nbPerso = 'Le nombre de personnes doit être au moins 1';
+    }
+  }
+};
+
+// COMPUTED PROPERTIES POUR LA VALIDATION
+const qteMatValidationStatus = computed(() => {
+  return validationErrors.qteMat ? 'error' : null;
+});
+
+const qteMatFeedback = computed(() => {
+  return validationErrors.qteMat || '';
+});
+
+const nbPersoValidationStatus = computed(() => {
+  return validationErrors.nbPerso ? 'error' : null;
+});
+
+const nbPersoFeedback = computed(() => {
+  return validationErrors.nbPerso || '';
+});
+
+const hasValidationErrors = computed(() => {
+  return validationErrors.qteMat !== null || validationErrors.nbPerso !== null;
+});
+
+// VALIDATION AVANT SOUMISSION
+const validateBeforeSubmit = () => {
+  validateQuantities();
+  
+  if (hasValidationErrors.value) {
+    message.error('Veuillez corriger les erreurs de quantité avant de soumettre');
+    return false;
+  }
+  
+  return true;
+};
 
 const resetQuantities = (newType) => {
   if (newType === 'Materiel') {
@@ -310,9 +524,28 @@ const resetQuantities = (newType) => {
     form.qteMat = 0;
     if (form.nbPerso < 1) form.nbPerso = 1;
   }
+  validationErrors.qteMat = null;
+  validationErrors.nbPerso = null;
 };
 
-// Computed properties 
+// WATCHERS
+watch(() => form.typeRes, (newType, oldType) => {
+  if (newType !== oldType) {
+    form.idCatalogue = ''; 
+  }
+  resetQuantities(newType);
+});
+
+watch(() => form.idCatalogue, (newId) => {
+  console.log('🔄 Ressource changée:', newId);
+  validateQuantities();
+});
+
+watch([() => form.qteMat, () => form.nbPerso], () => {
+  validateQuantities();
+});
+
+// COMPUTED PROPERTIES 
 const resourceOptions = computed(() => {
   return catalogueData.value
     .filter(item => item.type === form.typeRes)
@@ -324,17 +557,23 @@ const resourceOptions = computed(() => {
 });
 
 const selectedResource = computed(() => {
-  return catalogueData.value.find(item => item.id === form.idCatalogue);
+  const resource = catalogueData.value.find(item => item.id === form.idCatalogue);
+  return resource;
 });
 
-// Validation simplifiée
+// COMPUTED PROPERTY POUR LE BOUTON
 const isFormValid = computed(() => {
-  return form.typeRes && 
+  const basicValid = form.typeRes && 
          form.idCatalogue && 
          form.debRes && 
          form.finRes && 
-         new Date(form.debRes) < new Date(form.finRes) &&
-         (form.typeRes === 'Materiel' ? form.qteMat > 0 : form.nbPerso > 0);
+         new Date(form.debRes) < new Date(form.finRes);
+  
+  const quantitiesValid = form.typeRes === 'Materiel' ? 
+    (form.qteMat > 0) : 
+    (form.nbPerso > 0);
+  
+  return basicValid && quantitiesValid && !hasValidationErrors.value;
 });
 
 const formattedTarif = computed(() => {
@@ -373,7 +612,7 @@ const durationLabel = computed(() => {
   return labels[form.typeDuree] || form.typeDuree;
 });
 
-// Methods
+// METHODS
 const disablePreviousDate = (timestamp) => {
   return timestamp < Date.now() - 24 * 60 * 60 * 1000;
 };
@@ -420,93 +659,168 @@ const calculateTarif = () => {
   form.tarifTot = parseFloat(tarif.toFixed(2));
 };
 
+// FONCTION DE CHARGEMENT DES DONNÉES
 const fetchInitialData = async () => {
   loading.catalogue = true;
   try {
-    const sallesData = await LocationService.getSalles();
-    const materielsData = await LocationService.getMateriels();
+    // Charger les ressources
+    await fetchResources();
 
-    const mappedSalles = sallesData.map(s => ({
-      id: String(s.idSalle),
-      nom: s.nomSalle,
-      type: 'Salle',
-      tarifHeure: parseFloat(s.tarifHeure) || 0,
-      tarifDemiJournee: parseFloat(s.tarifDemiJournee) || 0,
-      tarifJour: parseFloat(s.tarifJour) || 0,
-    }));
-    
-    const mappedMateriels = materielsData.map(m => ({
-      id: String(m.codeMat),
-      nom: m.designationMat,
-      type: 'Materiel',
-      tarifHeure: parseFloat(m.tarifHeure) || 0,
-      tarifDemiJournee: parseFloat(m.tarifDemiJournee) || 0,
-      tarifJour: parseFloat(m.tarifJour) || 0,
-    }));
-    
-    catalogueData.value = [...mappedSalles, ...mappedMateriels];
-    
-    if (urlResourceId && catalogueData.value.length > 0) {
-      const resource = catalogueData.value.find(item => item.id === urlResourceId);
-      if (resource) {
-        form.typeRes = resource.type; 
-        form.idCatalogue = resource.id;
-        resetQuantities(resource.type); 
-      }
-    }
+    // Récupérer les données client
+    const clientData = await getClientData();
+    console.log('👤 Données client finales pour notification:', clientData);
+
   } catch (error) {
     console.error("Erreur de chargement des données:", error);
-    alert("Erreur lors du chargement des ressources.");
+    message.error("Erreur lors du chargement des ressources.");
   } finally {
     loading.catalogue = false;
   }
 };
 
-// 🎯 MÉTHODE CORRIGÉE : Utilise la nouvelle route client
-const submitForm = async () => {
+// FONCTION POUR CHARGER LES RESSOURCES
+const fetchResources = async () => {
   try {
-    isSubmitting.value = true;
+    const sallesResponse = await LocationService.getSalles();
+    const materielsResponse = await LocationService.getMateriels();
 
-    const token = localStorage.getItem('token');
-    console.log('Token envoyé:', token);
+    const mappedSalles = sallesResponse.map(s => {
+      return {
+        id: String(s.idSalle),
+        nom: s.nomSalle,
+        type: 'Salle',
+        tarifHeure: parseFloat(s.tarifHeure) || 0,
+        tarifDemiJournee: parseFloat(s.tarifDemiJournee) || 0,
+        tarifJour: parseFloat(s.tarifJour) || 0,
+        capaciteSalle: parseInt(s.capaciteSalle) || 0,
+        numeroSalle: s.numeroSalle,
+        disponibiliteSalle: s.disponibiliteSalle
+      };
+    });
+    
+    const mappedMateriels = materielsResponse.map(m => {
+      return {
+        id: String(m.codeMat),
+        nom: m.designationMat,
+        type: 'Materiel',
+        tarifHeure: parseFloat(m.tarifHeure) || 0,
+        tarifDemiJournee: parseFloat(m.tarifDemiJournee) || 0,
+        tarifJour: parseFloat(m.tarifJour) || 0,
+        qteTotDispo: parseInt(m.qteTotDispo) || 0,
+        qteActuelStock: parseInt(m.qteActuelStock) || 0,
+        qteEnLocation: parseInt(m.qteEnLocation) || 0,
+        categorieMat: m.categorieMat,
+        etatMat: m.etatMat
+      };
+    });
+    
+    catalogueData.value = [...mappedSalles, ...mappedMateriels];
 
-    const response = await axios.post(
-      'http://localhost:5000/api/locations/client/reservations',
-      {
-        idCatalogue: form.idCatalogue,
-        typeRes: form.typeRes,
-        typeDuree: form.typeDuree,
-        debRes: form.debRes,
-        finRes: form.finRes,
-        qteMat: form.qteMat,
-        nbPerso: form.nbPerso,
-        tarifTot: form.tarifTot
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+    // INITIALISATION PAR URL 
+    if (urlResourceId && catalogueData.value.length > 0) {
+      const resource = catalogueData.value.find(item => item.id === urlResourceId);
+
+      if (resource) {
+        form.typeRes = resource.type; 
+        form.idCatalogue = resource.id;
+        resetQuantities(resource.type); 
+        
+        setTimeout(() => {
+          validateQuantities();
+        }, 100);
+      } else {
+        message.warn(`Ressource (ID:${urlResourceId}) non trouvée. Veuillez la sélectionner.`);
       }
+    }
+
+  } catch (error) {
+    console.error("Erreur de chargement des ressources:", error);
+    throw error;
+  }
+};
+
+// MÉTHODE DE SOUMISSION CORRIGÉE
+const submitForm = async () => {
+  if (!isFormValid.value) {
+    message.error('Veuillez corriger les erreurs dans le formulaire');
+    return;
+  }
+  
+  if (!validateBeforeSubmit()) {
+    return;
+  }
+  
+  isSubmitting.value = true;
+  
+  try {
+    // Récupérer les données client (TOUJOURS fraîches depuis l'API/localStorage)
+    const clientData = await getClientData();
+    
+    console.log('📨 Données client pour notification:', clientData);
+
+    // Valider les données client
+    const validation = validateClientData(clientData);
+    if (!validation.isValid) {
+      message.error(`Informations client incomplètes: ${validation.errors.join(', ')}. Veuillez compléter votre profil avant de faire une réservation.`);
+      
+      // Rediriger vers la page de profil si les données sont manquantes
+      setTimeout(() => {
+        router.push('/client/mon-compte');
+      }, 2000);
+      
+      isSubmitting.value = false;
+      return;
+    }
+
+    // Préparer les données pour l'API
+    const requestData = {
+      idCatalogue: form.idCatalogue,
+      typeRes: form.typeRes,
+      debRes: new Date(form.debRes).toISOString(),
+      finRes: new Date(form.finRes).toISOString(),
+      qteMat: form.qteMat || 0,
+      nbPerso: form.nbPerso || 0,
+      tarifTot: form.tarifTot,
+      clientData: clientData
+    };
+
+    console.log('📤 Données envoyées à l\'API:', requestData);
+
+    // Utiliser l'endpoint PUBLIC
+    const response = await axios.post(
+      'http://localhost:5000/api/reservations/public/reservations',
+      requestData
     );
 
-    console.log('Réservation créée :', response.data);
+    console.log('✅ Réservation créée avec notifications:', response.data);
 
-    alert('Réservation enregistrée avec succès !');
-    router.push('/client/mes-reservations');
+    message.success('Votre demande de réservation a été envoyée avec succès ! Notre équipe vous contactera rapidement.');
+    
+    // Rediriger vers le tableau de bord client
+    setTimeout(() => {
+      router.push('/compteClient'); 
+    }, 1500);
 
   } catch (error) {
     console.error('❌ Erreur réservation:', error);
-
+    console.error('❌ Détails de l\'erreur:', error.response?.data);
+    
     if (error.response?.status === 401) {
-      alert('Session expirée. Veuillez vous reconnecter.');
+      message.error('Session expirée. Veuillez vous reconnecter.');
       router.push('/');
+    } else if (error.response?.data?.message) {
+      message.error('Erreur: ' + error.response.data.message);
+    } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network Error')) {
+      message.error('Erreur de connexion. Vérifiez votre connexion internet.');
+    } else if (error.response?.status === 400) {
+      message.error('Données invalides. Vérifiez les informations saisies.');
+    } else {
+      message.error('Erreur lors de l\'envoi de votre demande. Veuillez réessayer.');
     }
   } finally {
     isSubmitting.value = false;
   }
 };
-
 
 onMounted(() => {
   fetchInitialData();
@@ -514,6 +828,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Les styles restent inchangés */
 .main-content {
   background-color: #ffffff;
 }
