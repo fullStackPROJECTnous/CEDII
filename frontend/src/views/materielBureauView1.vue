@@ -380,18 +380,14 @@ const typeOptions = [
 // Options du menu de navigation
 const navigationOptions = [
   {
-    label: 'Nouvelle Réservation',
-    key: 'nouvelle-reservation',
+    label: 'Location & Reservation',
+    key: 'location',
     icon: () => h('i', { class: 'bi bi-calendar-plus me-2' })
   },
+ 
   {
-    label: 'Demandes à Traiter',
-    key: 'demandes-attente',
-    icon: () => h('i', { class: 'bi bi-bell me-2' })
-  },
-  {
-    label: 'Calendrier & Disponibilités',
-    key: 'calendrier',
+    label: 'Gestion Financière',
+    key: 'finance',
     icon: () => h('i', { class: 'bi bi-calendar-day me-2' })
   },
   {
@@ -411,6 +407,11 @@ const navigationOptions = [
     type: 'divider'
   },
   {
+    label: 'Suivi & Rapports',
+    key: 'rapport',
+    icon: () => h('i', { class: 'bi bi-people me-2' })
+  },
+  {
     label: 'Tableau de Bord',
     key: 'dashboard',
     icon: () => h('i', { class: 'bi bi-house me-2' })
@@ -420,12 +421,12 @@ const navigationOptions = [
 // Gestion de la sélection dans le menu
 const handleNavigationSelect = (key) => {
   const routeMap = {
-    'dashboard': '/dashboardReception',
-    'nouvelle-reservation': '/reservationLocationForm',
-    'demandes-attente': '/demandeAttente',
-    'calendrier': '/calendrier',
-    'inventaire': '/patrimoine',
-    'clients': '/clientManagement'
+    'dashboard': '/dashboardAdmin',
+    'location': '/location',
+    'finance': '/finance',
+    'rapport': '/rapport',
+    'inventaire': '/patrimoine1',
+    'clients': '/clientManagementAdmin'
   };
   
   if (routeMap[key]) {

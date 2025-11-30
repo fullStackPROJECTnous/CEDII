@@ -332,7 +332,7 @@
 
                                 <template #footer>
                                     <div class="text-end">
-                                        <router-link :to="{ name: 'InventairePatrimoine' }">
+                                        <router-link :to="{ name: 'InventairePatrimoineAD' }">
                                             <n-button size="small" type="default" class="custom-btn-outline">
                                                 Voir le détail
                                             </n-button>
@@ -449,6 +449,12 @@ const menuOptions = [
         key: 'inventaire',
         icon: renderIcon('bi-tools')
     },
+     {
+        label: () => h('span', { class: 'text-white' }, 'Matériel de Bureau'),
+        key: 'bureau',
+        icon: renderIcon('bi-briefcase-fill')
+    },
+
     {
         label: () => h('span', { class: 'text-white' }, 'Locations & Réservations'),
         key: 'locations',
@@ -478,10 +484,11 @@ const handleMenuSelect = (key) => {
     const routeMap = {
         'accueil': 'AdminDashboard',
         'utilisateurs': 'UserManagement',
-        'clients': 'ClientManagement',
-        'inventaire': 'InventairePatrimoine',
+        'clients': 'ClientManagement1',
+        'inventaire': 'InventairePatrimoineAD',
         'locations': 'Location',
         'finance': 'Finance',
+        'bureau': 'Bureau1',
         'rapports': 'Rapport'
     };
     

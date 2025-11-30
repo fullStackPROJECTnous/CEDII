@@ -17,6 +17,19 @@
               </h1>
               <p class="custom-subtitle">Gestion et suivi des transactions financières</p>
             </div>
+                 <!-- Menu trois points -->
+            <div class="position-relative">
+              <n-dropdown
+                trigger="click"
+                :options="navigationOptions"
+                @select="handleNavigationSelect"
+                placement="bottom-end"
+              >
+                <n-button type="primary" size="small" class="custom-btn-primary">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </n-button>
+              </n-dropdown>
+            </div>
             <div></div> <!-- Placeholder pour l'alignement -->
           </div>
         </div>
@@ -99,7 +112,6 @@
           <n-tag type="warning" round class="custom-tag">{{ pendingPayments.length }} en attente</n-tag>
         </template>
         
-        <!-- CORRECTION : Structure v-if/v-else corrigée -->
         <div v-if="pendingPayments.length === 0 && !isLoading">
           <n-empty description="Aucun paiement en attente. Votre caisse est à jour !">
             <template #icon>
@@ -183,6 +195,7 @@
 
 <script setup>
 import { ref, onMounted, computed, h } from 'vue';
+import { useRouter } from 'vue-router';
 import { 
   NButton, 
   NAlert, 
@@ -192,11 +205,57 @@ import {
   NEmpty, 
   NIcon, 
   NInput, 
+  NDropdown,
   NSelect, 
   NSpace, 
   NPagination
 } from 'naive-ui';
 import FinanceService from '../services/FinanceService';
+import jsPDF from 'jspdf';
+
+
+
+const router = useRouter();
+
+
+// Options du menu de navigation
+const navigationOptions = [
+  {
+    label: 'Facturation',
+    key: 'fact',
+    icon: () => h('i', { class: 'bi-file-earmark-text' })
+  },
+  {
+    label: 'Penalités et Litiges',
+    key: 'penaliteLiti',
+    icon: () => h('i', { class: 'bi-exclamation-octagon-fill' })
+  },
+  {
+    label: 'Rapports $ Synthèses',
+    key: 'syntheseRapp',
+    icon: () => h('i', { class: 'bi-graph-up' })
+  },
+  {
+    label: 'Tableau de Bord',
+    key: 'dashboard',
+    icon: () => h('i', { class: 'bi bi-house me-2' })
+  }
+];
+
+// Gestion de la sélection dans le menu
+const handleNavigationSelect = (key) => {
+  const routeMap = {
+    'dashboard': '/dashboardFinance',
+    'fact': '/facturation',
+    'penaliteLiti': '/penalite',
+    'syntheseRapp': '/synthese'
+    
+  };
+  
+  if (routeMap[key]) {
+    router.push(routeMap[key]);
+  }
+};
 
 // --- États des Données ---
 const isLoading = ref(true);
@@ -217,7 +276,6 @@ const statusOptions = [
 
 const totalPendingAmount = computed(() => {
   return pendingPayments.value.reduce((sum, payment) => {
-    // Convertir en nombre et utiliser 0 si la valeur est invalide
     const amount = Number(payment.montantPaie) || 0;
     return sum + amount;
   }, 0);
@@ -226,7 +284,6 @@ const totalPendingAmount = computed(() => {
 const filteredHistory = computed(() => {
   let filtered = validatedPayments.value;
   
-  // Filtre par recherche
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase();
     filtered = filtered.filter(payment => 
@@ -236,7 +293,6 @@ const filteredHistory = computed(() => {
     );
   }
   
-  // Filtre par statut
   if (filterStatus.value) {
     filtered = filtered.filter(payment => payment.statutPaie === filterStatus.value);
   }
@@ -244,9 +300,7 @@ const filteredHistory = computed(() => {
   return filtered;
 });
 
-// --- Colonnes pour la table des paiements en attente (SANS ACTIONS) ---
-
-// --- Colonnes pour la table des paiements en attente (AVEC ACTIONS) ---
+// --- Colonnes pour la table des paiements en attente ---
 const pendingColumns = [
   {
     title: 'ID Paie',
@@ -316,7 +370,6 @@ const pendingColumns = [
     key: 'actions',
     width: 200,
     render: (row) => h('div', { class: 'd-flex gap-1' }, [
-      // 🔥 BOUTON VALIDER
       h(NButton, {
         size: 'small',
         type: 'success',
@@ -326,7 +379,6 @@ const pendingColumns = [
         default: () => [h('i', { class: 'bi bi-check-lg me-1' }), 'Valider']
       }),
       
-      // 🔥 BOUTON RELANCER
       h(NButton, {
         size: 'small',
         type: 'warning',
@@ -336,7 +388,6 @@ const pendingColumns = [
         default: () => [h('i', { class: 'bi bi-bell me-1' }), 'Relancer']
       }),
       
-      // 🔥 BOUTON TÉLÉCHARGER
       h(NButton, {
         size: 'small',
         type: 'info',
@@ -349,7 +400,7 @@ const pendingColumns = [
   }
 ];
 
-// --- Colonnes pour l'historique (AVEC ACTIONS) ---
+// --- Colonnes pour l'historique ---
 const historyColumns = [
   {
     title: 'ID Paie',
@@ -436,7 +487,6 @@ const historyColumns = [
     key: 'actions',
     width: 150,
     render: (row) => h('div', { class: 'd-flex gap-1' }, [
-      // 🔥 BOUTON TÉLÉCHARGER pour l'historique
       h(NButton, {
         size: 'small',
         type: 'info',
@@ -446,7 +496,6 @@ const historyColumns = [
         default: () => h('i', { class: 'bi bi-download' })
       }),
       
-      // 🔥 BOUTON ANNULER (seulement si pas déjà annulé)
       row.statutPaie !== 'Annulé' ? h(NButton, {
         size: 'small',
         type: 'error',
@@ -458,6 +507,7 @@ const historyColumns = [
     ])
   }
 ];
+
 // --- Fonctions de Chargement ---
 const fetchPaymentData = async () => {
   isLoading.value = true;
@@ -465,13 +515,11 @@ const fetchPaymentData = async () => {
     const response = await FinanceService.getPaymentData();
     const data = response.data;
     
-    // Log pour déboguer
     console.log('Données reçues:', data);
     
     pendingPayments.value = data.pendingPayments || [];
     validatedPayments.value = data.validatedPayments || [];
     
-    // Vérifiez les données de méthode de paiement
     if (pendingPayments.value.length > 0) {
       console.log('Méthodes de paiement en attente:', pendingPayments.value.map(p => p.modePaie));
     }
@@ -486,34 +534,117 @@ const fetchPaymentData = async () => {
     isLoading.value = false;
   }
 };
-/*
+
+// --- Fonction pour générer un PDF à partir du texte ---
+const generatePDFFromText = (text, locationId) => {
+  try {
+    const pdf = new jsPDF();
+    
+    const primaryColor = [0, 4, 143];
+    const secondaryColor = [220, 53, 69];
+    const textColor = [51, 51, 51];
+    
+    pdf.setFillColor(...primaryColor);
+    pdf.rect(0, 0, 210, 40, 'F');
+    
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('CEDII LOCATIONS', 105, 20, { align: 'center' });
+    
+    pdf.setFontSize(14);
+    pdf.text('FACTURE OFFICIELLE', 105, 30, { align: 'center' });
+    
+    pdf.setDrawColor(...secondaryColor);
+    pdf.setLineWidth(0.5);
+    pdf.line(20, 45, 190, 45);
+    
+    const lines = text.split('\n');
+    let yPosition = 60;
+    
+    let numeroFacture = 'N/A';
+    let client = 'N/A';
+    let location = 'N/A';
+    let periode = 'N/A';
+    let montant = 'N/A';
+    let statut = 'N/A';
+    
+    lines.forEach(line => {
+      if (line.includes('Numéro:')) numeroFacture = line.split('Numéro:')[1]?.trim() || 'N/A';
+      if (line.includes('Client:')) client = line.split('Client:')[1]?.trim() || 'N/A';
+      if (line.includes('Location:')) location = line.split('Location:')[1]?.trim() || 'N/A';
+      if (line.includes('Période:')) periode = line.split('Période:')[1]?.trim() || 'N/A';
+      if (line.includes('Montant:')) montant = line.split('Montant:')[1]?.trim() || 'N/A';
+      if (line.includes('Statut:')) statut = line.split('Statut:')[1]?.trim() || 'N/A';
+    });
+    
+    pdf.setTextColor(...textColor);
+    pdf.setFontSize(12);
+    
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('INFORMATIONS DE LA FACTURE', 20, yPosition);
+    yPosition += 10;
+    
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Numéro de facture: ${numeroFacture}`, 20, yPosition);
+    yPosition += 8;
+    pdf.text(`Date d'émission: ${new Date().toLocaleDateString('fr-FR')}`, 20, yPosition);
+    yPosition += 15;
+    
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('INFORMATIONS DU CLIENT', 20, yPosition);
+    yPosition += 10;
+    
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Client: ${client}`, 20, yPosition);
+    yPosition += 8;
+    pdf.text(`Location: ${location}`, 20, yPosition);
+    yPosition += 15;
+    
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('DÉTAILS DE LA LOCATION', 20, yPosition);
+    yPosition += 10;
+    
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Période: ${periode}`, 20, yPosition);
+    yPosition += 8;
+    pdf.text(`Statut: ${statut}`, 20, yPosition);
+    yPosition += 15;
+    
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('MONTANT TOTAL', 20, yPosition);
+    yPosition += 10;
+    
+    pdf.setFontSize(16);
+    pdf.setTextColor(...secondaryColor);
+    pdf.text(` ${montant}`, 20, yPosition);
+    yPosition += 20;
+    
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(20, yPosition, 190, yPosition);
+    yPosition += 15;
+    
+    pdf.setFontSize(10);
+    pdf.setTextColor(100, 100, 100);
+    pdf.setFont('helvetica', 'italic');
+    pdf.text('Merci pour votre confiance!', 105, yPosition, { align: 'center' });
+    yPosition += 6;
+    pdf.text('CEDII Locations - Votre partenaire de confiance', 105, yPosition, { align: 'center' });
+    
+    pdf.setFontSize(8);
+    pdf.setTextColor(150, 150, 150);
+    pdf.text('CEDII Locations • contact@cedii.mg • +261 XX XX XXX XX', 105, 280, { align: 'center' });
+    
+    pdf.save(`facture-cedii-${locationId}.pdf`);
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur lors de la génération du PDF:', error);
+    return false;
+  }
+};
+
 // --- Fonctions d'Action ---
-const validatePayment = async (paymentId) => {
-  if (!confirm(`Confirmez-vous la validation du paiement ${paymentId} ?`)) return;
-  
-  try {
-    await FinanceService.validatePayment(paymentId);
-    alert(`Paiement ${paymentId} validé et rapproché.`);
-    await fetchPaymentData();
-  } catch (error) {
-    console.error(`Erreur lors de la validation du paiement ${paymentId}:`, error);
-    alert("Erreur lors de la validation");
-  }
-};
-
-const sendReminder = async (paymentId) => {
-  if (!confirm(`Confirmez-vous l'envoi d'une relance pour le paiement ${paymentId} ?`)) return;
-
-  try {
-    await FinanceService.sendPaymentReminder(paymentId);
-    alert(`Relance envoyée pour le paiement ${paymentId}.`);
-  } catch (error) {
-    console.error(`Erreur lors de l'envoi de la relance pour le paiement ${paymentId}:`, error);
-    alert("Erreur lors de la relance");
-  }
-};
-*/
-// --- Nouvelles Fonctions d'Action ---
 const downloadPaymentInvoice = async (locationId) => {
   if (!locationId) {
     alert('ID de location manquant');
@@ -521,23 +652,86 @@ const downloadPaymentInvoice = async (locationId) => {
   }
   
   try {
-    const response = await FinanceService.downloadInvoice(locationId);
+    console.log('📥 Tentative de téléchargement pour location:', locationId);
     
-    const blob = new Blob([response.data], { type: 'application/pdf' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `facture-location-${locationId}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
+    const response = await FinanceService.downloadInvoice(locationId, {
+      responseType: 'blob'
+    });
     
-    console.log('✅ Facture téléchargée pour location:', locationId);
+    console.log('📄 Réponse reçue:', response);
+    
+    if (!response.data || response.data.size === 0) {
+      throw new Error('Aucune donnée reçue du serveur');
+    }
+    
+    const contentType = response.headers['content-type'];
+    console.log('📋 Content-Type:', contentType);
+    
+    if (contentType && contentType.includes('text/plain')) {
+      const text = await response.data.text();
+      console.log('📝 Contenu de la facture reçu:', text);
+      
+      const pdfGenerated = generatePDFFromText(text, locationId);
+      
+      if (pdfGenerated) {
+        console.log('✅ Facture PDF générée avec succès pour location:', locationId);
+        alert(`Facture LO-${locationId} générée en PDF avec succès!`);
+      } else {
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url = window.URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `facture-location-${locationId}.txt`;
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        window.URL.revokeObjectURL(url);
+        
+        console.log('✅ Facture texte téléchargée (fallback) pour location:', locationId);
+        alert(`Facture LO-${locationId} téléchargée au format texte!`);
+      }
+      return;
+    }
+    
+    if (contentType && contentType.includes('application/pdf')) {
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `facture-location-${locationId}.pdf`;
+      link.style.display = 'none';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      window.URL.revokeObjectURL(url);
+      
+      console.log('✅ Facture PDF téléchargée avec succès pour location:', locationId);
+      alert(`Facture LO-${locationId} téléchargée au format PDF!`);
+      return;
+    }
+    
+    console.error('❌ Type de contenu non supporté:', contentType);
+    alert('Format de facture non supporté par le serveur');
     
   } catch (error) {
     console.error('❌ Erreur téléchargement facture:', error);
-    alert('Erreur lors du téléchargement de la facture');
+    
+    if (error.response?.status === 404) {
+      alert(`Facture non trouvée pour la location LO-${locationId}`);
+    } else if (error.response?.status === 500) {
+      alert('Erreur serveur lors de la génération de la facture');
+    } else if (error.message.includes('Network Error')) {
+      alert('Erreur de connexion au serveur');
+    } else {
+      alert(`Erreur lors du téléchargement: ${error.message}`);
+    }
   }
 };
 
@@ -545,7 +739,6 @@ const cancelPayment = async (paymentId) => {
   if (!confirm(`Confirmez-vous l'annulation du paiement ${paymentId} ?`)) return;
   
   try {
-    // Vous devez créer cette méthode dans FinanceService
     await FinanceService.cancelPayment(paymentId);
     alert(`Paiement ${paymentId} annulé avec succès.`);
     await fetchPaymentData();
@@ -555,7 +748,6 @@ const cancelPayment = async (paymentId) => {
   }
 };
 
-// 🔥 AMÉLIORATION de validatePayment avec plus de détails
 const validatePayment = async (paymentId) => {
   const payment = pendingPayments.value.find(p => p.idPaie === paymentId);
   
@@ -564,8 +756,7 @@ const validatePayment = async (paymentId) => {
     return;
   }
   
-  const confirmationMessage = `
-Confirmez-vous la validation du paiement ?
+  const confirmationMessage = `Confirmez-vous la validation du paiement ?
     
 • Paiement: #${payment.idPaie}
 • Client: ${payment.nomCli} ${payment.prenomCli || ''}
@@ -573,15 +764,13 @@ Confirmez-vous la validation du paiement ?
 • Méthode: ${payment.modePaie}
 • Location: LO-${payment.idLo}
 
-Cette action marquera le paiement comme "Effectué".
-  `;
+Cette action marquera le paiement comme "Effectué".`;
   
   if (!confirm(confirmationMessage)) return;
   
   try {
     await FinanceService.validatePayment(paymentId);
     
-    // 🔥 MESSAGE DE SUCCÈS AMÉLIORÉ
     alert(`✅ Paiement #${paymentId} validé avec succès !
     
 • Statut mis à jour: En attente → Effectué
@@ -595,8 +784,7 @@ Cette action marquera le paiement comme "Effectué".
     alert(`Erreur lors de la validation: ${error.response?.data?.message || error.message}`);
   }
 };
-
-// 🔥 AMÉLIORATION de sendReminder
+// Dans suivi.vue - Remplacer la fonction sendReminder
 const sendReminder = async (paymentId) => {
   const payment = pendingPayments.value.find(p => p.idPaie === paymentId);
   
@@ -605,42 +793,54 @@ const sendReminder = async (paymentId) => {
     return;
   }
   
-  const reminderMessage = `
-Confirmez-vous l'envoi d'une relance pour le paiement ?
+  const reminderMessage = `Confirmez-vous l'envoi d'une relance pour le paiement ?
     
 • Paiement: #${payment.idPaie}
 • Client: ${payment.nomCli} ${payment.prenomCli || ''}
 • Montant en attente: ${formatCurrency(payment.montantPaie)}
 • Location: LO-${payment.idLo}
 
-Un email de rappel sera envoyé au client.
-  `;
+Un email de rappel sera envoyé au client.`;
   
   if (!confirm(reminderMessage)) return;
 
   try {
-    await FinanceService.sendPaymentReminder(paymentId);
+    console.log('📧 Envoi relance pour paiement:', paymentId);
     
-    alert(`📧 Relance envoyée pour le paiement #${paymentId}
+    // Utiliser la nouvelle route avec ID dans l'URL
+    const response = await FinanceService.sendPaymentReminderByIdInUrl(paymentId);
     
-• Email de rappel envoyé au client
-• Paiement toujours en statut "En attente"
-• Prochaine relance possible si nécessaire`);
+    console.log('✅ Réponse relance:', response);
+    
+    if (response.data.success) {
+      alert(`📧 ${response.data.message}
+      
+• Paiement: #${paymentId}
+• Client: ${response.data.data.clientName}
+• Email: ${response.data.data.clientEmail}
+• Statut email: ${response.data.data.emailSent ? 'Envoyé' : 'Échec'}`);
+    } else {
+      alert(`❌ ${response.data.message}`);
+    }
     
   } catch (error) {
-    console.error(`❌ Erreur lors de l'envoi de la relance pour le paiement ${paymentId}:`, error);
-    alert("Erreur lors de l'envoi de la relance");
+    console.error(`❌ Erreur lors de l'envoi de la relance:`, error);
+    
+    if (error.response?.status === 404) {
+      alert('Fonctionnalité de rappel non disponible. Contactez l\'administrateur.');
+    } else if (error.response?.status === 400) {
+      alert(error.response.data.message || 'Données client incomplètes pour l\'envoi de rappel.');
+    } else {
+      alert(`Erreur lors de l'envoi: ${error.response?.data?.message || error.message}`);
+    }
   }
 };
-
 const exportHistory = () => {
   alert("Fonctionnalité d'export à implémenter");
-  // Implémentez ici la logique d'export (CSV, Excel, PDF)
 };
 
 // --- Fonctions Utilitaires ---
 const formatCurrency = (value) => {
-  // Convertir en nombre et gérer les valeurs nulles/indéfinies
   const numericValue = Number(value) || 0;
   return new Intl.NumberFormat('fr-FR', { 
     style: 'currency', 
@@ -850,6 +1050,40 @@ onMounted(() => {
   
   .table-container {
     max-height: 300px;
+  }
+}
+
+
+/* Ajout des styles pour le menu dropdown */
+:deep(.n-dropdown-menu) {
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.n-dropdown-option) {
+  padding: 8px 12px;
+}
+
+:deep(.n-dropdown-option .n-dropdown-option-body) {
+  align-items: center;
+}
+
+:deep(.n-dropdown-option .n-dropdown-option-body__icon) {
+  margin-right: 8px;
+}
+
+/* Responsive pour le menu trois points */
+@media (max-width: 768px) {
+  .position-relative {
+    position: absolute !important;
+    top: 20px;
+    right: 20px;
+  }
+  
+  .custom-header .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
   }
 }
 </style>

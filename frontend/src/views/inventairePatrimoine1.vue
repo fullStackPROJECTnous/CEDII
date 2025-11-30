@@ -6,7 +6,7 @@
         <div class="custom-header p-4 rounded">
           <div class="d-flex justify-content-between align-items-center">
             <div>
-              <router-link to="/dashboardReception" class="btn btn-sm btn-outline-light">
+              <router-link to="/dashboardAdmin" class="btn btn-sm btn-outline-light">
                 <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
               </router-link>
             </div>
@@ -35,20 +35,19 @@
       </div>
     </div>
 
-    <!-- Navigation par onglets -->
-    <div class="navigation-section mb-4">
+      <div class="navigation-section mb-4">
       <ul class="nav nav-tabs custom-nav-tabs">
         <li class="nav-item">
           <router-link 
-            to="/patrimoine/materiel" 
-            :class="['nav-link', 'custom-nav-link', { active: $route.path.includes('/patrimoine/materiel') }]">
+            to="/patrimoine-admin/materiel"  
+            :class="['nav-link', 'custom-nav-link', { active: $route.path.includes('/patrimoine-admin/materiel') }]">
             <i class="bi bi-pc-display me-2"></i>Matériel
           </router-link>
         </li>
         <li class="nav-item">
           <router-link 
-            to="/patrimoine/salle" 
-            :class="['nav-link', 'custom-nav-link', { active: $route.path.includes('/patrimoine/salle') }]">
+            to="/patrimoine-admin/salle" 
+            :class="['nav-link', 'custom-nav-link', { active: $route.path.includes('/patrimoine-admin/salle') }]">
             <i class="bi bi-door-closed me-2"></i>Salles
           </router-link>
         </li>
@@ -75,18 +74,18 @@ const router = useRouter();
 // Options du menu de navigation
 const navigationOptions = [
   {
-    label: 'Nouvelle Réservation',
-    key: 'nouvelle-reservation',
+    label: 'Fiches Clients',
+    key: 'client',
     icon: () => h('i', { class: 'bi bi-calendar-plus me-2' })
   },
   {
-    label: 'Demandes à Traiter',
-    key: 'demandes-attente',
+    label: 'Location & Reservation',
+    key: 'location',
     icon: () => h('i', { class: 'bi bi-bell me-2' })
   },
   {
-    label: 'Calendrier & Disponibilités',
-    key: 'calendrier',
+    label: 'Gestion Financière',
+    key: 'finance',
     icon: () => h('i', { class: 'bi bi-calendar-day me-2' })
   },
   {
@@ -98,8 +97,8 @@ const navigationOptions = [
     icon: () => h('i', { class: 'bi bi-laptop me-2' })
   },
   {
-    label: 'Fiches Clients',
-    key: 'clients',
+    label: 'Suivi & Rapports',
+    key: 'rapport',
     icon: () => h('i', { class: 'bi bi-people me-2' })
   },
   {
@@ -115,12 +114,12 @@ const navigationOptions = [
 // Gestion de la sélection dans le menu
 const handleNavigationSelect = (key) => {
   const routeMap = {
-    'dashboard': '/dashboardReception',
-    'nouvelle-reservation': '/reservationLocationForm',
-    'demandes-attente': '/demandeAttente',
-    'calendrier': '/calendrier',
+    'dashboard': '/dashboardAdmin',
+    'client': '/clientManagementAdmin',
+    'rapport': '/rapport',
+    'finance': '/finance',
     'bureau': '/materielBureauView',
-    'clients': '/clientManagement'
+    'location': '/location'
   };
   
   if (routeMap[key]) {

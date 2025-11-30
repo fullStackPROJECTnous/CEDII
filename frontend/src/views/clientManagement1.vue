@@ -6,7 +6,7 @@
         <div class="custom-header p-4 rounded">
           <div class="d-flex justify-content-between align-items-center">
             <div>
-              <router-link to="/dashboardReception" class="btn btn-sm btn-outline-light">
+              <router-link to="/dashboardAdmin" class="btn btn-sm btn-outline-light">
                 <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
               </router-link>
             </div>
@@ -340,18 +340,9 @@ const router = useRouter();
 
 // Options du menu de navigation
 const navigationOptions = [
+
   {
-    label: 'Nouvelle Réservation',
-    key: 'nouvelle-reservation',
-    icon: () => h('i', { class: 'bi bi-calendar-plus me-2' })
-  },
-  {
-    label: 'Demandes à Traiter',
-    key: 'demandes-attente',
-    icon: () => h('i', { class: 'bi bi-bell me-2' })
-  },
-  {
-    label: 'Calendrier & Disponibilités',
+    label: 'Location & Reservation',
     key: 'calendrier',
     icon: () => h('i', { class: 'bi bi-calendar-day me-2' })
   },
@@ -368,9 +359,22 @@ const navigationOptions = [
     key: 'bureau',
     icon: () => h('i', { class: 'bi bi-laptop me-2' })
   },
+  
   {
     type: 'divider'
   },
+  {
+    label: 'Gestion Financière',
+    key: 'finance',
+    icon: () => h('i', { class: 'bi-exclamation-octagon-fill' })
+  },
+  {
+    label: 'Suivi & Rapports',
+    key: 'rapport',
+    icon: () => h('i', { class: 'bi-graph-up' })
+  },
+  
+  
   {
     label: 'Tableau de Bord',
     key: 'dashboard',
@@ -381,12 +385,12 @@ const navigationOptions = [
 // Gestion de la sélection dans le menu
 const handleNavigationSelect = (key) => {
   const routeMap = {
-    'dashboard': '/dashboardReception',
-    'nouvelle-reservation': '/reservationLocationForm',
-    'demandes-attente': '/demandeAttente',
-    'calendrier': '/calendrier',
-    'inventaire': '/patrimoine',
-    'bureau': '/materielBureauView'
+    'dashboard': '/dashboardAdmin',
+    'finance': '/finance',
+    'rapport': '/rapport',
+    'calendrier': '/location',
+    'inventaire': '/patrimoine1',
+    'bureau': '/materielBureauView1'
   };
   
   if (routeMap[key]) {

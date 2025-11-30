@@ -17,6 +17,19 @@
               </h1>
               <p class="custom-subtitle">Analysez les performances et suivez l'activité de location</p>
             </div>
+                <!-- Menu trois points -->
+            <div class="position-relative">
+              <n-dropdown
+                trigger="click"
+                :options="navigationOptions"
+                @select="handleNavigationSelect"
+                placement="bottom-end"
+              >
+                <n-button type="primary" size="small" class="custom-btn-primary">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </n-button>
+              </n-dropdown>
+            </div>
             <div></div>
           </div>
         </div>
@@ -239,7 +252,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, h } from 'vue';
 import {
   NH2,
   NText,
@@ -262,6 +275,7 @@ import {
   NAlert
 } from 'naive-ui';
 import jsPDF from 'jspdf';
+import { useRouter } from 'vue-router';
 import RapportService from '../services/RapportService';
 
 const loading = ref(false);
@@ -269,6 +283,71 @@ const exporting = ref(false);
 const apiError = ref(false);
 const dateRange = ref(null);
 const selectedPeriod = ref('month');
+
+
+
+const router = useRouter();
+
+// Options du menu de navigation
+const navigationOptions = [
+
+  {
+    label: 'Location & Reservation',
+    key: 'calendrier',
+    icon: () => h('i', { class: 'bi bi-calendar-day me-2' })
+  },
+  {
+    type: 'divider'
+  },
+  {
+    label: 'Inventaire & Patrimoine',
+    key: 'inventaire',
+    icon: () => h('i', { class: 'bi bi-tools me-2' })
+  },
+  {
+    label: 'Matériel de Bureau',
+    key: 'bureau',
+    icon: () => h('i', { class: 'bi bi-laptop me-2' })
+  },
+  
+  {
+    type: 'divider'
+  },
+    {
+    label: 'Fiches Clients',
+    key: 'client',
+    icon: () => h('i', { class: 'bi bi-people me-2' })
+  },
+  {
+    label: 'Gestion Financière',
+    key: 'finance',
+    icon: () => h('i', { class: 'bi-exclamation-octagon-fill' })
+  },
+  
+  
+  {
+    label: 'Tableau de Bord',
+    key: 'dashboard',
+    icon: () => h('i', { class: 'bi bi-house me-2' })
+  }
+];
+
+// Gestion de la sélection dans le menu
+const handleNavigationSelect = (key) => {
+  const routeMap = {
+    'dashboard': '/dashboardAdmin',
+    'finance': '/finance',
+    //'rapport': '/rapport',
+    'calendrier': '/location',
+    'inventaire': '/patrimoine-admin',
+    'bureau': '/materielBureauView',
+    'client': '/clientManagementAdmin'
+  };
+  
+  if (routeMap[key]) {
+    router.push(routeMap[key]);
+  }
+};
 
 // KPIs simplifiés sans taux d'occupation
 const kpis = ref({

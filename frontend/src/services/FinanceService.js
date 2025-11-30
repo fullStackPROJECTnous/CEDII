@@ -85,16 +85,17 @@ getMonthlyRevenue() {
   return axios.get(`${API_URL}/monthly-revenue`);
 }
 
-// FinanceService.js - AMÉLIOREZ la méthode
-sendPaymentReminder(payload) {
-  return axios.post(`${API_URL}/send-payment-reminder`, payload, {
-    timeout: 10000,
+// Dans FinanceService.js
+sendPaymentReminder(data) {
+  // Si data est un nombre (ID), convertir en objet
+  const requestData = typeof data === 'number' ? { paymentId: data } : data;
+  
+  return axios.post(`${API_URL}/finance/send-payment-reminder`, requestData, {
     headers: {
       'Content-Type': 'application/json'
     }
   });
 }
-  
 
 // Méthode pour télécharger les factures PAYÉES - VERSION CORRIGÉE
 downloadPaidInvoice(locationId) {
@@ -104,6 +105,14 @@ downloadPaidInvoice(locationId) {
     headers: {
       'Accept': 'application/pdf',
       'Cache-Control': 'no-cache'
+    }
+  });
+}
+// Dans FinanceService.js - Ajoutez cette méthode
+sendPaymentReminderByIdInUrl(paymentId) {
+  return axios.post(`${API_URL}/send-payment-reminder/${paymentId}`, {}, {
+    headers: {
+      'Content-Type': 'application/json'
     }
   });
 }

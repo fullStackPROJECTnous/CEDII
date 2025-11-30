@@ -1,4 +1,5 @@
 <template>
+  <!-- Le template reste inchangé -->
   <div class="reservation-page-container">
     <!-- Header amélioré -->
     <div class="row mb-4">
@@ -16,6 +17,19 @@
                 Nouvelle Réservation / Location
               </h1>
               <p class="custom-subtitle">Formulaire de création de nouvelle demande</p>
+            </div>
+             <!-- Menu trois points -->
+            <div class="position-relative">
+              <n-dropdown
+                trigger="click"
+                :options="navigationOptions"
+                @select="handleNavigationSelect"
+                placement="bottom-end"
+              >
+                <n-button type="primary" size="small" class="custom-btn-primary">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </n-button>
+              </n-dropdown>
             </div>
             <div></div>
           </div>
@@ -264,7 +278,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onMounted,  h } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   NButton,
@@ -274,6 +288,7 @@ import {
   NFormItem,
   NSelect,
   NInputNumber,
+    NDropdown, 
   NDatePicker,
   NInput,
   NInputGroup,
@@ -282,6 +297,68 @@ import {
 import LocationService from '../services/LocationService';
 
 const router = useRouter();
+
+
+
+
+// Options du menu de navigation
+const navigationOptions = [
+
+  {
+    label: 'Demandes à Traiter',
+    key: 'demandes-attente',
+    icon: () => h('i', { class: 'bi bi-bell me-2' })
+  },
+  {
+    label: 'Calendrier & Disponibilités',
+    key: 'calendrier',
+    icon: () => h('i', { class: 'bi bi-calendar-day me-2' })
+  },
+  {
+    type: 'divider'
+  },
+  {
+    label: 'Inventaire & Patrimoine',
+    key: 'inventaire',
+    icon: () => h('i', { class: 'bi bi-tools me-2' })
+  },
+  {
+    label: 'Matériel de Bureau',
+    key: 'bureau',
+    icon: () => h('i', { class: 'bi bi-laptop me-2' })
+  },
+  {
+    type: 'divider'
+  },
+  {
+    label: 'Tableau de Bord',
+    key: 'dashboard',
+    icon: () => h('i', { class: 'bi bi-house me-2' })
+  },
+    {
+    label: 'Fiches clients',
+    key: 'client',
+    icon: () => h('i', { class: 'bi bi-people me-2' })
+  },
+];
+
+// Gestion de la sélection dans le menu
+const handleNavigationSelect = (key) => {
+  const routeMap = {
+    'dashboard': '/dashboardReception',
+
+    'demandes-attente': '/demandeAttente',
+    'calendrier': '/calendrier',
+    'inventaire': '/patrimoine',
+    'bureau': '/materielBureauView',
+    'client': '/clientManagement',
+  };
+  
+  if (routeMap[key]) {
+    router.push(routeMap[key]);
+  }
+};
+
 
 // ------------------------------------
 // ÉTATS LOCAUX
@@ -296,6 +373,12 @@ const loading = reactive({
 
 const catalogueData = ref([]);
 const clients = ref([]);
+
+// AJOUT: Variables de validation manquantes
+const validationErrors = reactive({
+  qteMat: null,
+  nbPerso: null
+});
 
 const initialFormState = {
   typeRes: 'Salle',
@@ -314,7 +397,7 @@ const initialFormState = {
 const form = reactive({ ...initialFormState });
 
 // ------------------------------------
-// RÈGLES DE VALIDATION
+// RÈGLES DE VALIDATION SIMPLIFIÉES
 // ------------------------------------
 const rules = {
   typeRes: { required: true, message: 'Veuillez sélectionner le type de demande', trigger: 'change' },
@@ -323,17 +406,10 @@ const rules = {
   qteMat: { 
     required: true, 
     type: 'number', 
-    min: 1, 
-    message: 'La quantité doit être au moins 1', 
+    message: 'La quantité est requise', 
     trigger: 'blur' 
   },
-  nbPerso: { 
-    required: true, 
-    type: 'number', 
-    min: 1, 
-    message: 'Le nombre de personnes doit être au moins 1', 
-    trigger: 'blur' 
-  },
+  // SUPPRESSION: La règle de validation nbPerso avec min qui causait l'erreur
   typeDuree: { required: true, message: 'Veuillez sélectionner la durée', trigger: 'change' },
   debRes: { required: true, message: 'Veuillez sélectionner la date de début', trigger: 'change' },
   finRes: { 
@@ -353,8 +429,11 @@ const rules = {
 // PROPRIÉTÉS CALCULÉES
 // ------------------------------------
 const filteredCatalogueOptions = computed(() => {
+  if (!catalogueData.value || !Array.isArray(catalogueData.value)) {
+    return [];
+  }
   return catalogueData.value
-    .filter(item => item.type === form.typeRes)
+    .filter(item => item && item.type === form.typeRes)
     .map(item => ({
       label: `${item.nom} (Tarif Jour: ${item.tarifJour ? item.tarifJour.toFixed(2) : 'N/A'} MGA)`,
       value: item.id
@@ -362,6 +441,9 @@ const filteredCatalogueOptions = computed(() => {
 });
 
 const clientOptions = computed(() => {
+  if (!clients.value || !Array.isArray(clients.value)) {
+    return [];
+  }
   return clients.value.map(client => ({
     label: `${client.nomCli} ${client.prenomCli} (ID: ${client.idCli})`,
     value: client.idCli
@@ -369,7 +451,10 @@ const clientOptions = computed(() => {
 });
 
 const selectedResource = computed(() => {
-  return catalogueData.value.find(item => item.id === form.idCatalogue);
+  if (!catalogueData.value || !Array.isArray(catalogueData.value)) {
+    return null;
+  }
+  return catalogueData.value.find(item => item && item.id === form.idCatalogue);
 });
 
 const formattedTarif = computed(() => {
@@ -413,8 +498,13 @@ const isFormValid = computed(() => {
   return form.typeRes && form.idCatalogue && form.idCli && form.debRes && form.finRes;
 });
 
+// AJOUT: Computed property manquante
+const hasValidationErrors = computed(() => {
+  return validationErrors.qteMat !== null || validationErrors.nbPerso !== null;
+});
+
 // ------------------------------------
-// MÉTHODES
+// MÉTHODES CORRIGÉES
 // ------------------------------------
 const disablePreviousDate = (timestamp) => {
   return timestamp < Date.now() - 24 * 60 * 60 * 1000;
@@ -424,43 +514,73 @@ const fetchInitialData = async () => {
   loading.catalogue = true;
   loading.clients = true;
   try {
-    // Récupération des clients
+    // Récupération des clients avec gestion d'erreur
     const clientData = await LocationService.getClients();
-    clients.value = clientData.map(c => ({ 
-      idCli: c.idCli, 
-      nomCli: c.nomCli, 
-      prenomCli: c.prenomCli 
-    }));
+    if (clientData && Array.isArray(clientData)) {
+      clients.value = clientData.map(c => ({ 
+        idCli: c.idCli, 
+        nomCli: c.nomCli, 
+        prenomCli: c.prenomCli 
+      }));
+    } else {
+      console.warn('Aucune donnée client reçue ou format invalide');
+      clients.value = [];
+    }
 
-    // Récupération des salles et matériels
-    const [sallesData, materielsData] = await Promise.all([
-      LocationService.getSalles(),
-      LocationService.getMateriels()
-    ]);
+    // Récupération des salles et matériels avec gestion d'erreur
+    let sallesData = [];
+    let materielsData = [];
 
-    const mappedSalles = sallesData.map(s => ({
-      id: s.idSalle,
-      nom: s.nomSalle,
-      type: 'Salle',
-      tarifHeure: parseFloat(s.tarifHeure) || 0,
-      tarifDemiJournee: parseFloat(s.tarifDemiJournee) || 0,
-      tarifJour: parseFloat(s.tarifJour) || 0,
-    }));
-    
-    const mappedMateriels = materielsData.map(m => ({
-      id: m.codeMat,
-      nom: m.designationMat,
-      type: 'Materiel',
-      tarifHeure: parseFloat(m.tarifHeure) || 0,
-      tarifDemiJournee: parseFloat(m.tarifDemiJournee) || 0,
-      tarifJour: parseFloat(m.tarifJour) || 0,
-    }));
+    try {
+      sallesData = await LocationService.getSalles();
+    } catch (salleError) {
+      console.error('Erreur lors du chargement des salles:', salleError);
+      sallesData = [];
+    }
+
+    try {
+      materielsData = await LocationService.getMateriels();
+    } catch (materielError) {
+      console.error('Erreur lors du chargement des matériels:', materielError);
+      materielsData = [];
+    }
+
+    // Mapping des salles avec vérification
+    const mappedSalles = (sallesData && Array.isArray(sallesData)) 
+      ? sallesData.map(s => ({
+          id: s.idSalle,
+          nom: s.nomSalle,
+          type: 'Salle',
+          tarifHeure: parseFloat(s.tarifHeure) || 0,
+          tarifDemiJournee: parseFloat(s.tarifDemiJournee) || 0,
+          tarifJour: parseFloat(s.tarifJour) || 0,
+        }))
+      : [];
+
+    // Mapping des matériels avec vérification
+    const mappedMateriels = (materielsData && Array.isArray(materielsData))
+      ? materielsData.map(m => ({
+          id: m.codeMat,
+          nom: m.designationMat,
+          type: 'Materiel',
+          tarifHeure: parseFloat(m.tarifHeure) || 0,
+          tarifDemiJournee: parseFloat(m.tarifDemiJournee) || 0,
+          tarifJour: parseFloat(m.tarifJour) || 0,
+        }))
+      : [];
     
     catalogueData.value = [...mappedSalles, ...mappedMateriels];
     
+    console.log('Données chargées:', {
+      clients: clients.value.length,
+      salles: mappedSalles.length,
+      materiels: mappedMateriels.length,
+      catalogue: catalogueData.value.length
+    });
+    
   } catch (error) {
     console.error("Erreur de chargement des données initiales:", error);
-    message.value = `❌ Erreur de connexion : ${error.message || 'Impossible de charger les données initiales.'}`;
+    message.value = `Erreur de connexion : ${error.message || 'Impossible de charger les données initiales.'}`;
     isSuccess.value = false;
   } finally {
     loading.catalogue = false;
@@ -468,67 +588,78 @@ const fetchInitialData = async () => {
   }
 };
 
+// MÉTHODE DE SOUMISSION CORRIGÉE
 const submitForm = async () => {
-  isSubmitting.value = true;
-  message.value = '';
-  isSuccess.value = false;
-  
-  if (form.debRes && form.finRes && form.debRes >= form.finRes) {
-    message.value = "La date de fin doit être strictement postérieure à la date de début.";
+  // Validation basique
+  if (!isFormValid.value) {
+    message.value = 'Veuillez remplir tous les champs obligatoires';
     isSuccess.value = false;
-    isSubmitting.value = false;
     return;
   }
   
-  const payload = {
-    idCli: form.idCli,
-    typeRes: form.typeRes,
-    debRes: new Date(form.debRes).toISOString(),
-    finRes: new Date(form.finRes).toISOString(),
-    tarifTot: form.tarifTot,
-    etatRes: form.etatRes,
-    dateCre: new Date().toISOString().split('T')[0],
-    qteMat: form.typeRes === 'Materiel' ? form.qteMat : 0,
-    nbPerso: form.typeRes === 'Salle' ? form.nbPerso : 0
-  };
-
-  // Ajouter idSalle ou codeMat selon le type
-  if (form.typeRes === 'Salle') {
-    payload.idSalle = form.idCatalogue;
-  } else if (form.typeRes === 'Materiel') {
-    payload.codeMat = form.idCatalogue;
+  // Validation des dates
+  if (form.debRes && form.finRes && form.debRes >= form.finRes) {
+    message.value = 'La date de fin doit être après la date de début';
+    isSuccess.value = false;
+    return;
   }
-
-  console.log("Données envoyées:", payload);
+  
+  isSubmitting.value = true;
   
   try {
-    const response = await LocationService.createReservation(payload);
-    const resId = response.id || response.reservation?.idRes || Math.floor(Math.random() * 1000);
-    
-    // 🎯 SUCCÈS : Message de confirmation amélioré
-    message.value = `✅ Réservation #${resId} créée avec succès ! Redirection dans 3 secondes...`;
+    // CORRECTION : Format des données selon le modèle backend
+    const requestData = {
+      idCli: parseInt(form.idCli), // S'assurer que c'est un nombre
+      typeRes: form.typeRes,
+      debRes: new Date(form.debRes).toISOString(),
+      finRes: new Date(form.finRes).toISOString(),
+      tarifTot: parseFloat(form.tarifTot), // S'assurer que c'est un float
+      etatRes: 'En attente',
+      dateCre: new Date().toISOString().split('T')[0], // Format date seulement (YYYY-MM-DD)
+      // Initialiser les deux champs avec des valeurs par défaut
+      qteMat: 0,
+      nbPerso: 0
+    };
+
+    // CORRECTION : Assigner les bonnes valeurs selon le type
+    if (form.typeRes === 'Materiel') {
+      requestData.qteMat = parseInt(form.qteMat) || 1;
+      requestData.codeMat = form.idCatalogue; // Clé spécifique pour matériel
+    } else if (form.typeRes === 'Salle') {
+      requestData.nbPerso = parseInt(form.nbPerso) || 1;
+      requestData.idSalle = form.idCatalogue; // Clé spécifique pour salle
+    }
+
+    console.log('🔍 DONNÉES ENVOYÉES:', requestData);
+
+    const response = await LocationService.createReservation(requestData);
+
+    console.log('✅ RÉPONSE SERVEUR:', response.data);
+
+    message.value = 'Votre demande de réservation a été envoyée avec succès !';
     isSuccess.value = true;
     
-    // 🎯 RÉINITIALISATION du formulaire après succès
-    setTimeout(() => {
-      resetForm();
-    }, 1000);
-    
-    // 🎯 REDIRECTION vers la section demandes en attente après 3 secondes
+    // Rediriger après succès
     setTimeout(() => {
       router.push('/demandeAttente');
-    }, 3000);
-    
+    }, 2000);
+
   } catch (error) {
-    console.error("Erreur lors de l'enregistrement:", error);
+    console.error('❌ ERREUR DÉTAILLÉE:', {
+      status: error.response?.status,
+      message: error.response?.data?.message,
+      errors: error.response?.data?.errors,
+      data: error.response?.data
+    });
     
-    // 🎯 MESSAGE D'ERREUR DÉTAILLÉ
-    if (error.response) {
-      message.value = `❌ Erreur ${error.response.status}: ${error.response.data?.message || 'Données invalides'}`;
-    } else if (error.request) {
-      message.value = "❌ Erreur réseau : Impossible de contacter le serveur";
+    // AFFICHER LES ERREURS SPÉCIFIQUES
+    if (error.response?.data?.errors) {
+      const errorMessages = error.response.data.errors.map(err => err.message || err).join(', ');
+      message.value = `Erreurs de validation: ${errorMessages}`;
+    } else if (error.response?.data?.message) {
+      message.value = 'Erreur: ' + error.response.data.message;
     } else {
-      message.value = `❌ Erreur : ${error.message}`;
+      message.value = 'Erreur lors de l\'envoi de votre demande.';
     }
     isSuccess.value = false;
   } finally {
@@ -536,7 +667,6 @@ const submitForm = async () => {
   }
 };
 
-// 🎯 FONCTION DE RÉINITIALISATION DU FORMULAIRE
 const resetForm = () => {
   Object.assign(form, {
     typeRes: 'Salle',
@@ -566,6 +696,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Les styles restent inchangés */
 .reservation-page-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -575,7 +706,6 @@ onMounted(() => {
   flex-direction: column;
 }
 
-/* Header amélioré */
 .custom-header {
   background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
   color: white;
@@ -607,7 +737,6 @@ onMounted(() => {
   color: white;
 }
 
-/* Conteneur avec scroll */
 .content-scroll-container {
   flex: 1;
   overflow-y: auto;
@@ -616,7 +745,6 @@ onMounted(() => {
   margin-top: 16px;
 }
 
-/* Style de la barre de défilement */
 .content-scroll-container::-webkit-scrollbar {
   width: 8px;
 }
@@ -642,7 +770,6 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-/* Styles de texte améliorés */
 .section-title {
   font-size: 1.1rem;
   color: #333;
@@ -663,7 +790,6 @@ onMounted(() => {
   display: block;
 }
 
-/* Boutons type */
 .type-btn {
   padding: 12px 16px;
   font-weight: 500;
@@ -674,7 +800,6 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
-/* Boutons durée */
 .duration-btn {
   padding: 10px 12px;
   font-weight: 500;
@@ -685,7 +810,6 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
-/* Section tarif */
 .tarif-section {
   background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%) !important;
   border: 2px solid #007bff !important;
@@ -695,7 +819,6 @@ onMounted(() => {
   text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
 }
 
-/* Composants Naive UI customisés */
 :deep(.custom-select .n-base-selection) {
   border-radius: 8px;
   border: 1px solid #d9d9d9;
@@ -714,7 +837,6 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-/* Boutons cohérents */
 :deep(.n-button--primary-type) {
   background: #007bff !important;
   border-color: #007bff !important;
@@ -751,7 +873,6 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .reservation-page-container {
     padding: 12px;
@@ -800,12 +921,10 @@ onMounted(() => {
   }
 }
 
-/* Animation de défilement fluide */
 .content-scroll-container {
   scroll-behavior: smooth;
 }
 
-/* Effet de focus pour les éléments interactifs */
 .type-btn:focus,
 .duration-btn:focus,
 :deep(.custom-select .n-base-selection:focus),

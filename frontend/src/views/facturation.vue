@@ -21,9 +21,19 @@
               <n-button @click="sendAllPenaltyNotifications" type="warning" size="small" :disabled="locationsEnRetard.length === 0">
                 <i class="bi bi-bell me-2"></i>Notifier Retards ({{ locationsEnRetard.length }})
               </n-button>
-              <n-button @click="exporterFactures" type="info" size="small" :disabled="confirmedEvents.length === 0">
-                <i class="bi bi-download me-2"></i>Exporter Factures
-              </n-button>
+                <!-- Menu trois points -->
+            <div class="position-relative">
+              <n-dropdown
+                trigger="click"
+                :options="navigationOptions"
+                @select="handleNavigationSelect"
+                placement="bottom-end"
+              >
+                <n-button type="primary" size="small" class="custom-btn-primary">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </n-button>
+              </n-dropdown>
+            </div>
             </div>
           </div>
         </div>
@@ -100,7 +110,7 @@
             </template>
             <div class="d-flex justify-content-between align-items-center">
               <div>
-                <strong>{{ locationsEnRetard.length }} location(s) en retard de paiement</strong>
+                <strong>{{ locationsEnRetard.length }} location(s) en retard de retour </strong>
                 <div class="small">Total des pénalités: {{ totalPenalites }} Ar</div>
               </div>
               <n-button @click="sendAllPenaltyNotifications" type="warning" size="small">
@@ -155,7 +165,7 @@
         </div>
       </n-card>
 
-      <!-- Section Locations Terminées et Payées -->
+      <!-- Section Locations Terminées et Payées 
       <n-card class="shadow-lg mt-4" title="💰 Historique des Locations Terminées et Payées">
         <template #header-extra>
           <n-tag type="success" size="small">
@@ -190,7 +200,7 @@
             />
           </div>
         </div>
-      </n-card>
+      </n-card> -->
     </div>
 
     <!-- Modal de confirmation de facturation -->
@@ -292,6 +302,7 @@
 
 <script setup>
 import { ref, computed, onMounted, h } from 'vue';
+import { useRouter } from 'vue-router';
 import { 
   NCard, 
   NButton, 
@@ -301,12 +312,55 @@ import {
   NAlert,
   NTag,
   NModal,
+   NDropdown,
   NForm,
   NFormItem,
   NInput
 } from 'naive-ui';
 import LocationService from '../services/LocationService';
 import FinanceService from '../services/FinanceService';
+
+
+const router = useRouter();
+
+// Options du menu de navigation
+const navigationOptions = [
+  {
+    label: 'Suivi des paiements',
+    key: 'suiviPaie',
+    icon: () => h('i', { class: 'bi-cash-stack' })
+  },
+  {
+    label: 'Penalités et Litiges',
+    key: 'penaliteLiti',
+    icon: () => h('i', { class: 'bi-exclamation-octagon-fill' })
+  },
+  {
+    label: 'Rapports $ Synthèses',
+    key: 'syntheseRapp',
+    icon: () => h('i', { class: 'bi-graph-up' })
+  },
+  {
+    label: 'Tableau de Bord',
+    key: 'dashboard',
+    icon: () => h('i', { class: 'bi bi-house me-2' })
+  }
+];
+
+// Gestion de la sélection dans le menu
+const handleNavigationSelect = (key) => {
+  const routeMap = {
+    'dashboard': '/dashboardFinance',
+    'suiviPaie': '/suivi',
+    'penaliteLiti': '/penalite',
+    'syntheseRapp': '/synthese'
+    
+  };
+  
+  if (routeMap[key]) {
+    router.push(routeMap[key]);
+  }
+};
 
 // Variables réactives
 const confirmedEvents = ref([]);
@@ -1105,6 +1159,40 @@ onMounted(() => {
   
   .table-container {
     max-height: 400px;
+  }
+}
+
+
+/* Ajout des styles pour le menu dropdown */
+:deep(.n-dropdown-menu) {
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.n-dropdown-option) {
+  padding: 8px 12px;
+}
+
+:deep(.n-dropdown-option .n-dropdown-option-body) {
+  align-items: center;
+}
+
+:deep(.n-dropdown-option .n-dropdown-option-body__icon) {
+  margin-right: 8px;
+}
+
+/* Responsive pour le menu trois points */
+@media (max-width: 768px) {
+  .position-relative {
+    position: absolute !important;
+    top: 20px;
+    right: 20px;
+  }
+  
+  .custom-header .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
   }
 }
 </style>

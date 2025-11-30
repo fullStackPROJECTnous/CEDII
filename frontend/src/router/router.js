@@ -39,6 +39,9 @@ import EtatLieu from '../views/etatLieu.vue';
 import ReservationValidation from '../views/reservationValidation.vue';
 import FormEtatLieu from '../views/formEtatLieu.vue';
 import ReservationLocationForm from '../views/reservationLocationForm.vue';
+import ClientManagement1 from '../views/clientManagement1.vue';
+import InventairePatrimoine1 from '../views/inventairePatrimoine1.vue';
+import MaterielBureauView1 from '../views/materielBureauView1.vue';
 //import DashboardEnfant from '../views/dashboardEnfant.vue';
 
 
@@ -110,6 +113,12 @@ const routes = [
     component: ClientManagement,
     meta: { requiresAuth: true } // Exemple de protection de route
   },
+      {
+    path: '/clientManagementAdmin',
+    name: 'ClientManagement1',
+    component: ClientManagement1,
+    meta: { requiresAuth: true } // Exemple de protection de route
+  },
  
    {
     path: '/salleManagement',
@@ -174,6 +183,13 @@ const routes = [
     // Optionnel: ajouter un meta field pour la vérification du login
     // meta: { requiresAuth: true }
   },
+    {
+    path: '/materielBureauView1',
+    name: 'Bureau1',
+    component: MaterielBureauView1
+    // Optionnel: ajouter un meta field pour la vérification du login
+    // meta: { requiresAuth: true }
+  },
 
   
      {
@@ -210,28 +226,47 @@ const routes = [
     // meta: { requiresAuth: true }
   },
 
-    // 🚨 AJOUTEZ CETTE REDIRECTION 🚨
-
-     {
+   
+  // 🚨 CORRECTION : Route pour la réception
+  {
     path: '/patrimoine',
     name: 'InventairePatrimoine',
-    component: InventairePatrimoine, // 🚨 Nouveau composant Parent
-    redirect: '/patrimoine/materiel', // Redirige par défaut vers le Matériel
-     
-    // 🚨 Routes Enfants
+    component: InventairePatrimoine,
+    redirect: '/patrimoine/materiel',
     children: [
       {
-        path: 'materiel', // Chemin complet: /patrimoine/materiel
+        path: 'materiel',
         name: 'PatrimoineMateriel',
-        component: Materiel // Utilise le composant Materiel.vue existant
+        component: Materiel
       },
       {
-        path: 'salle', // Chemin complet: /patrimoine/salle
+        path: 'salle',
         name: 'PatrimoineSalle',
-        component: Salle // Utilise le composant Salle.vue existant
+        component: Salle
       }
     ]
   },
+
+  // 🚨 CORRECTION : Route pour l'admin avec un chemin différent
+  {
+    path: '/patrimoine-admin',
+    name: 'InventairePatrimoineAD',
+    component: InventairePatrimoine1,
+    redirect: '/patrimoine-admin/materiel',
+    children: [
+      {
+        path: 'materiel',
+        name: 'PatrimoineMaterielAdmin',
+        component: Materiel
+      },
+      {
+        path: 'salle',
+        name: 'PatrimoineSalleAdmin',
+        component: Salle
+      }
+    ]
+  },
+
   {
     path: '/patrimoine',
     redirect: '/patrimoine/materiel' // Redirige l'utilisateur vers la liste du matériel par défaut

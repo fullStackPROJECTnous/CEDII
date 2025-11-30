@@ -74,6 +74,8 @@ router.get('/litigation-count', financeController.getLitigationCount);
 router.get('/penalites', financeController.getPenalitesData);
 router.get('/monthly-revenue', financeController.getMonthlyRevenueTrend);
 router.get('/reports', financeController.getRapportsSyntheseData);
+// Dans financeRoutes.js - AJOUTEZ cette route
+router.post('/send-payment-reminder/:id', financeController.sendPaymentReminder);
 
 // Ancienne route conservée pour compatibilité
 router.post('/create-invoice/:idLo', financeController.createInvoiceFromLocation);
