@@ -1,12 +1,33 @@
-// src/services/LocationService.js - VERSION COMPLÈTE ET CORRIGÉE
+// src/services/LocationService.js - VERSION CORRIGÉE
 import axios from 'axios';
 
 const API_URL = 'http://localhost:5000/api';
 
+// Créer une instance axios avec configuration par défaut
+const axiosInstance = axios.create({
+  baseURL: API_URL,
+  timeout: 10000,
+});
+
+// Intercepteur pour ajouter automatiquement le token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    config.headers['Content-Type'] = 'application/json';
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 class LocationService {
   async getClients() {
     try {
-      const response = await axios.get(`${API_URL}/clients`);
+      const response = await axiosInstance.get('/clients');
       return response.data; 
     } catch (error) {
       console.error("Erreur lors de la récupération des clients:", error);
@@ -14,28 +35,22 @@ class LocationService {
     }
   }
 
-  /**
-   * Récupère le catalogue des salles disponibles depuis la route debug
-   */
   async getSalles() {
     try {
-      const response = await axios.get(`${API_URL}/salles/debug/salles`);
+      const response = await axiosInstance.get('/salles/debug/salles');
       console.log('📡 Données salles reçues:', response.data);
-      return response.data.data; // ✅ Accéder au tableau data
+      return response.data.data;
     } catch (error) {
       console.error("Erreur lors de la récupération des salles:", error);
       throw error;
     }
   }
 
-  /**
-   * Récupère le catalogue des matériels disponibles depuis la route debug
-   */
   async getMateriels() {
     try {
-      const response = await axios.get(`${API_URL}/patrimoine/debug/materiel`);
+      const response = await axiosInstance.get('/patrimoine/debug/materiel');
       console.log('📡 Données matériels reçues:', response.data);
-      return response.data.data; // ✅ Accéder au tableau data
+      return response.data.data;
     } catch (error) {
       console.error("Erreur lors de la récupération du matériel:", error);
       throw error;
@@ -43,17 +58,17 @@ class LocationService {
   }
 
   getReservationDetails(idRes) {
-    return axios.get(`${API_URL}/locations/reservations/${idRes}/details`);
+    return axiosInstance.get(`/locations/reservations/${idRes}/details`);
   }
 
   validateReservation(idRes, signatureData) {
-    return axios.post(`${API_URL}/locations/reservations/${idRes}/validate`, { signatureData });
+    return axiosInstance.post(`/locations/reservations/${idRes}/validate`, { signatureData });
   }
 
   async getCurrentClient() {
     try {
       console.log("📍 Appel à /clients/me");
-      const response = await axios.get(`${API_URL}/clients/me`);
+      const response = await axiosInstance.get('/clients/me');
       console.log("✅ Réponse getCurrentClient:", response.data);
       return response.data;
     } catch (error) {
@@ -66,10 +81,8 @@ class LocationService {
     }
   }
 
-  // Méthode submitEtatLieux corrigée
   async submitEtatLieux(locationId, etatLieuxData) {
     try {
-      // 🔥 VALIDATION: Vérifier que l'ID est défini
       if (!locationId) {
         throw new Error('ID de location manquant');
       }
@@ -77,8 +90,8 @@ class LocationService {
       console.log('📍 Appel API état des lieux - ID:', locationId);
       console.log('📍 Données:', etatLieuxData);
 
-      const response = await axios.post(
-        `${API_URL}/etat-lieux/${locationId}`, 
+      const response = await axiosInstance.post(
+        `/etat-lieux/${locationId}`, 
         etatLieuxData
       );
       
@@ -86,116 +99,143 @@ class LocationService {
       return response;
       
     } catch (error) {
-      console.error('❌ Erreur LocationService - submitEtatLieux:');
-      console.error('📍 URL appelée:', `${API_URL}/etat-lieux/${locationId}`);
-      console.error('📍 Données envoyées:', etatLieuxData);
-      console.error('📍 Statut HTTP:', error.response?.status);
-      console.error('📍 Message erreur:', error.response?.data || error.message);
-      
+      console.error('❌ Erreur LocationService - submitEtatLieux:', error);
       throw error;
     }
   }
 
   getLocationDetails(idLo) {
-    return axios.get(`${API_URL}/locations/${idLo}/details`);
+    return axiosInstance.get(`/locations/${idLo}/details`);
   }
 
-  // Méthode pour créer une réservation (version standard)
   createReservation(data) {
-    return axios.post(`${API_URL}/reservations`, data);
+    return axiosInstance.post('/reservations', data);
   }
 
-  // Méthode pour créer une réservation client (avec authentification)
   createClientReservation(data) {
-    return axios.post(`${API_URL}/client/reservations`, data);
+    return axiosInstance.post('/client/reservations', data);
   }
 
-  // 🔥 CORRECTION : Méthode updateReservationStatus avec le bon chemin et paramètres
+  // 🔥 CORRECTION COMPLÈTE : Mise à jour du statut de réservation
   async updateReservationStatus(reservationId, statutRes) {
     try {
       console.log('📍 LocationService - updateReservationStatus:');
       console.log('📍 Reservation ID:', reservationId);
       console.log('📍 Nouveau statut:', statutRes);
+      
+      // Vérifier le token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Token d\'authentification manquant. Veuillez vous reconnecter.');
+      }
+      
+      console.log('📍 Token présent:', token.substring(0, 20) + '...');
 
-      const response = await axios.patch(
-        `${API_URL}/reservations/${reservationId}/status`,
-        { etatRes: statutRes }, // ✅ Utiliser 'etatRes' comme dans le backend
-        {
-          headers: {
-            'Content-Type': 'application/json'
+      // Essayer plusieurs endpoints possibles
+      const endpoints = [
+        `/reservations/${reservationId}/status`,
+        `/reservations/${reservationId}/update-status`,
+        `/locations/reservations/${reservationId}/status`,
+        `/admin/reservations/${reservationId}/status`
+      ];
+
+      let lastError = null;
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`📍 Essai sur l'endpoint: ${endpoint}`);
+          
+          const response = await axiosInstance.patch(
+            endpoint,
+            { 
+              statutRes: statutRes,
+              etatRes: statutRes // Essayer les deux noms de champ
+            },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              }
+            }
+          );
+
+          console.log('✅ Réponse serveur:', response.data);
+          return response;
+          
+        } catch (error) {
+          console.log(`⚠️ Échec sur ${endpoint}:`, error.response?.status);
+          lastError = error;
+          
+          // Si c'est une erreur 404, continuer à essayer d'autres endpoints
+          if (error.response?.status !== 404) {
+            throw error; // Pour les autres erreurs, arrêter
           }
         }
-      );
-
-      console.log('📍 Réponse serveur:', response.data);
-      return response;
+      }
+      
+      // Si tous les endpoints ont échoué
+      throw lastError || new Error('Aucun endpoint valide trouvé pour mettre à jour le statut');
       
     } catch (error) {
       console.error('❌ ERREUR LocationService - updateReservationStatus:');
-      console.error('📍 URL:', error.config?.url);
-      console.error('📍 Méthode:', error.config?.method);
-      console.error('📍 Données envoyées:', error.config?.data);
       console.error('📍 Statut HTTP:', error.response?.status);
-      console.error('📍 Message erreur:', error.response?.data);
-      throw error;
+      console.error('📍 Message erreur:', error.response?.data || error.message);
+      
+      // Fournir un message d'erreur plus utile
+      let errorMessage = 'Impossible de mettre à jour le statut';
+      
+      if (error.response?.status === 403) {
+        errorMessage = 'Permission refusée. Vous n\'avez pas les droits nécessaires.';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      throw new Error(errorMessage);
     }
   }
 
-  // 🔥 MÉTHODE : Mettre à jour le statut d'une LOCATION
   async updateLocationStatus(locationId, payload) {
     try {
       console.log('📍 LocationService - updateLocationStatus:');
       console.log('📍 Location ID:', locationId);
       console.log('📍 Payload:', payload);
 
-      const response = await axios.put(
-        `${API_URL}/locations/${locationId}/status`,
-        payload,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
+      const response = await axiosInstance.put(
+        `/locations/${locationId}/status`,
+        payload
       );
 
       console.log('📍 Réponse serveur:', response.data);
       return response;
       
     } catch (error) {
-      console.error('❌ ERREUR LocationService - updateLocationStatus:');
-      console.error('📍 URL:', error.config?.url);
-      console.error('📍 Méthode:', error.config?.method);
-      console.error('📍 Données envoyées:', error.config?.data);
-      console.error('📍 Statut HTTP:', error.response?.status);
-      console.error('📍 Message erreur:', error.response?.data);
+      console.error('❌ ERREUR LocationService - updateLocationStatus:', error);
       throw error;
     }
   }
 
   getReceptionDashboardData() {
-    return axios.get(`${API_URL}/locations/reception/dashboard`);
+    return axiosInstance.get('/locations/reception/dashboard');
   }
 
-  // 🔥 CORRECTION : Utiliser le bon chemin pour les demandes en attente
   getPendingReservations() {
-    return axios.get(`${API_URL}/reservations/pending/requests`); 
+    return axiosInstance.get('/reservations/pending/requests'); 
   }
 
   getLocationHistory() {
-    return axios.get(`${API_URL}/locations/history`); 
+    return axiosInstance.get('/locations/history'); 
   }
 
-  // Méthode pour les événements confirmés du calendrier
   getConfirmedEvents() {
-    return axios.get(`${API_URL}/locations/events/confirmed`);
+    return axiosInstance.get('/locations/events/confirmed');
   }
 
-  // Nouvelle méthode pour les locations terminées
   getTerminatedLocations() {
-    return axios.get(`${API_URL}/locations/terminated`);
+    return axiosInstance.get('/locations/terminated');
   }
 
-  // Méthode alternative pour mettre à jour le statut d'une location (version simplifiée)
   updateLocationStatusSimple(locationId, newStatus) {
     console.log(`📍 Appel API mise à jour statut: ${locationId} → ${newStatus}`);
     
@@ -208,31 +248,28 @@ class LocationService {
   }
 
   deleteReservation(idRes) {
-    return axios.delete(`${API_URL}/reservations/${idRes}`);
+    return axiosInstance.delete(`/reservations/${idRes}`);
   }
 
   checkAvailability(params) {
-    return axios.get(`${API_URL}/locations/availability`, { params }); 
+    return axiosInstance.get('/locations/availability', { params }); 
   }
 
   static async calculateTarifSalle(idSalle, data) {
-    const response = await axios.post(`${API_URL}/salles/${idSalle}/calculate-tarif`, data);
+    const response = await axiosInstance.post(`/salles/${idSalle}/calculate-tarif`, data);
     return response.data;
   }
 
-  // 🔥 NOUVELLE MÉTHODE : Marquer une notification comme lue
   marquerNotificationLue(idNotif) {
-    return axios.patch(`${API_URL}/reservations/notifications/${idNotif}/read`);
+    return axiosInstance.patch(`/reservations/notifications/${idNotif}/read`);
   }
 
-  // 🔥 NOUVELLE MÉTHODE : Créer une réservation publique
   createPublicReservation(data) {
-    return axios.post(`${API_URL}/reservations/public/reservations`, data);
+    return axiosInstance.post('/reservations/public/reservations', data);
   }
 
-  // 🔥 NOUVELLE MÉTHODE : Récupérer les notifications
   getNotifications() {
-    return axios.get(`${API_URL}/reservations/notifications`);
+    return axiosInstance.get('/reservations/notifications');
   }
 }
 

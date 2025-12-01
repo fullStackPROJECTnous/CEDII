@@ -89,22 +89,77 @@
           </n-empty>
         </div>
 
-        <!-- Tableau des demandes avec scroll amélioré -->
-        <div v-else class="table-scroll-container">
-          <div class="table-wrapper">
-            <n-data-table
-              :columns="columns"
-              :data="pendingRequests"
-              :bordered="false"
-              class="demandes-table custom-table"
-              size="small"
-              :single-line="false"
-              :max-height="600"
-              :scroll-x="1200"
-              virtual-scroll
-              flex-height
-            />
-          </div>
+        <!-- Tableau des demandes SIMPLIFIÉ -->
+        <div v-else class="table-responsive">
+          <table class="table table-hover">
+            <thead class="table-primary">
+              <tr>
+                <th width="80">ID</th>
+                <th width="200">Demandeur</th>
+                <th width="120">Type</th>
+                <th width="180">Date Début</th>
+                <th width="180">Soumission</th>
+                <th width="180" class="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="request in pendingRequests" :key="request.idRes">
+                <td>
+                  <span class="badge bg-info">#{{ request.idRes }}</span>
+                </td>
+                <td>
+                  <div class="fw-bold">
+                    {{ request.client?.nomCli || 'N/A' }} {{ request.client?.prenomCli || '' }}
+                  </div>
+                  <div class="small text-muted">
+                    ID: {{ request.client?.idCli || 'N/A' }}
+                  </div>
+                </td>
+                <td class="text-center">
+                  <span :class="{
+                    'badge bg-primary': request.typeRes === 'Salle',
+                    'badge bg-warning text-dark': request.typeRes === 'Materiel',
+                    'badge bg-success': request.typeRes === 'Mixte'
+                  }">
+                    <i :class="{
+                      'bi bi-house-door me-1': request.typeRes === 'Salle',
+                      'bi bi-tools me-1': request.typeRes === 'Materiel',
+                      'bi bi-collection me-1': request.typeRes === 'Mixte'
+                    }"></i>
+                    {{ getRessourceType(request) }}
+                  </span>
+                </td>
+                <td>
+                  <div class="fw-bold">{{ formatDateTime(request.debRes) }}</div>
+                  <div class="small text-muted">Début prévu</div>
+                </td>
+                <td>
+                  <div class="fw-medium">{{ formatDateOnly(request.dateCre) }}</div>
+                  <div class="small text-muted">Date de soumission</div>
+                </td>
+                <td class="text-center">
+                  <div class="d-flex justify-content-center gap-2">
+                    <!-- Bouton Gérer -->
+                    <button 
+                      class="btn btn-primary btn-sm"
+                      @click="handleManage(request)"
+                    >
+                      <i class="bi bi-eye me-1"></i>
+                      Gérer
+                    </button>
+                    <!-- Bouton Refuser -->
+                    <button 
+                      class="btn btn-danger btn-sm"
+                      @click="handleRefuse(request)"
+                    >
+                      <i class="bi bi-x-lg me-1"></i>
+                      Refuser
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <!-- Message d'erreur -->
@@ -162,20 +217,19 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, h } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  NButton,
-  NIcon,
   NCard,
   NTag,
-  NDataTable,
   NSpin,
   NSpace,
   NText,
   NEmpty,
   NAlert,
-  NModal
+  NModal,
+  NButton,
+  NIcon
 } from 'naive-ui';
 import LocationService from '../services/LocationService';
 
@@ -194,143 +248,7 @@ const selectedRequest = ref(null);
 const refuseLoading = ref(false);
 
 // ------------------------------------
-// PROPRIÉTÉS CALCULÉES
-// ------------------------------------
-const salleCount = computed(() => {
-  return pendingRequests.value.filter(req => req.typeRes === 'Salle').length;
-});
-
-const materielCount = computed(() => {
-  return pendingRequests.value.filter(req => req.typeRes === 'Materiel').length;
-});
-
-// ------------------------------------
-// COLONNES DU TABLEAU
-// ------------------------------------
-const columns = [
-  {
-    title: 'ID',
-    key: 'idRes',
-    width: 80,
-    align: 'center',
-    fixed: 'left',
-    render: (row) => {
-      return h(NTag, { type: 'info', size: 'small', bordered: false, class: 'custom-tag' }, {
-        default: () => `#${row.idRes}`
-      });
-    }
-  },
-  {
-    title: 'Demandeur',
-    key: 'client',
-    width: 200,
-    ellipsis: {
-      tooltip: true
-    },
-    render: (row) => {
-      return h('div', { class: 'client-info' }, [
-        h('div', { class: 'client-name fw-bold' }, 
-          `${row.client?.nomCli || 'N/A'} ${row.client?.prenomCli || ''}`
-        ),
-        h('div', { class: 'client-id small text-muted' }, 
-          `ID: ${row.client?.idCli || 'N/A'}`
-        )
-      ]);
-    }
-  },
-  {
-    title: 'Type',
-    key: 'typeRes',
-    width: 120,
-    align: 'center',
-    render: (row) => {
-      const typeConfig = {
-        'Salle': { type: 'primary', icon: 'bi-house-door' },
-        'Materiel': { type: 'warning', icon: 'bi-tools' },
-        'Mixte': { type: 'success', icon: 'bi-collection' }
-      };
-      
-      const config = typeConfig[row.typeRes] || { type: 'default', icon: 'bi-question' };
-      
-      return h(NTag, { 
-        type: config.type, 
-        size: 'small',
-        bordered: false,
-        class: 'custom-tag'
-      }, {
-        default: () => h('div', { class: 'd-flex align-items-center justify-content-center' }, [
-          h(NIcon, { class: 'me-1', size: '14' }, {
-            default: () => h('i', { class: config.icon })
-          }),
-          h('span', getRessourceType(row))
-        ])
-      });
-    }
-  },
-  {
-    title: 'Date Début',
-    key: 'debRes',
-    width: 180,
-    render: (row) => {
-      return h('div', { class: 'date-info' }, [
-        h('div', { class: 'fw-bold' }, formatDateTime(row.debRes)),
-        h('div', { class: 'small text-muted' }, 'Début prévu')
-      ]);
-    }
-  },
-  {
-    title: 'Soumission',
-    key: 'dateCre',
-    width: 180,
-    render: (row) => {
-      return h('div', { class: 'submission-info' }, [
-        h('div', { class: 'fw-medium' }, formatDateOnly(row.dateCre)),
-        h('div', { class: 'small text-muted' }, 'Date de soumission')
-      ]);
-    }
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    width: 180,
-    align: 'center',
-    fixed: 'right',
-    render: (row) => {
-      return h(NSpace, { justify: 'center', size: 'small' }, [
-        h(NButton, {
-          type: 'primary',
-          size: 'small',
-          class: 'custom-btn-primary',
-          onClick: () => handleManage(row)
-        }, {
-          default: () => h('div', { class: 'd-flex align-items-center' }, [
-            h(NIcon, { class: 'me-1', size: '14' }, {
-              default: () => h('i', { class: 'bi bi-eye' })
-            }),
-            'Gérer'
-          ])
-        }),
-        h(NButton, {
-          type: 'error',
-          size: 'small',
-          ghost: true,
-          class: 'custom-btn-danger',
-          onClick: () => handleRefuse(row)
-        }, {
-          default: () => h('div', { class: 'd-flex align-items-center' }, [
-            h(NIcon, { class: 'me-1', size: '14' }, {
-              default: () => h('i', { class: 'bi bi-x-lg' })
-            }),
-            'Refuser'
-          ])
-        })
-      ]);
-    }
-  }
-];
-
-// ------------------------------------
-// MÉTHODES DE FORMATAGE DES DATES CORRIGÉES
+// MÉTHODES DE FORMATAGE DES DATES
 // ------------------------------------
 const formatDateTime = (dateString) => {
   if (!dateString) return 'N/A';
@@ -342,14 +260,12 @@ const formatDateTime = (dateString) => {
       return 'Date invalide';
     }
     
-    // Formater en français : JJ/MM/AAAA HH:MM
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     
-    // Si c'est une date sans heure (minuit), afficher seulement la date
     if (hours === '00' && minutes === '00') {
       return `${day}/${month}/${year}`;
     }
@@ -371,7 +287,6 @@ const formatDateOnly = (dateString) => {
       return 'Date invalide';
     }
     
-    // Formater seulement la date : JJ/MM/AAAA
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
@@ -383,56 +298,25 @@ const formatDateOnly = (dateString) => {
   }
 };
 
-const formatTimeAgo = (dateString) => {
-  if (!dateString) return '';
-  
-  try {
-    const date = parseDate(dateString);
-    
-    if (isNaN(date.getTime())) {
-      return '';
-    }
-    
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return "Aujourd'hui";
-    if (diffDays === 1) return 'Hier';
-    if (diffDays < 7) return `Il y a ${diffDays} jours`;
-    if (diffDays < 30) return `Il y a ${Math.floor(diffDays / 7)} semaines`;
-    
-    return `Il y a ${Math.floor(diffDays / 30)} mois`;
-  } catch (error) {
-    return '';
-  }
-};
-
 const parseDate = (dateString) => {
   if (!dateString) return new Date(NaN);
   
-  // Si c'est déjà un objet Date
   if (dateString instanceof Date) return dateString;
   
-  // Gérer les différents formats de date
   if (typeof dateString === 'string') {
-    // Format MySQL datetime : '2025-11-05 00:00:00'
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateString)) {
       return new Date(dateString.replace(' ', 'T'));
     }
     
-    // Format date seule : '2025-11-05'
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
       return new Date(dateString + 'T00:00:00');
     }
     
-    // Format ISO
     if (dateString.includes('T')) {
       return new Date(dateString);
     }
   }
   
-  // Fallback
   return new Date(dateString);
 };
 
@@ -445,38 +329,34 @@ const getRessourceType = (request) => {
   return typeMap[request.typeRes] || 'Non spécifié';
 };
 
-// FONCTION CORRIGÉE POUR RÉCUPÉRER LES DEMANDES
+// FONCTION POUR RÉCUPÉRER LES DEMANDES
 const fetchPendingRequests = async () => {
   loading.value = true;
   errorMessage.value = null;
   try {
     const response = await LocationService.getPendingReservations();
     
-    // CORRECTION : S'assurer que pendingRequests est toujours un tableau
     if (response && response.data) {
-      // Si response.data est un tableau, l'utiliser directement
       if (Array.isArray(response.data)) {
         pendingRequests.value = response.data;
       } 
-      // Si response.data est un objet avec une propriété contenant le tableau
       else if (response.data.data && Array.isArray(response.data.data)) {
         pendingRequests.value = response.data.data;
       }
-      // Si response.data est un objet avec d'autres propriétés
+      else if (response.data.reservations && Array.isArray(response.data.reservations)) {
+        pendingRequests.value = response.data.reservations;
+      }
       else if (typeof response.data === 'object') {
-        // Chercher une propriété qui contient un tableau
         const arrayKey = Object.keys(response.data).find(key => 
           Array.isArray(response.data[key])
         );
         if (arrayKey) {
           pendingRequests.value = response.data[arrayKey];
         } else {
-          // Si aucun tableau n'est trouvé, créer un tableau vide
           pendingRequests.value = [];
           console.warn('Aucun tableau trouvé dans la réponse:', response.data);
         }
       }
-      // Fallback : s'assurer que c'est un tableau
       else {
         pendingRequests.value = [];
         console.warn('Format de réponse inattendu:', response.data);
@@ -491,25 +371,29 @@ const fetchPendingRequests = async () => {
   } catch (error) {
     console.error("Erreur lors de la récupération des demandes:", error);
     errorMessage.value = `Impossible de charger les demandes : ${error.response?.data?.message || error.message}`;
-    // S'assurer que pendingRequests reste un tableau même en cas d'erreur
     pendingRequests.value = [];
   } finally {
     loading.value = false;
   }
 };
 
+// MÉTHODE POUR GÉRER LA DEMANDE
 const handleManage = (request) => {
+  console.log('📝 Gérer la demande:', request.idRes);
   router.push({ 
     name: 'ReservationValid', 
     params: { idRes: request.idRes } 
   });
 };
 
+// MÉTHODE POUR REFUSER LA DEMANDE
 const handleRefuse = (request) => {
+  console.log('❌ Refuser la demande:', request.idRes);
   selectedRequest.value = request;
   showRefuseModal.value = true;
 };
 
+// MÉTHODE POUR CONFIRMER LE REFUS
 const confirmRefuse = async () => {
   if (!selectedRequest.value) return;
   
@@ -521,6 +405,7 @@ const confirmRefuse = async () => {
     actionMessageType.value = 'success';
     
     await fetchPendingRequests();
+    
     showRefuseModal.value = false;
     selectedRequest.value = null;
     
@@ -533,6 +418,7 @@ const confirmRefuse = async () => {
   }
 };
 
+// CHARGEMENT INITIAL
 onMounted(() => {
   fetchPendingRequests();
 });
@@ -544,16 +430,13 @@ onMounted(() => {
   margin: 0 auto;
   padding: 20px;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
-/* Header Section amélioré */
+/* Header Section */
 .custom-header {
   background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
   color: white;
   border-left: 4px solid #007bff;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .custom-title {
@@ -585,14 +468,10 @@ onMounted(() => {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border: 1px solid #e9ecef;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
 }
 
 .card-header-content {
   padding: 1.5rem 1.5rem 0.5rem 1.5rem;
-  flex-shrink: 0;
 }
 
 .card-title {
@@ -606,16 +485,12 @@ onMounted(() => {
 }
 
 .card-body-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 400px;
+  padding: 1.5rem;
 }
 
 /* Loading State */
 .loading-state {
   padding: 3rem 0;
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -624,196 +499,61 @@ onMounted(() => {
 /* Empty State */
 .empty-state {
   padding: 4rem 0;
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Table Scroll Container amélioré */
-.table-scroll-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
+/* Table Styles */
+.table-responsive {
+  overflow-x: auto;
 }
 
-.table-wrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 400px;
-}
-
-/* Modal Content */
-.modal-content {
-  padding: 1rem 0;
-}
-
-/* Custom Table Styles avec scroll amélioré */
-:deep(.demandes-table) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100% !important;
-}
-
-:deep(.demandes-table .n-data-table-base) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100% !important;
-}
-
-:deep(.demandes-table .n-data-table-base-table) {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100% !important;
-}
-
-:deep(.demandes-table .n-data-table-base-table-body) {
-  flex: 1;
-  overflow-y: auto !important;
-  overflow-x: auto !important;
-  max-height: 600px !important;
-}
-
-:deep(.demandes-table .n-data-table-base-table-body .n-data-table-tr) {
-  height: 60px;
-}
-
-:deep(.demandes-table .n-data-table-thead) {
+.table th {
   background-color: #f8f9fa;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-:deep(.demandes-table .n-data-table-th) {
-  background-color: #f8f9fa !important;
   font-weight: 600;
   color: #2c3e50;
   border-bottom: 2px solid #007bff;
-  padding: 12px 16px;
-  position: sticky;
-  top: 0;
-  z-index: 11;
 }
 
-:deep(.demandes-table .n-data-table-td) {
-  padding: 12px 16px;
-  border-bottom: 1px solid #e9ecef;
+.table td {
   vertical-align: middle;
+  padding: 12px 16px;
 }
 
-:deep(.demandes-table .n-data-table-tr:hover) {
-  background-color: #f8f9ff !important;
-  transition: background-color 0.2s ease;
+.table-hover tbody tr:hover {
+  background-color: #f8f9ff;
 }
 
-/* Cartes et boutons cohérents */
-.custom-card {
-  border: none;
-  border-radius: 8px;
+.badge {
+  font-size: 0.85em;
+  padding: 0.4em 0.8em;
 }
 
-.custom-tag {
-  font-weight: 600;
+/* Button Styles */
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
 }
 
-.custom-btn-primary {
-  background: #007bff;
+.btn-primary {
+  background-color: #007bff;
   border-color: #007bff;
 }
 
-.custom-btn-primary:hover {
-  background: #0056b3;
+.btn-primary:hover {
+  background-color: #0056b3;
   border-color: #0056b3;
 }
 
-.custom-btn-danger {
-  background: #5E5E5E;
-  border-color: #5E5E5E;
-  color: white;
+.btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
 }
 
-.custom-btn-danger:hover {
-  background: #4a4a4a;
-  border-color: #4a4a4a;
-  color: white;
-}
-
-/* Table personnalisée */
-.custom-table {
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Scrollbar personnalisée améliorée */
-:deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar) {
-  width: 10px;
-  height: 10px;
-}
-
-:deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-track) {
-  background: #f1f1f1;
-  border-radius: 6px;
-}
-
-:deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-thumb) {
-  background: #007bff;
-  border-radius: 6px;
-  border: 2px solid #f1f1f1;
-}
-
-:deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-thumb:hover) {
-  background: #0056b3;
-}
-
-:deep(.demandes-table .n-data-table-base-table-body::-webkit-scrollbar-corner) {
-  background: #f1f1f1;
-}
-
-/* Scroll horizontal amélioré */
-:deep(.demandes-table .n-data-table-base-table-body) {
-  scrollbar-width: thin;
-  scrollbar-color: #007bff #f1f1f1;
-}
-
-/* Supprimer la pagination et les outils */
-:deep(.demandes-table .n-data-table-pagination) {
-  display: none !important;
-}
-
-:deep(.demandes-table .n-data-table-base-table-header) {
-  border-bottom: 2px solid #007bff;
-}
-
-/* Client Info */
-.client-info {
-  line-height: 1.4;
-}
-
-.client-name {
-  color: #2c3e50;
-  font-size: 0.95rem;
-}
-
-.client-id {
-  font-size: 0.8rem;
-}
-
-/* Date Info */
-.date-info {
-  line-height: 1.4;
-}
-
-.submission-info {
-  line-height: 1.3;
+.btn-danger:hover {
+  background-color: #bb2d3b;
+  border-color: #b02a37;
 }
 
 /* Responsive */
@@ -832,30 +572,6 @@ onMounted(() => {
   
   .custom-header {
     padding: 1rem;
-  }
-  
-  .custom-header .d-flex {
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
-  }
-  
-  .table-scroll-container {
-    overflow-x: auto;
-  }
-  
-  :deep(.demandes-table .n-data-table-base-table-body) {
-    max-height: 500px !important;
-  }
-}
-
-@media (max-width: 576px) {
-  .table-wrapper {
-    min-width: 800px;
-  }
-  
-  :deep(.demandes-table) {
-    min-width: 800px;
   }
 }
 </style>
