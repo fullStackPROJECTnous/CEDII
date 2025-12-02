@@ -349,29 +349,54 @@ const fetchClientProfile = async () => {
   return null;
 };
 
-// FONCTION COMPLÈTEMENT CORRIGÉE POUR RÉCUPÉRER LES DONNÉES CLIENT (SANS DONNÉES DE TEST)
+// FONCTION CORRIGÉE POUR TRANSFORMER LES DONNÉES API
+const transformApiData = (apiData) => {
+  if (!apiData) return null;
+  
+  // CORRECTION PRINCIPALE : Transformer les champs API en champs utilisés par votre application
+  return {
+    idCli: apiData.idCli || apiData.id,
+    nomCli: apiData.nomCli || apiData.nom || '',
+    prenomCli: apiData.prenomCli || apiData.prenom || '',
+    emailCli: apiData.emailCli || apiData.email || '',
+    telephoneCli: apiData.telephoneCli || apiData.telephone || '',
+    addresseCli: apiData.addresseCli || apiData.adresse || '',
+    
+    // CORRECTION CRITIQUE : Utiliser les valeurs réelles de l'API
+    // Si typeCli existe et est "entreprise", garder "Entreprise"
+    // Si c'est autre chose, adapter
+    typeClient: apiData.typeCli 
+      ? (apiData.typeCli === 'entreprise' ? 'Entreprise' : 
+         apiData.typeCli === 'particulier' ? 'Particulier' : 
+         apiData.typeCli.charAt(0).toUpperCase() + apiData.typeCli.slice(1))
+      : (apiData.typeClient || 'Particulier'),
+    
+    // CORRECTION CRITIQUE : Utiliser statutCli réel
+    statutCompte: apiData.statutCli 
+      ? (apiData.statutCli === 'actif' ? 'Actif' : 
+         apiData.statutCli === 'inactif' ? 'Inactif' : 
+         apiData.statutCli === 'suspendu' ? 'Suspendu' : 
+         apiData.statutCli.charAt(0).toUpperCase() + apiData.statutCli.slice(1))
+      : (apiData.statutCompte || 'Actif'),
+    
+    // Conserver les autres données si elles existent
+    ...apiData
+  };
+};
+
+// FONCTION COMPLÈTEMENT CORRIGÉE POUR RÉCUPÉRER LES DONNÉES CLIENT
 const getClientData = async () => {
   console.log('🔄 Récupération des données client...');
   
   // 1. Essayer de récupérer depuis l'API d'abord
   const apiProfile = await fetchClientProfile();
   if (apiProfile && apiProfile.idCli) {
-    const clientData = {
-      idCli: apiProfile.idCli,
-      nomCli: apiProfile.nomCli || '',
-      prenomCli: apiProfile.prenomCli || '',
-      emailCli: apiProfile.emailCli || '',
-      telephoneCli: apiProfile.telephoneCli || '',
-      addresseCli: apiProfile.addresseCli || '',
-      typeClient: apiProfile.typeClient || 'Particulier',
-      statutCompte: apiProfile.statutCompte || 'Actif'
-    };
-    
-    console.log('✅ Données client réelles depuis API:', clientData);
-    return clientData;
+    const transformedData = transformApiData(apiProfile);
+    console.log('✅ Données client transformées depuis API:', transformedData);
+    return transformedData;
   }
 
-  // 2. Si l'API échoue, essayer de récupérer depuis localStorage avec toutes les clés possibles
+  // 2. Si l'API échoue, essayer de récupérer depuis localStorage
   const possibleKeys = ['clientInfo', 'userInfo', 'currentUser', 'clientProfile', 'user', 'client'];
   
   for (const key of possibleKeys) {
@@ -385,19 +410,9 @@ const getClientData = async () => {
         const hasClientInfo = (data.idCli || data.id) && (data.nomCli || data.nom) && (data.emailCli || data.email);
         
         if (hasClientInfo) {
-          const clientData = {
-            idCli: data.idCli || data.id || null,
-            nomCli: data.nomCli || data.nom || '',
-            prenomCli: data.prenomCli || data.prenom || '',
-            emailCli: data.emailCli || data.email || '',
-            telephoneCli: data.telephoneCli || data.telephone || '',
-            addresseCli: data.addresseCli || data.addresse || '',
-            typeClient: data.typeClient || data.type || 'Particulier',
-            statutCompte: data.statutCompte || data.statut || 'Actif'
-          };
-          
-          console.log(`✅ Données client valides depuis ${key}:`, clientData);
-          return clientData;
+          const transformedData = transformApiData(data);
+          console.log(`✅ Données client transformées depuis ${key}:`, transformedData);
+          return transformedData;
         }
       } catch (e) {
         console.warn(`❌ Erreur parsing ${key}:`, e);
@@ -405,11 +420,11 @@ const getClientData = async () => {
     }
   }
 
-  // 3. Si AUCUNE donnée client n'est trouvée, afficher une erreur claire
+  // 3. Si AUCUNE donnée client n'est trouvée
   console.error('❌ Aucune donnée client valide trouvée');
   message.error('Impossible de récupérer vos informations client. Veuillez vous reconnecter ou contacter l\'administrateur.');
   
-  // Retourner des données vides pour éviter les erreurs
+  // Retourner des données par défaut
   return {
     idCli: null,
     nomCli: '',
@@ -669,6 +684,10 @@ const fetchInitialData = async () => {
     // Récupérer les données client
     const clientData = await getClientData();
     console.log('👤 Données client finales pour notification:', clientData);
+    
+    // Afficher le type et statut réels dans la console
+    console.log('📊 Type client réel:', clientData.typeClient);
+    console.log('📊 Statut compte réel:', clientData.statutCompte);
 
   } catch (error) {
     console.error("Erreur de chargement des données:", error);
@@ -757,6 +776,8 @@ const submitForm = async () => {
     const clientData = await getClientData();
     
     console.log('📨 Données client pour notification:', clientData);
+    console.log('📨 Type client envoyé:', clientData.typeClient);
+    console.log('📨 Statut compte envoyé:', clientData.statutCompte);
 
     // Valider les données client
     const validation = validateClientData(clientData);

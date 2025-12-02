@@ -250,6 +250,16 @@ const fetchCatalog = async () => {
           // 🎯 Chemin exact dans backend/public/uploads/
           imageUrl: '/uploads/projecteur.jpg' 
         },
+        { 
+          // ID interne BDD
+          codeMat: 'MAT-A2024-CEDII/003', 
+          // Désignation affichée
+          designationMat: 'chapiteau', // Mise en majuscule pour l'exemple
+          descriptionMat: 'Chapiteaux couleur rouge.', 
+          isAvailable: true, 
+          // 🎯 Chemin exact dans backend/public/uploads/
+          imageUrl: '/uploads/chapiteau-rouge.jpg' 
+        },
         /* ... autres matériels ... */
     ];
     // --------------------------------------------------

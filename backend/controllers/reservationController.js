@@ -5,14 +5,16 @@ const bcrypt = require('bcryptjs');
 // 🆕 MAPPING MANUEL idCatalogue → Ressources
 const getRessourceFromCatalogue = (idCatalogue, typeRes) => {
     const mapping = {
-        // Salles
+        // Ajouter ici les identifications Salles
         'CAT001': { idSalle: 1, codeMat: null },
         'CAT002': { idSalle: 2, codeMat: null },
         'CAT003': { idSalle: 3, codeMat: null },
         
-        // Matériels  
+
+        //  Ajouter ici les identifications Matériels  
         'CAT401': { idSalle: null, codeMat: 'MAT-A2024-CEDII/001' },
         'CAT402': { idSalle: null, codeMat: 'MAT-A2024-CEDII/002' },
+        'CAT403': { idSalle: null, codeMat: 'MAT-A2024-CEDII/003' },
         'CAT501': { idSalle: null, codeMat: 'MAT-A2025-CEDII/001' },
         'CAT502': { idSalle: null, codeMat: 'MAT-A2025-CEDII/002' },
         'CAT503': { idSalle: null, codeMat: 'MAT-A2025-CEDII/003' },
