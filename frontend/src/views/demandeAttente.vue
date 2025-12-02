@@ -10,6 +10,7 @@
                 <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
               </router-link>
             </div>
+
             <div class="text-center">
               <h1 class="custom-title mb-1">
                 <i class="bi bi-bell-fill me-2"></i>
@@ -17,7 +18,19 @@
               </h1>
               <p class="custom-subtitle">Gestion et validation des demandes en attente</p>
             </div>
-            <div></div> <!-- Placeholder pour l'alignement -->
+
+            <div class="position-relative">
+              <n-dropdown
+                trigger="click"
+                :options="navigationOptions"
+                @select="handleNavigationSelect"
+                placement="bottom-end"
+              >
+                <n-button type="primary" size="small" class="custom-btn-primary">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </n-button>
+              </n-dropdown>
+            </div>
           </div>
         </div>
       </div>
@@ -25,10 +38,8 @@
 
     <!-- Carte principale -->
     <n-card class="main-card custom-card" content-class="p-0">
-      <!-- En-tête de la carte -->
       <template #header>
         <div class="card-header-content">
-          <!-- Message de succès/erreur pour les actions -->
           <n-alert
             v-if="actionMessage"
             :type="actionMessageType"
@@ -39,6 +50,7 @@
           >
             {{ actionMessage }}
           </n-alert>
+
           <div class="d-flex justify-content-between align-items-center">
             <div>
               <h3 class="card-title mb-1">
@@ -49,11 +61,10 @@
                 {{ pendingRequests.length }} demande(s) nécessite(nt) votre attention
               </p>
             </div>
+
             <n-tag :bordered="false" type="warning" size="large" class="custom-tag">
               <template #icon>
-                <n-icon>
-                  <i class="bi bi-clock-history"></i>
-                </n-icon>
+                <n-icon><i class="bi bi-clock-history"></i></n-icon>
               </template>
               En attente
             </n-tag>
@@ -61,19 +72,16 @@
         </div>
       </template>
 
-      <!-- Contenu de la carte -->
       <div class="card-body-content">
-        <!-- État de chargement -->
+        <!-- Loading -->
         <div v-if="loading" class="loading-state">
           <n-space vertical align="center" class="py-5">
             <n-spin size="large" />
-            <n-text type="primary" class="mt-3">
-              Chargement des demandes en cours...
-            </n-text>
+            <n-text type="primary" class="mt-3">Chargement des demandes en cours...</n-text>
           </n-space>
         </div>
 
-        <!-- État vide -->
+        <!-- Vide -->
         <div v-else-if="pendingRequests.length === 0" class="empty-state">
           <n-empty size="large" description="Aucune demande en attente">
             <template #icon>
@@ -81,15 +89,14 @@
                 <i class="bi bi-check-circle-fill"></i>
               </n-icon>
             </template>
+
             <template #extra>
-              <n-text depth="3">
-                Toutes les demandes ont été traitées. 🎉
-              </n-text>
+              <n-text depth="3">Toutes les demandes ont été traitées. 🎉</n-text>
             </template>
           </n-empty>
         </div>
 
-        <!-- Tableau des demandes SIMPLIFIÉ -->
+        <!-- Tableau des demandes - Version HTML simple -->
         <div v-else class="table-responsive">
           <table class="table table-hover">
             <thead class="table-primary">
@@ -162,7 +169,7 @@
           </table>
         </div>
 
-        <!-- Message d'erreur -->
+        <!-- Erreur -->
         <n-alert
           v-if="errorMessage"
           type="error"
@@ -176,7 +183,7 @@
       </div>
     </n-card>
 
-    <!-- Modal de confirmation pour le refus -->
+    <!-- Modal refus -->
     <n-modal v-model:show="showRefuseModal" preset="dialog" title="Confirmation de refus">
       <template #header>
         <div class="d-flex align-items-center">
@@ -186,7 +193,7 @@
           <span>Confirmer le refus</span>
         </div>
       </template>
-      
+
       <div class="modal-content">
         <p>Êtes-vous sûr de vouloir <strong>refuser</strong> la demande <strong>#{{ selectedRequest?.idRes }}</strong> ?</p>
         <p class="text-muted small">Cette action est irréversible.</p>
@@ -197,16 +204,15 @@
           <n-button class="flex-grow-1" @click="showRefuseModal = false">
             Annuler
           </n-button>
+
           <n-button 
-            type="error" 
-            class="flex-grow-1 custom-btn-danger" 
+            type="error"
+            class="flex-grow-1 custom-btn-danger"
             @click="confirmRefuse"
             :loading="refuseLoading"
           >
             <template #icon>
-              <n-icon>
-                <i class="bi bi-x-lg"></i>
-              </n-icon>
+              <n-icon><i class="bi bi-x-lg"></i></n-icon>
             </template>
             Confirmer le refus
           </n-button>
@@ -217,27 +223,41 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, h } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-  NCard,
-  NTag,
-  NSpin,
-  NSpace,
-  NText,
-  NEmpty,
-  NAlert,
-  NModal,
-  NButton,
-  NIcon
+  NButton, NIcon, NCard, NTag, NSpin, NSpace,
+  NText, NEmpty, NAlert, NModal, NDropdown
 } from 'naive-ui';
 import LocationService from '../services/LocationService';
 
 const router = useRouter();
 
-// ------------------------------------
-// ÉTATS RÉACTIFS
-// ------------------------------------
+/* --- Menu navigation --- */
+const navigationOptions = [
+  { label: 'Nouvelle Réservation', key: 'nouvelle-reservation', icon: () => h('i', { class: 'bi bi-calendar-plus me-2' }) },
+  { label: 'Calendrier & Disponibilités', key: 'calendrier', icon: () => h('i', { class: 'bi bi-calendar-day me-2' }) },
+  { type: 'divider' },
+  { label: 'Inventaire & Patrimoine', key: 'inventaire', icon: () => h('i', { class: 'bi bi-tools me-2' }) },
+  { label: 'Matériel de Bureau', key: 'bureau', icon: () => h('i', { class: 'bi bi-laptop me-2' }) },
+  { label: 'Fiches Clients', key: 'clients', icon: () => h('i', { class: 'bi bi-people me-2' }) },
+  { type: 'divider' },
+  { label: 'Tableau de Bord', key: 'dashboard', icon: () => h('i', { class: 'bi bi-house me-2' }) }
+];
+
+const handleNavigationSelect = (key) => {
+  const routes = {
+    'dashboard': '/dashboardReception',
+    'nouvelle-reservation': '/reservationLocationForm',
+    'calendrier': '/calendrier',
+    'inventaire': '/patrimoine',
+    'bureau': '/materielBureauView',
+    'clients': '/clientManagement'
+  };
+  if (routes[key]) router.push(routes[key]);
+};
+
+/* --- states --- */
 const pendingRequests = ref([]);
 const loading = ref(true);
 const errorMessage = ref(null);
@@ -247,201 +267,119 @@ const showRefuseModal = ref(false);
 const selectedRequest = ref(null);
 const refuseLoading = ref(false);
 
-// ------------------------------------
-// MÉTHODES DE FORMATAGE DES DATES
-// ------------------------------------
-const formatDateTime = (dateString) => {
-  if (!dateString) return 'N/A';
-  
-  try {
-    const date = parseDate(dateString);
-    
-    if (isNaN(date.getTime())) {
-      return 'Date invalide';
-    }
-    
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    
-    if (hours === '00' && minutes === '00') {
-      return `${day}/${month}/${year}`;
-    }
-    
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  } catch (error) {
-    console.error('Erreur formatage date:', error, dateString);
-    return 'N/A';
-  }
+/* --- Utilities --- */
+const parseDate = (str) => {
+  if (!str) return new Date(NaN);
+  if (str instanceof Date) return str;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return new Date(str + 'T00:00:00');
+  if (str.includes(' ')) return new Date(str.replace(' ', 'T'));
+
+  return new Date(str);
 };
 
-const formatDateOnly = (dateString) => {
-  if (!dateString) return 'N/A';
-  
-  try {
-    const date = parseDate(dateString);
-    
-    if (isNaN(date.getTime())) {
-      return 'Date invalide';
-    }
-    
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    
-    return `${day}/${month}/${year}`;
-  } catch (error) {
-    console.error('Erreur formatage date:', error, dateString);
-    return 'N/A';
-  }
+const formatDateTime = (d) => {
+  if (!d) return 'N/A';
+  const date = parseDate(d);
+  if (isNaN(date)) return 'Date invalide';
+  const DD = String(date.getDate()).padStart(2, '0');
+  const MM = String(date.getMonth() + 1).padStart(2, '0');
+  const YY = date.getFullYear();
+  const HH = String(date.getHours()).padStart(2, '0');
+  const MIN = String(date.getMinutes()).padStart(2, '0');
+  return HH === '00' && MIN === '00' ? `${DD}/${MM}/${YY}` : `${DD}/${MM}/${YY} ${HH}:${MIN}`;
 };
 
-const parseDate = (dateString) => {
-  if (!dateString) return new Date(NaN);
-  
-  if (dateString instanceof Date) return dateString;
-  
-  if (typeof dateString === 'string') {
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateString)) {
-      return new Date(dateString.replace(' ', 'T'));
-    }
-    
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      return new Date(dateString + 'T00:00:00');
-    }
-    
-    if (dateString.includes('T')) {
-      return new Date(dateString);
-    }
-  }
-  
-  return new Date(dateString);
+const formatDateOnly = (d) => {
+  if (!d) return 'N/A';
+  const date = parseDate(d);
+  if (isNaN(date)) return 'Date invalide';
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
 };
 
-const getRessourceType = (request) => {
-  const typeMap = {
-    'Salle': 'Salle',
-    'Materiel': 'Matériel',
-    'Mixte': 'Salle & Matériel'
-  };
-  return typeMap[request.typeRes] || 'Non spécifié';
-};
+/* --- get type --- */
+const getRessourceType = (req) =>
+  ({ 'Salle': 'Salle', 'Materiel': 'Matériel', 'Mixte': 'Salle & Matériel' }[req.typeRes] || 'Non spécifié');
 
-// FONCTION POUR RÉCUPÉRER LES DEMANDES
+/* --- Fetch data --- */
 const fetchPendingRequests = async () => {
   loading.value = true;
   errorMessage.value = null;
   try {
-    const response = await LocationService.getPendingReservations();
-    
-    if (response && response.data) {
-      if (Array.isArray(response.data)) {
-        pendingRequests.value = response.data;
-      } 
-      else if (response.data.data && Array.isArray(response.data.data)) {
-        pendingRequests.value = response.data.data;
-      }
-      else if (response.data.reservations && Array.isArray(response.data.reservations)) {
-        pendingRequests.value = response.data.reservations;
-      }
-      else if (typeof response.data === 'object') {
-        const arrayKey = Object.keys(response.data).find(key => 
-          Array.isArray(response.data[key])
-        );
-        if (arrayKey) {
-          pendingRequests.value = response.data[arrayKey];
-        } else {
-          pendingRequests.value = [];
-          console.warn('Aucun tableau trouvé dans la réponse:', response.data);
-        }
-      }
-      else {
-        pendingRequests.value = [];
-        console.warn('Format de réponse inattendu:', response.data);
-      }
+    const res = await LocationService.getPendingReservations();
+    const data = res?.data;
+    if (Array.isArray(data)) {
+      pendingRequests.value = data;
+    } else if (Array.isArray(data?.data)) {
+      pendingRequests.value = data.data;
+    } else if (Array.isArray(data?.reservations)) {
+      pendingRequests.value = data.reservations;
     } else {
-      pendingRequests.value = [];
-      console.warn('Réponse vide ou invalide:', response);
+      const key = Object.keys(data || {}).find(k => Array.isArray(data[k]));
+      pendingRequests.value = key ? data[key] : [];
     }
-    
-    console.log('Demandes chargées:', pendingRequests.value);
-    
-  } catch (error) {
-    console.error("Erreur lors de la récupération des demandes:", error);
-    errorMessage.value = `Impossible de charger les demandes : ${error.response?.data?.message || error.message}`;
+  } catch (e) {
+    console.error("Erreur récupération demandes:", e);
     pendingRequests.value = [];
+    errorMessage.value = e.response?.data?.message || e.message;
   } finally {
     loading.value = false;
   }
 };
 
-// MÉTHODE POUR GÉRER LA DEMANDE
-const handleManage = (request) => {
-  console.log('📝 Gérer la demande:', request.idRes);
-  router.push({ 
-    name: 'ReservationValid', 
-    params: { idRes: request.idRes } 
-  });
+/* --- actions --- */
+const handleManage = (row) => {
+  console.log('📝 Gérer la demande:', row.idRes);
+  router.push({ name: 'ReservationValid', params: { idRes: row.idRes } });
 };
 
-// MÉTHODE POUR REFUSER LA DEMANDE
-const handleRefuse = (request) => {
-  console.log('❌ Refuser la demande:', request.idRes);
-  selectedRequest.value = request;
+const handleRefuse = (row) => {
+  console.log('❌ Refuser la demande:', row.idRes);
+  selectedRequest.value = row;
   showRefuseModal.value = true;
 };
 
-// MÉTHODE POUR CONFIRMER LE REFUS
 const confirmRefuse = async () => {
   if (!selectedRequest.value) return;
-  
   refuseLoading.value = true;
+
   try {
     await LocationService.updateReservationStatus(selectedRequest.value.idRes, 'Refusée');
-    
     actionMessage.value = `Demande #${selectedRequest.value.idRes} refusée avec succès`;
     actionMessageType.value = 'success';
-    
     await fetchPendingRequests();
     
     showRefuseModal.value = false;
     selectedRequest.value = null;
-    
-  } catch (error) {
-    console.error(`Erreur de refus de la demande #${selectedRequest.value.idRes}:`, error);
-    actionMessage.value = `Échec du refus : ${error.response?.data?.message || error.message}`;
+  } catch (e) {
+    console.error("Erreur refus:", e);
+    actionMessage.value = e.response?.data?.message || e.message;
     actionMessageType.value = 'error';
-  } finally {
-    refuseLoading.value = false;
   }
+
+  refuseLoading.value = false;
 };
 
-// CHARGEMENT INITIAL
-onMounted(() => {
-  fetchPendingRequests();
-});
+onMounted(fetchPendingRequests);
 </script>
 
 <style scoped>
 .demandes-container {
   max-width: 1400px;
-  margin: 0 auto;
   padding: 20px;
+  margin: auto;
   min-height: 100vh;
 }
 
-/* Header Section */
 .custom-header {
-  background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
+  background: linear-gradient(135deg, #04058f, #02061e);
   color: white;
   border-left: 4px solid #007bff;
 }
 
 .custom-title {
+  font-weight: bold;
   color: white;
-  font-weight: 700;
   margin: 0;
   font-size: 1.8rem;
 }
@@ -463,11 +401,11 @@ onMounted(() => {
   color: white;
 }
 
-/* Main Card */
 .main-card {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   border: 1px solid #e9ecef;
+  overflow: hidden;
 }
 
 .card-header-content {
@@ -514,15 +452,17 @@ onMounted(() => {
   font-weight: 600;
   color: #2c3e50;
   border-bottom: 2px solid #007bff;
+  padding: 12px 16px;
 }
 
 .table td {
   vertical-align: middle;
   padding: 12px 16px;
+  border-bottom: 1px solid #e9ecef;
 }
 
 .table-hover tbody tr:hover {
-  background-color: #f8f9ff;
+  background-color: #f8f9ff !important;
 }
 
 .badge {
@@ -556,6 +496,17 @@ onMounted(() => {
   border-color: #b02a37;
 }
 
+.custom-btn-primary {
+  background-color: #0d6efd;
+  border: none;
+}
+
+.custom-btn-danger {
+  background-color: #dc3545;
+  border: none;
+  color: white;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .demandes-container {
@@ -572,6 +523,12 @@ onMounted(() => {
   
   .custom-header {
     padding: 1rem;
+  }
+  
+  .custom-header .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
   }
 }
 </style>

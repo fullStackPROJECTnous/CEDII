@@ -17,6 +17,18 @@
               </h1>
               <p class="custom-subtitle">Gestion des locations et réservations en temps réel</p>
             </div>
+               <div class="position-relative">
+              <n-dropdown
+                trigger="click"
+                :options="navigationOptions"
+                @select="handleNavigationSelect"
+                placement="bottom-end"
+              >
+                <n-button type="primary" size="small" class="custom-btn-primary">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </n-button>
+              </n-dropdown>
+            </div>
             <div></div>
           </div>
         </div>
@@ -130,6 +142,7 @@
 
 <script setup>
 import { ref, computed, onMounted, h } from 'vue';
+import { useRouter } from 'vue-router';
 import { 
   NCard, 
   NButton, 
@@ -140,11 +153,73 @@ import {
   NCollapse, 
   NCollapseItem, 
   NAlert,
-  NTag 
+  NTag ,
+    NDropdown
 } from 'naive-ui';
 import LocationService from '../services/LocationService';
 import EtatLieu from './etatLieu.vue';
 import EtatLieuDepart from './etatLieuDepart.vue';
+
+
+
+const router = useRouter();
+
+// Options du menu de navigation
+const navigationOptions = [
+  {
+    label: 'Nouvelle Réservation',
+    key: 'nouvelle-reservation',
+    icon: () => h('i', { class: 'bi bi-calendar-plus me-2' })
+  },
+  {
+    label: 'Demandes à Traiter',
+    key: 'demandes-attente',
+    icon: () => h('i', { class: 'bi bi-bell me-2' })
+  },
+  {
+    type: 'divider'
+  },
+  {
+    label: 'Inventaire & Patrimoine',
+    key: 'inventaire',
+    icon: () => h('i', { class: 'bi bi-tools me-2' })
+  },
+  {
+    label: 'Matériel de Bureau',
+    key: 'bureau',
+    icon: () => h('i', { class: 'bi bi-laptop me-2' })
+  },
+  {
+    label: 'Fiches Clients',
+    key: 'clients',
+    icon: () => h('i', { class: 'bi bi-people me-2' })
+  },
+  {
+    type: 'divider'
+  },
+  {
+    label: 'Tableau de Bord',
+    key: 'dashboard',
+    icon: () => h('i', { class: 'bi bi-house me-2' })
+  }
+];
+
+// Gestion de la sélection dans le menu
+const handleNavigationSelect = (key) => {
+  const routeMap = {
+    'dashboard': '/dashboardReception',
+    'nouvelle-reservation': '/reservationLocationForm',
+    'demandes-attente': '/demandeAttente',
+    'inventaire': '/patrimoine',
+    'bureau': '/materielBureauView',
+    'clients': '/clientManagement'
+  };
+  
+  if (routeMap[key]) {
+    router.push(routeMap[key]);
+  }
+};
+
 
 // Variables réactives
 const confirmedEvents = ref([]);
@@ -885,6 +960,33 @@ onMounted(() => {
   
   .table-container {
     max-height: 400px;
+  }
+}
+
+/* Ajout des styles pour le menu dropdown */
+:deep(.n-dropdown-menu) {
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+:deep(.n-dropdown-option) {
+  padding: 8px 12px;
+}
+
+:deep(.n-dropdown-option .n-dropdown-option-body) {
+  align-items: center;
+}
+
+:deep(.n-dropdown-option .n-dropdown-option-body__icon) {
+  margin-right: 8px;
+}
+
+/* Responsive pour le menu trois points */
+@media (max-width: 768px) {
+  .position-relative {
+    position: absolute !important;
+    top: 20px;
+    right: 20px;
   }
 }
 </style>

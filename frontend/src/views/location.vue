@@ -17,6 +17,18 @@
               </h1>
               <p class="custom-subtitle">Gérez les réservations en attente et consultez l'historique des locations</p>
             </div>
+               <div class="position-relative">
+              <n-dropdown
+                trigger="click"
+                :options="navigationOptions"
+                @select="handleNavigationSelect"
+                placement="bottom-end"
+              >
+                <n-button type="primary" size="small" class="custom-btn-primary">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </n-button>
+              </n-dropdown>
+            </div>
             <div></div>
           </div>
         </div>
@@ -87,6 +99,8 @@
 
 <script setup>
 import { ref, onMounted, h } from 'vue';
+
+import { useRouter } from 'vue-router';
 import {
   NH2,
   NText,
@@ -100,6 +114,72 @@ import {
   NTag
 } from 'naive-ui';
 import LocationService from '../services/LocationService';
+
+
+const router = useRouter();
+
+// Options du menu de navigation
+const navigationOptions = [
+
+  {
+    label: 'Fiches Clients',
+    key: 'client',
+    icon: () => h('i', { class: 'bi bi-people me-2' })
+  },
+  {
+    type: 'divider'
+  },
+  
+  {
+    label: 'Inventaire & Patrimoine',
+    key: 'inventaire',
+    icon: () => h('i', { class: 'bi bi-tools me-2' })
+  },
+  {
+    label: 'Matériel de Bureau',
+    key: 'bureau',
+    icon: () => h('i', { class: 'bi bi-laptop me-2' })
+  },
+  
+  {
+    type: 'divider'
+  },
+  {
+    label: 'Gestion Financière',
+    key: 'finance',
+    icon: () => h('i', { class: 'bi-exclamation-octagon-fill' })
+  },
+  {
+    label: 'Suivi & Rapports',
+    key: 'rapport',
+    icon: () => h('i', { class: 'bi-graph-up' })
+  },
+  
+  
+  {
+    label: 'Tableau de Bord',
+    key: 'dashboard',
+    icon: () => h('i', { class: 'bi bi-house me-2' })
+  }
+];
+
+// Gestion de la sélection dans le menu
+const handleNavigationSelect = (key) => {
+  const routeMap = {
+    'dashboard': '/dashboardAdmin',
+    'finance': '/finance',
+    'rapport': '/rapport',
+    'calendrier': '/location',
+    'inventaire': '/patrimoine1',
+    'client': 'clientManagementAdmin',
+    'bureau': '/materielBureauView'
+  };
+  
+  if (routeMap[key]) {
+    router.push(routeMap[key]);
+  }
+};
+
 
 const activeTab = ref('reservations');
 const pendingReservations = ref([]);

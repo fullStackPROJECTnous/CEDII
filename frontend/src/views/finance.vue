@@ -17,6 +17,19 @@
               </h1>
               <p class="custom-subtitle">Suivez les paiements, pénalités et états financiers des locations</p>
             </div>
+               <div class="position-relative">
+              <n-dropdown
+                trigger="click"
+                :options="navigationOptions"
+                @select="handleNavigationSelect"
+                placement="bottom-end"
+              >
+                <n-button type="primary" size="small" class="custom-btn-primary">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </n-button>
+              </n-dropdown>
+            </div>
+
             <div></div>
           </div>
         </div>
@@ -170,6 +183,7 @@
 
 <script setup>
 import { ref, onMounted, h, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   NH2,
   NText,
@@ -191,6 +205,72 @@ import {
   NDescriptionsItem
 } from 'naive-ui';
 import FinanceService from '../services/FinanceService';
+
+
+const router = useRouter();
+
+// Options du menu de navigation
+const navigationOptions = [
+
+  {
+    label: 'Fiches Clients',
+    key: 'client',
+    icon: () => h('i', { class: 'bi bi-people me-2' })
+  },
+  {
+    type: 'divider'
+  },
+  
+  {
+    label: 'Inventaire & Patrimoine',
+    key: 'inventaire',
+    icon: () => h('i', { class: 'bi bi-tools me-2' })
+  },
+  {
+    label: 'Matériel de Bureau',
+    key: 'bureau',
+    icon: () => h('i', { class: 'bi bi-laptop me-2' })
+  },
+  
+  {
+    type: 'divider'
+  },
+  {
+    label: 'Location & Reservation',
+    key: 'location',
+    icon: () => h('i', { class: 'bi-exclamation-octagon-fill' })
+  },
+  {
+    label: 'Suivi & Rapports',
+    key: 'rapport',
+    icon: () => h('i', { class: 'bi-graph-up' })
+  },
+  
+  
+  {
+    label: 'Tableau de Bord',
+    key: 'dashboard',
+    icon: () => h('i', { class: 'bi bi-house me-2' })
+  }
+];
+
+// Gestion de la sélection dans le menu
+const handleNavigationSelect = (key) => {
+  const routeMap = {
+    'dashboard': '/dashboardAdmin',
+    'location': '/location',
+    'rapport': '/rapport',
+    'calendrier': '/location',
+    'inventaire': '/patrimoine1',
+    'client': 'clientManagementAdmin',
+    'bureau': '/materielBureauView'
+  };
+  
+  if (routeMap[key]) {
+    router.push(routeMap[key]);
+  }
+};
+
 
 const locationsData = ref([]);
 const loading = ref(false);

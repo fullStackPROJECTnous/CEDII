@@ -2053,6 +2053,181 @@ async function simulatePenaltyEmail(emailData) {
   }
 }
 
+/**
+ * Envoie un rappel de paiement pour un paiement en attente
+ */
+exports.sendPaymentReminder = async (req, res) => {
+  try {
+    const paymentId = req.params.id;
+    
+    console.log('📍 Envoi rappel paiement pour:', paymentId);
+
+    // 1. Récupérer les détails du paiement
+    const sqlPaymentDetails = `
+      SELECT 
+        p.idPaie,
+        p.numeroFacture,
+        p.montantPaie,
+        p.statutPaie,
+        p.modePaie,
+        c.nomCli,
+        c.prenomCli,
+        c.emailCli,
+        c.telephoneCli,
+        l.idLo,
+        l.typeLo,
+        l.debLo,
+        l.finLo
+      FROM paiement p
+      JOIN location l ON p.idLo = l.idLo
+      JOIN reservation r ON l.idRes = r.idRes
+      JOIN client c ON r.idCli = c.idCli
+      WHERE p.idPaie = ?
+      AND p.statutPaie = 'En attente'
+    `;
+
+    const [paymentDetails] = await sequelize.query(sqlPaymentDetails, {
+      replacements: [paymentId],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (!paymentDetails) {
+      return res.status(404).json({
+        success: false,
+        message: `Paiement ${paymentId} non trouvé ou déjà traité`
+      });
+    }
+
+    // 2. Vérifier si l'email du client existe
+    if (!paymentDetails.emailCli) {
+      return res.status(400).json({
+        success: false,
+        message: "Email du client non disponible pour l'envoi de rappel"
+      });
+    }
+
+    // 3. Préparer les données pour l'email
+    const emailData = {
+      to: paymentDetails.emailCli,
+      subject: `📅 Rappel de Paiement - Facture ${paymentDetails.numeroFacture}`,
+      clientName: `${paymentDetails.prenomCli || ''} ${paymentDetails.nomCli}`.trim(),
+      paymentId: paymentId,
+      invoiceNumber: paymentDetails.numeroFacture,
+      amountDue: paymentDetails.montantPaie,
+      locationId: paymentDetails.idLo,
+      locationType: paymentDetails.typeLo,
+      dueDate: new Date(paymentDetails.dateCre).toLocaleDateString('fr-FR')
+    };
+
+    // 4. Envoyer l'email de rappel
+    let emailSent = false;
+    try {
+      await sendPaymentReminderEmail(emailData);
+      emailSent = true;
+      
+      // Enregistrer dans l'historique
+      await sequelize.query(
+        `INSERT INTO historique_email (idPaie, dateEnvoi, destinataire, sujet, statutEnvoi) 
+         VALUES (?, NOW(), ?, ?, 'succes')`,
+        { 
+          replacements: [paymentId, emailData.to, emailData.subject] 
+        }
+      );
+
+      console.log(`✅ Rappel envoyé pour paiement ${paymentId} à ${emailData.to}`);
+
+    } catch (emailError) {
+      console.error('❌ Erreur envoi email rappel:', emailError);
+      
+      await sequelize.query(
+        `INSERT INTO historique_email (idPaie, dateEnvoi, destinataire, sujet, statutEnvoi, erreurMessage) 
+         VALUES (?, NOW(), ?, ?, 'echec', ?)`,
+        { 
+          replacements: [paymentId, emailData.to, emailData.subject, emailError.message] 
+        }
+      );
+    }
+
+    // 5. Réponse de succès
+    res.json({
+      success: true,
+      message: `Rappel de paiement ${emailSent ? 'envoyé' : 'enregistré'} avec succès`,
+      data: {
+        paymentId,
+        clientName: emailData.clientName,
+        clientEmail: emailData.to,
+        amountDue: emailData.amountDue,
+        invoiceNumber: emailData.invoiceNumber,
+        emailSent: emailSent,
+        sentAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur sendPaymentReminder:', error);
+    
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de l'envoi du rappel de paiement",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Fonction pour envoyer l'email de rappel de paiement
+async function sendPaymentReminderEmail(emailData) {
+  const mailOptions = {
+    from: process.env.EMAIL_USER || 'miharinandrasana@gmail.com',
+    to: emailData.to,
+    subject: emailData.subject,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 20px; text-align: center;">
+          <h1>CEDII LOCATIONS</h1>
+          <h2>RAPPEL DE PAIEMENT</h2>
+        </div>
+        
+        <div style="padding: 20px;">
+          <p>Bonjour <strong>${emailData.clientName}</strong>,</p>
+          
+          <p>Nous vous rappelons que votre paiement pour la location <strong>#${emailData.locationId}</strong> est en attente.</p>
+          
+          <div style="border: 1px solid #ddd; padding: 15px; margin: 15px 0; border-radius: 8px;">
+            <h3 style="color: #007bff;">Détails du paiement</h3>
+            <p><strong>Numéro de facture:</strong> ${emailData.invoiceNumber}</p>
+            <p><strong>Montant dû:</strong> ${parseFloat(emailData.amountDue).toLocaleString('fr-FR')} Ar</p>
+            <p><strong>Référence location:</strong> LO-${emailData.locationId}</p>
+            <p><strong>Type de location:</strong> ${emailData.locationType}</p>
+          </div>
+          
+          <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h4 style="color: #856404; margin: 0;">⚠️ Paiement en attente</h4>
+            <p style="color: #856404; margin: 5px 0 0 0;">
+              Veuillez procéder au règlement selon les modalités convenues.
+            </p>
+          </div>
+          
+          <p>Pour toute question, n'hésitez pas à nous contacter.</p>
+          
+          <p>Cordialement,<br>
+          <strong>Service Financier CEDII Locations</strong></p>
+        </div>
+      </div>
+    `
+  };
+
+  // Utiliser le transporter existant
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER || 'miharinandrasana@gmail.com',
+      pass: process.env.EMAIL_PASS || 'zpaa nrcm eqli jpqf'
+    }
+  });
+
+  await transporter.sendMail(mailOptions);
+}
+
 exports.getMonthlyRevenueTrend = async (req, res) => {
   res.status(200).send([]);
 };

@@ -17,6 +17,19 @@
                             </h1>
                             <p class="custom-subtitle">Analyse complète des performances financières</p>
                         </div>
+                            <!-- Menu trois points -->
+            <div class="position-relative">
+              <n-dropdown
+                trigger="click"
+                :options="navigationOptions"
+                @select="handleNavigationSelect"
+                placement="bottom-end"
+              >
+                <n-button type="primary" size="small" class="custom-btn-primary">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </n-button>
+              </n-dropdown>
+            </div>
                         <div></div>
                     </div>
                 </div>
@@ -182,10 +195,55 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, computed, watch } from 'vue';
+import { ref, onMounted, nextTick, computed, watch,h } from 'vue';
 import { NCard, NTag, NList, NListItem, NThing } from 'naive-ui';
+import { useRouter } from 'vue-router';
 import FinanceService from '@/services/FinanceService'; 
 import Chart from 'chart.js/auto'; 
+
+
+const router = useRouter();
+
+
+// Options du menu de navigation
+const navigationOptions = [
+  {
+    label: 'Facturation',
+    key: 'fact',
+    icon: () => h('i', { class: 'bi-file-earmark-text' })
+  },
+  {
+    label: 'Suivi des paiements',
+    key: 'suiviPaie',
+    icon: () => h('i', { class: 'bi-cash-stack' })
+  },
+  {
+    label: 'Penalités $ Litiges',
+    key: 'penaliteLiti',
+    icon: () => h('i', { class: 'bi-exclamation-octagon-fill' })
+  },
+  {
+    label: 'Tableau de Bord',
+    key: 'dashboard',
+    icon: () => h('i', { class: 'bi bi-house me-2' })
+  }
+];
+
+// Gestion de la sélection dans le menu
+const handleNavigationSelect = (key) => {
+  const routeMap = {
+    'dashboard': '/dashboardFinance',
+    'fact': '/facturation',
+    'suiviPaie': '/suivi',
+    'penaliteLiti': '/penalite'
+    
+  };
+  
+  if (routeMap[key]) {
+    router.push(routeMap[key]);
+  }
+};
+
 
 // --- Variables d'état ---
 const rapportData = ref({
