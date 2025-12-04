@@ -92,7 +92,6 @@
     </n-card>
   </div>
 </template>
-
 <script setup>
 import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
@@ -182,37 +181,56 @@ async function handleRegister() {
   message.value = '';
   
   try {
-    // Validation du formulaire
+    // Validation du formulaire - peut lancer une exception
     await formRef.value?.validate();
     
     isLoading.value = true;
     isSuccess.value = false;
 
-    const response = await AuthService.register(formData);
+    console.log('Envoi des données:', formData); // Debug
     
-    isSuccess.value = true;
-    message.value = response.data.message || "Compte créé avec succès ! Vous pouvez maintenant vous connecter.";
-    
-    // Redirection après 3 secondes
-    setTimeout(() => {
-      router.push('/');
-    }, 3000);
-
-  } catch (err) {
-    if (err.response?.status === 400) {
-      // Erreur de validation du backend
-      const msg = err.response?.data?.message || "Erreur lors de l'inscription. Vérifiez les données.";
-      isSuccess.value = false;
-      message.value = msg;
-    } else if (err.errors) {
-      // Erreur de validation Naive UI
-      console.log('Validation errors:', err.errors);
-    } else {
-      // Autre erreur
-      const msg = err.response?.data?.message || "Erreur lors de l'inscription. Vérifiez les données.";
-      isSuccess.value = false;
-      message.value = msg;
+    try {
+      const response = await AuthService.register(formData);
+      
+      isSuccess.value = true;
+      message.value = response.data?.message || "Compte créé avec succès ! Vous pouvez maintenant vous connecter.";
+      
+      // Redirection après 3 secondes
+      setTimeout(() => {
+        router.push('/');
+      }, 3000);
+      
+    } catch (apiError) {
+      // Erreur de l'API
+      console.error('Erreur API:', apiError);
+      
+      if (apiError.response) {
+        // Le backend a répondu avec une erreur
+        const errorMessage = apiError.response.data?.message || 
+                            apiError.response.data?.error ||
+                            "Erreur lors de l'inscription.";
+        
+        isSuccess.value = false;
+        message.value = `Erreur ${apiError.response.status}: ${errorMessage}`;
+        
+        // Si c'est une erreur 400 (validation backend), vous pouvez afficher plus de détails
+        if (apiError.response.status === 400 && apiError.response.data?.errors) {
+          const errors = apiError.response.data.errors;
+          message.value = `Erreurs de validation: ${Object.values(errors).join(', ')}`;
+        }
+      } else if (apiError.request) {
+        // La requête a été faite mais pas de réponse
+        message.value = "Erreur réseau. Vérifiez votre connexion.";
+      } else {
+        // Erreur de configuration
+        message.value = "Erreur de configuration. Contactez l'administrateur.";
+      }
     }
+    
+  } catch (validationError) {
+    // Erreur de validation Naive UI
+    console.log('Erreurs de validation frontend:', validationError);
+    // Ne pas afficher de message global, Naive UI gère les messages individuels
   } finally {
     isLoading.value = false;
   }

@@ -269,23 +269,8 @@ exports.getConfirmedLocationsToInvoice = async (req, res) => {
     });
   }
 };
-
-/**
- * Crée et envoie une facture
- */
-/**
- * Crée et envoie une facture
- */
 exports.createAndSendInvoice = async (req, res) => {
   console.log('🔍 Début createAndSendInvoice');
-  
-  const transporter = nodemailer.createTransporter({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER || 'miharinandrasana@gmail.com',
-      pass: process.env.EMAIL_PASS || 'zpaa nrcm eqli jpqf'
-    }
-  });
   
   try {
     const { locationId, clientEmail } = req.body;
@@ -298,20 +283,20 @@ exports.createAndSendInvoice = async (req, res) => {
       });
     }
 
-    // 🔥 CORRECTION : Autoriser aussi les locations "En cours"
+    // 🔥 CORRECTION : Requête avec COALESCE pour éviter les valeurs null
     const sqlCheckLocation = `
       SELECT 
         l.idLo, l.etatLo, l.tarifTot, l.typeLo, l.debLo, l.finLo,
         c.nomCli, c.prenomCli, c.emailCli,
         r.idRes,
-        m.designationMat,
-        s.nomSalle
+        COALESCE(m.designationMat, '') as designationMat,
+        COALESCE(s.nomSalle, '') as nomSalle
       FROM location l
       JOIN reservation r ON l.idRes = r.idRes
       JOIN client c ON r.idCli = c.idCli
       LEFT JOIN materiel m ON r.codeMat = m.codeMat
       LEFT JOIN salle s ON r.idSalle = s.idSalle
-      WHERE l.idLo = ? AND l.etatLo IN ('Confirmée', 'En cours')
+      WHERE l.idLo = ? AND l.etatLo IN ('En cours', 'Confirmée')
     `;
 
     const [locationData] = await sequelize.query(sqlCheckLocation, {
@@ -322,11 +307,21 @@ exports.createAndSendInvoice = async (req, res) => {
     if (!locationData) {
       return res.status(404).json({
         success: false,
-        message: `Location ${locationId} non trouvée ou statut incorrect (doit être "Confirmée" ou "En cours")`
+        message: `Location ${locationId} non trouvée ou doit être "En cours" ou "Confirmée" pour être facturée`
       });
     }
 
-    console.log(`📍 Location trouvée: ${locationData.idLo} - Statut: ${locationData.etatLo}`);
+    console.log(`📍 Location trouvée: ${locationData.idLo} (${locationData.etatLo})`);
+
+    // Déterminer la description
+    let description = '';
+    if (locationData.designationMat && locationData.designationMat.trim() !== '') {
+      description = locationData.designationMat;
+    } else if (locationData.nomSalle && locationData.nomSalle.trim() !== '') {
+      description = locationData.nomSalle;
+    } else {
+      description = `${locationData.typeLo} #${locationData.idLo}`;
+    }
 
     // 2. Calculer les pénalités si la location est en retard
     const finLocation = new Date(locationData.finLo);
@@ -352,7 +347,9 @@ exports.createAndSendInvoice = async (req, res) => {
       numeroFacture = `FACT-${annee}-${(lastNumber + 1).toString().padStart(4, '0')}`;
     }
 
-    // 4. Créer le paiement/facture
+    // Créer le paiement/facture avec statut "En attente"
+    const libellePaie = `Location ${locationData.typeLo} - ${description}`;
+    
     const sqlInsertPaiement = `
       INSERT INTO paiement 
       (idLo, numeroFacture, dateCre, montantPaie, statutPaie, libellePaie, emailEnvoye)
@@ -364,39 +361,47 @@ exports.createAndSendInvoice = async (req, res) => {
         locationId,
         numeroFacture,
         montantTotal,
-        `Location ${locationData.typeLo} - ${locationData.designationMat || locationData.nomSalle}`
+        libellePaie
       ]
     });
 
-    // 5. Mettre à jour le statut de la location
-    await sequelize.query(
-      `UPDATE location SET etatLo = 'Terminée' WHERE idLo = ?`,
-      { replacements: [locationId] }
-    );
+    console.log(`📍 Facture créée: ${numeroFacture} pour location ${locationId}`);
 
-    // 6. Envoyer l'email si email fourni
+    // 5. Envoyer l'email si email fourni
     const emailFinal = clientEmail || locationData.emailCli;
     let emailEnvoye = false;
 
-    if (emailFinal) {
+    if (emailFinal && emailFinal.trim() !== '') {
       try {
-        await sendInvoiceEmail(transporter, emailFinal, locationData, numeroFacture, montantTotal, joursRetard, penalite);
-        emailEnvoye = true;
+        const emailSent = await sendInvoiceEmail(
+          emailFinal, 
+          locationData, 
+          numeroFacture, 
+          montantTotal, 
+          joursRetard, 
+          penalite
+        );
         
-        await sequelize.query(
-          `UPDATE paiement SET emailEnvoye = TRUE, dateEnvoiEmail = NOW() WHERE numeroFacture = ?`,
-          { replacements: [numeroFacture] }
-        );
+        if (emailSent) {
+          emailEnvoye = true;
+          
+          await sequelize.query(
+            `UPDATE paiement SET emailEnvoye = TRUE, dateEnvoiEmail = NOW() WHERE numeroFacture = ?`,
+            { replacements: [numeroFacture] }
+          );
 
-        await sequelize.query(
-          `INSERT INTO historique_email (idPaie, dateEnvoi, destinataire, sujet, statutEnvoi)
-           SELECT idPaie, NOW(), ?, 'Facture Location', 'succes'
-           FROM paiement WHERE numeroFacture = ?`,
-          { 
-            replacements: [emailFinal, numeroFacture] 
-          }
-        );
+          await sequelize.query(
+            `INSERT INTO historique_email (idPaie, dateEnvoi, destinataire, sujet, statutEnvoi)
+             SELECT idPaie, NOW(), ?, 'Facture Location', 'succes'
+             FROM paiement WHERE numeroFacture = ?`,
+            { 
+              replacements: [emailFinal, numeroFacture] 
+            }
+          );
 
+          console.log('✅ Email envoyé avec succès');
+        }
+        
       } catch (emailError) {
         console.error('❌ Erreur envoi email:', emailError);
         
@@ -411,18 +416,20 @@ exports.createAndSendInvoice = async (req, res) => {
       }
     }
 
-    // 7. Récupérer les stats mises à jour
+    // 6. Récupérer les stats mises à jour
     const updatedStats = await getUpdatedDashboardStats();
 
     res.json({
       success: true,
-      message: 'Facture créée avec succès' + (emailEnvoye ? ' et email envoyé' : ''),
+      message: 'Facture créée avec succès (statut: En attente)' + (emailEnvoye ? ' et email envoyé' : ''),
       invoiceNumber: numeroFacture,
       locationId: locationId,
+      locationStatus: locationData.etatLo,
       montantTotal: montantTotal,
       joursRetard: joursRetard,
       penalite: penalite,
       emailEnvoye: emailEnvoye,
+      description: description,
       newStats: updatedStats
     });
 
@@ -698,29 +705,19 @@ exports.downloadInvoice = async (req, res) => {
   const { locationId } = req.params;
 
   try {
+    console.log(`📍 Téléchargement facture pour location ${locationId}`);
+
     const sqlInvoiceData = `
       SELECT 
-        p.numeroFacture,
-        p.dateCre,
-        p.montantPaie,
-        p.statutPaie,
-        l.idLo,
-        l.typeLo,
-        l.debLo,
-        l.finLo,
-        CONCAT(c.nomCli, ' ', c.prenomCli) AS client,
-        c.emailCli,
-        c.telephoneCli,
-        m.designationMat,
-        s.nomSalle,
-        DATEDIFF(CURDATE(), DATE(l.finLo)) AS joursRetard
+        p.numeroFacture, p.montantPaie, p.statutPaie,
+        l.idLo, l.typeLo, l.debLo, l.finLo,
+        CONCAT(c.nomCli, ' ', c.prenomCli) AS client
       FROM paiement p
       JOIN location l ON p.idLo = l.idLo
       JOIN reservation r ON l.idRes = r.idRes
       JOIN client c ON r.idCli = c.idCli
-      LEFT JOIN materiel m ON r.codeMat = m.codeMat
-      LEFT JOIN salle s ON r.idSalle = s.idSalle
       WHERE l.idLo = ?
+      LIMIT 1
     `;
 
     const [invoiceData] = await sequelize.query(sqlInvoiceData, {
@@ -729,20 +726,40 @@ exports.downloadInvoice = async (req, res) => {
     });
 
     if (!invoiceData) {
-      return res.status(404).send({ message: "Facture non trouvée" });
+      return res.status(404).json({ 
+        success: false, 
+        message: "Aucune facture trouvée pour cette location" 
+      });
     }
 
-    const pdfContent = generatePDFContent(invoiceData);
-    const pdfBuffer = Buffer.from(pdfContent, 'utf-8');
+    // 🔥 CORRECTION SIMPLE : Texte formaté
+    const factureContent = `
+      FACTURE CEDII
+      =============
+      Numéro: ${invoiceData.numeroFacture}
+      Client: ${invoiceData.client}
+      Location: #${invoiceData.idLo} - ${invoiceData.typeLo}
+      Période: ${new Date(invoiceData.debLo).toLocaleDateString('fr-FR')} au ${new Date(invoiceData.finLo).toLocaleDateString('fr-FR')}
+      Montant: ${parseFloat(invoiceData.montantPaie || 0).toLocaleString('fr-FR')} Ar
+      Statut: ${invoiceData.statutPaie}
+      
+      Merci pour votre confiance!
+      CEDII Locations
+    `;
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=facture-${invoiceData.numeroFacture}.pdf`);
-    res.send(pdfBuffer);
+    // 🔥 CORRECTION : Créer un blob côté client
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Disposition', `attachment; filename="facture-${invoiceData.numeroFacture}.txt"`);
+    res.send(factureContent);
 
   } catch (error) {
-    console.error("Erreur downloadInvoice:", error);
-    res.status(500).send({ message: "Erreur téléchargement facture" });
-  }
+    console.error("❌ Erreur téléchargement facture:", error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur serveur",
+      error: error.message
+    });
+  } // <-- SUPPRIMEZ LE "1" ICI !!!
 };
 
 // 📊 VERSION SANS DONNÉES DE DÉMONSTRATION - DONNÉES RÉELLES UNIQUEMENT
@@ -918,7 +935,7 @@ async function getUpdatedDashboardStats() {
 
 async function sendInvoiceEmail(email, locationData, numeroFacture, montantTotal, joursRetard, penalite) {
   const mailOptions = {
-    from: process.env.EMAIL_USER || 'cedii.locations@gmail.com',
+    from: process.env.EMAIL_USER || 'miharinandrasana@gmail.com',
     to: email,
     subject: `Facture ${numeroFacture} - CEDII Locations`,
     html: `
@@ -967,7 +984,7 @@ async function sendInvoiceEmail(email, locationData, numeroFacture, montantTotal
 
 async function sendPenaltyEmail(penalty) {
   const mailOptions = {
-    from: process.env.EMAIL_USER || 'cediifia@gmail.com',
+    from: process.env.EMAIL_USER || 'miharinandrasana@gmail.com',
     to: penalty.email,
     subject: `⚠️ Notification de pénalité - Location #${penalty.locationId}`,
     html: `
@@ -1252,7 +1269,7 @@ startxref
  * Génère un PDF détaillé pour les factures payées
  */
 function generateDetailedPDF(invoiceData) {
-  const PDFDocument = require('pdfkit');
+  const PDFDocument = require('jspdf');
   const doc = new PDFDocument({ margin: 50 });
   const buffers = [];
 

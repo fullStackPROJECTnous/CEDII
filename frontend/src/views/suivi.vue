@@ -644,6 +644,7 @@ const generatePDFFromText = (text, locationId) => {
   }
 };
 
+
 // --- Fonctions d'Action ---
 const downloadPaymentInvoice = async (locationId) => {
   if (!locationId) {

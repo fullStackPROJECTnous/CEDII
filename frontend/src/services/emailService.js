@@ -208,6 +208,9 @@ function generateInvoiceEmailTemplate(location) {
   `;
 }
 
+
+
+
 /**
  * Envoie un email de test
  */

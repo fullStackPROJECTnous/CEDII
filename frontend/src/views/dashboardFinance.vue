@@ -71,7 +71,7 @@
 
                     <!-- Cartes de statistiques principales -->
                     <div class="row mb-4">
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 mb-3">
                             <n-card class="custom-card-primary h-100" size="small">
                                 <div class="d-flex align-items-center">
                                     <div class="custom-icon-primary me-3">
@@ -85,7 +85,7 @@
                             </n-card>
                         </div>
                         
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 mb-3">
                             <n-card class="custom-card-warning h-100" size="small">
                                 <div class="d-flex align-items-center">
                                     <div class="custom-icon-warning me-3">
@@ -100,7 +100,7 @@
                             </n-card>
                         </div>
                         
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 mb-3">
                             <n-card class="custom-card-danger h-100" size="small">
                                 <div class="d-flex align-items-center">
                                     <div class="custom-icon-danger me-3">
@@ -115,20 +115,6 @@
                             </n-card>
                         </div>
 
-                        <div class="col-md-3 mb-3">
-                            <n-card class="custom-card-success h-100" size="small">
-                                <div class="d-flex align-items-center">
-                                    <div class="custom-icon-success me-3">
-                                        <i class="bi bi-currency-euro text-white"></i>
-                                    </div>
-                                    <div>
-                                        <h6 class="mb-1 text-white">Paiements Auto</h6>
-                                        <h4 class="mb-0 text-success">{{ kpis.autoPaymentRate }}</h4>
-                                        <small class="text-white-50">98% réussite</small>
-                                    </div>
-                                </div>
-                            </n-card>
-                        </div>
                     </div>
 
                     <!-- Disposition horizontale compacte -->

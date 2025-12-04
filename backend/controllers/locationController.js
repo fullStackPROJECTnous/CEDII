@@ -340,6 +340,7 @@ exports.validateReservation = async (req, res) => {
         res.status(500).send({ message: "Échec de la validation de la réservation.", error: error.message });
     }
 };
+
 exports.submitEtatLieux = async (req, res) => {
     const { idLo } = req.params;
     const { mode, details } = req.body; 
@@ -423,6 +424,7 @@ exports.submitEtatLieux = async (req, res) => {
         res.status(500).send({ message: "Échec de l'enregistrement de l'état des lieux.", error: error.message });
     }
 };
+
 exports.getLocationDetails = async (req, res) => {
     const { idLo } = req.params;
 
@@ -661,7 +663,7 @@ exports.updateReservationStatus = async (req, res) => {
         });
     }
 };
-
+/*
 // 🔥 NOUVELLE MÉTHODE : Mettre à jour le statut d'une LOCATION
 exports.updateLocationStatus = async (req, res) => {
     const { idLo } = req.params;
@@ -712,6 +714,90 @@ exports.updateLocationStatus = async (req, res) => {
     } catch(error) {
         console.error(`Erreur lors de la mise à jour de la location #${idLo}:`, error);
         res.status(500).send({ 
+            message: "Erreur serveur lors de la mise à jour.", 
+            error: error.message 
+        });
+    }
+};
+*/
+
+exports.updateLocationStatus = async (req, res) => {
+    const { idLo } = req.params;
+    const { newStatus } = req.body;
+
+    console.log('📍 Backend - updateLocationStatus:');
+    console.log('📍 ID Location reçu:', idLo);
+    console.log('📍 Type ID:', typeof idLo);
+    console.log('📍 Nouveau statut:', newStatus);
+    console.log('📍 Body complet:', req.body);
+
+    // CORRECTION : Convertir l'ID en nombre si besoin
+    const locationId = parseInt(idLo, 10);
+    
+    if (isNaN(locationId)) {
+        return res.status(400).send({ 
+            message: "ID de location invalide" 
+        });
+    }
+
+    const statutsValides = ['Confirmée', 'En cours', 'Terminée', 'Annulée'];
+    
+    if (!newStatus) {
+        return res.status(400).send({ 
+            message: "Le champ 'newStatus' est requis dans le body." 
+        });
+    }
+
+    if (!statutsValides.includes(newStatus)) {
+        return res.status(400).send({ 
+            message: `Statut non valide. Statuts autorisés: ${statutsValides.join(', ')}` 
+        });
+    }
+
+    try {
+        // 🔥 CORRECTION : Vérifier d'abord si la location existe
+        const location = await Location.findByPk(locationId);
+        console.log('📍 Location trouvée dans DB:', location ? `Oui (ID: ${location.idLo})` : 'Non');
+        
+        if (!location) {
+            return res.status(404).send({ 
+                message: `Location #${locationId} non trouvée.`,
+                debug: {
+                    locationId: locationId,
+                    type: typeof locationId,
+                    table: 'Location'
+                }
+            });
+        }
+
+        const [numAffectedRows] = await Location.update(
+            { etatLo: newStatus }, 
+            {
+                where: { 
+                    idLo: locationId 
+                }
+            }
+        );
+
+        console.log('📍 Lignes affectées:', numAffectedRows);
+
+        if (numAffectedRows === 1) {
+            res.send({ 
+                success: true,
+                message: `Location #${locationId} mise à jour à '${newStatus}' avec succès.`,
+                locationId: locationId,
+                newStatus: newStatus
+            });
+        } else {
+            res.status(404).send({ 
+                success: false,
+                message: `Location #${locationId} non trouvée pour mise à jour.` 
+            });
+        }
+    } catch(error) {
+        console.error(`❌ Erreur lors de la mise à jour de la location #${locationId}:`, error);
+        res.status(500).send({ 
+            success: false,
             message: "Erreur serveur lors de la mise à jour.", 
             error: error.message 
         });

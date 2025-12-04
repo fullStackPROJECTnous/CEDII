@@ -1,13 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const locationController = require('../controllers/locationController');
-const authJwt = require('../middleware/authJwt'); // Import correct
-
-// Route protégée
-router.post('/client/reservations', 
-    authJwt.verifyToken, // ← Utilisez authJwt.verifyToken
-    locationController.createClientReservation
-);
+const authJwt = require('../middleware/authJwt');
 
 // --- Gestion des Locations et Réservations ---
 
@@ -27,23 +21,29 @@ router.get('/availability', locationController.checkAvailability);
 
 // Routes de réservations
 router.post('/reservations', locationController.createReservation);
-// Route spécifique pour les réservations CLIENT
-//router.post('/client/reservations', locationController.createClientReservation);
 router.get('/reservations/:idRes/details', locationController.getReservationDetails);
 router.post('/reservations/:idRes/validate', locationController.validateReservation);
+
+// Route pour mettre à jour le statut de réservation
 router.put('/reservations/:idRes/status', locationController.updateReservationStatus);
-// Dans votre fichier de routes (ex: locationRoutes.js)
-//router.put('/reservations/:idRes/status', locationController.updateReservationStatus);
-// Routes d'événements
-// Ajoutez cette route AVANT les routes paramétrées génériques
-router.put('/:idLo/status', locationController.updateLocationStatus);
+
+// Routes pour les événements
 router.get('/events/confirmed', locationController.getConfirmedEvents);
 router.get('/terminated', locationController.getTerminatedLocations);
 
-// 🔥 CORRECTION : Déplacer la route état-lieux AVANT les routes paramétrées génériques
+// CORRECTION CRITIQUE : Route pour état des lieux - DOIT utiliser un chemin spécifique
 router.post('/etat-lieux/:idLo', locationController.submitEtatLieux);
 
-// Routes de détails (DOIVENT ÊTRE APRÈS les routes spécifiques)
-router.get('/:idLo/details', locationController.getLocationDetails);
+// CORRECTION CRITIQUE : Route pour mettre à jour le statut d'une location
+router.put('/locations/:idLo/status', locationController.updateLocationStatus); // <-- CHANGEMENT ICI
+router.put('/:idLo/status', locationController.updateLocationStatus); 
+// Route de détails des locations
+router.get('/locations/:idLo/details', locationController.getLocationDetails); // <-- OPTIONNEL : uniformiser
+
+// Routes client
+router.post('/client/reservations', 
+    authJwt.verifyToken,
+    locationController.createClientReservation
+);
 
 module.exports = router;

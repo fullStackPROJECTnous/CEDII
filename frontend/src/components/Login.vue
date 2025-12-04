@@ -1,149 +1,3 @@
-<!--
-
-<template>
-  <div class="login-wrapper d-flex justify-content-center align-items-center">
-    <div class="card shadow-lg p-4 login-card">
-      <div class="card-body">
-          <img src="/src/logoCEDII.jpeg" alt="Logo CEDII" class="sidebar-logo me-2">
-        <h3 class="card-title text-center cedii-text-dark mb-4">
-          CEDII Patrimoine Plus
-        </h3>
-        
-
-        <form @submit.prevent="handleLogin">
-          <div class="mb-3 row align-items-center">
-  <label for="loginUti" class="col-sm-3 col-form-label">Nom d'utilisateur</label>
-  <div class="col-sm-9">
-    <input type="text" id="loginUti" v-model="credentials.loginUti" class="form-control" required />
-  </div>
-</div>
-
-          <div class="mb-4 row align-items-center">
-  <label for="motDePasseUti" class="col-sm-3 col-form-label">Mot de Passe</label>
-  <div class="col-sm-9">
-    <input type="password" id="motDePasseUti" v-model="credentials.motDePasseUti" class="form-control" required />
-  </div>
-</div>
-
-          <div v-if="error" class="alert alert-danger text-center">{{ error }}</div>
-
-          <button type="submit" class="btn btn-sm btn-outline-primary w-100"  >
-            Se Connecter        
-          </button>
-          <div class="text-center mt-3">
-    Vous n'avez pas de compte ? 
-    <router-link to="/register" class="cedii-text-action">S'inscrire</router-link>
-</div>
-        </form>
-      </div>
-      <div class="card-footer text-center mt-3 bg-white border-0">
-         <small class="text-muted">Copyright CEDII - 2025</small>
-      </div>
-    </div>
-  </div>
-</template>
-
-<script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-
-// 💡 Importation réelle du service d'authentification
-import AuthService from '../services/AuthService'; 
-
-const router = useRouter();
-const credentials = ref({
-  loginUti: '',
-  motDePasseUti: ''
-});
-const error = ref('');
-
-async function handleLogin() {
-    error.value = '';
-   
-    try {
-        // 1. Réponse du service d'authentification (doit contenir le rôle)
-        const userData = await AuthService.login(credentials.value.loginUti, credentials.value.motDePasseUti);
-        
-        // 2. Vérification de la réussite (présence de token et/ou rôle)
-        if (!userData || !userData.roleUti) {
-             // Si la connexion réussit mais la réponse est mal formée, forcer l'erreur
-             throw new Error("Réponse de connexion invalide du serveur.");
-        }
-           // CORRECTION MAJEURE: Extrait la propriété 'role' de l'objet 'userData'
-        const role = userData.roleUti.toLowerCase(); // Assurez-vous que le rôle est en minuscules
-
-
-      
-        switch (role) {
-            case 'admin':
-                router.push({ name: 'AdminDashboard' });
-                break;
-            case 'reception':
-                router.push({ name: 'ReceptionDashboard' });
-                break;
-            case 'finance':
-                router.push({ name: 'FinanceDashboard' });
-                break;
-            case 'client':
-            default:
-                router.push({ name: 'ClientDashboard' }); // ou 'MonCompteClient'
-                break;
-        }
-    // Si le backend renvoie un jeton, la connexion est réussie.
-    /*if (userData.accessToken) {
-      // Redirection vers la page d'accueil (acceuil)
-      router.push('/home'); 
-    }*/
-  } catch (err) {
-    // Récupérer le message d'erreur du backend (401 Unauthorized, etc.)
-    const msg = err.response?.data?.message || "Échec de la connexion. Vérifiez le serveur et les identifiants.";
-    error.value = msg;
-  }
-}
-</script>
-
-
-<style scoped>
-/* Les styles spécifiques de la page de login */
-.login-wrapper {
-  min-height: 100vh;
-  /* Utilisation de la couleur dark de votre palette */
-  background-color: var(--cedii-dark); /* #02061E [cite: 3] */
-}
-
-.sidebar-logo {
-    width: 80px; /* Taille du logo */
-    height: 80px;
-    
-    /* 🚨 C'est ce qui rend la bordure parfaitement ronde */
-    border-radius: 50%; 
-    
-    /* Optionnel : Ajoute une petite bordure blanche pour qu'il ressorte */
-    border: 2px solid white; 
-    
-    object-fit: cover; /* Assure que l'image remplit la zone sans distorsion */
-}
-.login-card {
-  max-width: 400px;
-  width: 100%;
-  border-radius: 10px;
-}
-
-/* Redéfinition des classes CEDII pour ce composant si elles ne sont pas globales */
-.cedii-text-dark {
-    color: var(--cedii-dark);
-}
-.cedii-btn-primary {
-    background-color: var(--cedii-primary-light); /* #5B11EE [cite: 1] */
-    border-color: var(--cedii-primary-light);
-    color: white;
-}
-.cedii-btn-primary:hover {
-    background-color: var(--cedii-primary-dark); /* #0405BF [cite: 2] */
-    border-color: var(--cedii-primary-dark);
-}
-</style>-->
-
 <template>
   <div class="login-wrapper d-flex justify-content-center align-items-center">
     <div class="card shadow-lg p-4 login-card">
@@ -185,22 +39,44 @@ async function handleLogin() {
               Mot de Passe
             </label>
             <div class="col-sm-8">
-              <n-input
-                v-model:value="credentials.motDePasseUti"
-                type="password"
-                placeholder="Entrez votre mot de passe"
-                size="large"
-                :input-props="{ class: 'cedii-input' }"
-                required
-              >
-                <template #prefix>
-                  <n-icon>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-lock" viewBox="0 0 16 16">
-                      <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2M5 8h6a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1"/>
+              <div class="position-relative">
+                <n-input
+                  v-model:value="credentials.motDePasseUti"
+                  :type="showPassword ? 'text' : 'password'"
+                  placeholder="Entrez votre mot de passe"
+                  size="large"
+                  :input-props="{ class: 'cedii-input pe-5' }"
+                  required
+                >
+                  <template #prefix>
+                    <n-icon>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-lock" viewBox="0 0 16 16">
+                        <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2M5 8h6a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1"/>
+                      </svg>
+                    </n-icon>
+                  </template>
+                </n-input>
+                <!-- Bouton Show Password CORRIGÉ -->
+                <button
+                  type="button"
+                  class="btn btn-link position-absolute end-0 top-50 translate-middle-y me-2"
+                  @click="togglePasswordVisibility"
+                  style="z-index: 10; padding: 0; background: none; border: none;"
+                >
+                  <n-icon size="20" :color="showPassword ? '#5b11ee' : '#6c757d'">
+                    <!-- INVERSEZ CES DEUX ICÔNES -->
+                    <svg v-if="!showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye-slash" viewBox="0 0 16 16">
+                      <path d="M13.359 11.238C15.06 9.72 16 8 16 8s-3-5.5-8-5.5a7.028 7.028 0 0 0-2.79.588l.77.771A5.944 5.944 0 0 1 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.134 13.134 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755-.165.165-.337.328-.517.486l.708.709z"/>
+                      <path d="M11.297 9.176a3.5 3.5 0 0 0-4.474-4.474l.823.823a2.5 2.5 0 0 1 2.829 2.829l.822.822zm-2.943 1.299.822.822a3.5 3.5 0 0 1-4.474-4.474l.823.823a2.5 2.5 0 0 0 2.829 2.829z"/>
+                      <path d="M3.35 5.47c-.18.16-.353.322-.518.487A13.134 13.134 0 0 0 1.172 8l.195.288c.335.48.83 1.12 1.465 1.755C4.121 11.332 5.881 12.5 8 12.5c.716 0 1.39-.133 2.02-.36l.77.772A7.029 7.029 0 0 1 8 13.5C3 13.5 0 8 0 8s.939-1.721 2.641-3.238l.708.709zm10.296 8.884-12-12 .708-.708 12 12-.708.708z"/>
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
+                      <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                      <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
                     </svg>
                   </n-icon>
-                </template>
-              </n-input>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -254,6 +130,12 @@ const credentials = ref({
 })
 const error = ref('')
 const loading = ref(false)
+const showPassword = ref(false)
+
+// Fonction pour basculer la visibilité du mot de passe
+const togglePasswordVisibility = () => {
+  showPassword.value = !showPassword.value
+}
 
 async function handleLogin() {
   error.value = ''
@@ -365,6 +247,10 @@ async function handleLogin() {
 
 :deep(.n-input__prefix) {
   color: var(--cedii-primary-light);
+}
+
+:deep(.n-input .n-input__input-el) {
+  padding-right: 40px !important;
 }
 
 .col-form-label {

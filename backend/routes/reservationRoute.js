@@ -23,7 +23,7 @@ router.use(verifyToken);
 // 📋 ROUTES POUR LES RÉSERVATIONS
 
 // 5. CRÉATION D'UNE NOUVELLE RÉSERVATION (clients authentifiés)
-router.post('/', reservationController.createReservation);
+//router.post('/', reservationController.createReservation);
 
 // 6. RÉCUPÉRATION DES RÉSERVATIONS D'UN CLIENT
 router.get('/client/:clientId', reservationController.getClientReservations);

@@ -747,7 +747,6 @@ const ouvrirModalFacturation = (location) => {
   emailForm.value.email = location.email || '';
   showConfirmModal.value = true;
 };
-
 const creerEtEnvoyerFacture = async () => {
   if (!selectedLocation.value) return;
   
@@ -766,19 +765,24 @@ const creerEtEnvoyerFacture = async () => {
     
     console.log('📍 Envoi facture:', payload);
     
+    // 1. Créer et envoyer la facture seulement
     const response = await FinanceService.createAndSendInvoice(payload);
     
     if (response.data.success) {
       console.log('✅ Facture créée et envoyée:', response.data);
       
-      await marquerLocationTerminee(selectedLocation.value.id);
-      await fetchAllData(); // Recharger toutes les données
+      // 2. SUPPRIMER cette ligne - Ne pas changer le statut de la location
+      // await marquerLocationTerminee(selectedLocation.value.id);
+      
+      // 3. Recharger seulement les données de facturation
+      await fetchAllData(); // Si vous avez cette méthode
+      // OU recharger seulement ce qui est nécessaire
       
       showConfirmModal.value = false;
       selectedLocation.value = null;
       emailForm.value.email = '';
       
-      alert(`✅ Facture créée et envoyée avec succès à ${emailFinal}. Location marquée comme terminée.`);
+      alert(`✅ Facture créée et envoyée avec succès à ${emailFinal}.`);
     } else {
       throw new Error(response.data.message || 'Erreur lors de la création de la facture');
     }
@@ -887,65 +891,95 @@ const telechargerFactureDirect = async (location) => {
   }
 };
 
-// CORRECTION : Une seule déclaration de telechargerFactureTerminee
 const telechargerFactureTerminee = async (location) => {
   try {
     console.log('📍 Téléchargement facture terminée:', location.id);
     
-    // Utiliser la NOUVELLE méthode pour les factures payées
+    // Appel backend CORRIGÉ
     const response = await FinanceService.downloadPaidInvoice(location.id);
-
-    // Vérifier que la réponse contient des données
-    if (!response.data || response.data.size === 0) {
-      throw new Error('Le fichier PDF est vide');
-    }
-
-    // Vérifier le type MIME
-    const contentType = response.headers['content-type'];
-    if (contentType !== 'application/pdf') {
-      console.warn('⚠️ Type MIME inattendu, tentative de traitement PDF...');
-    }
-
-    // Créer le blob
-    const blob = new Blob([response.data], { 
-      type: 'application/pdf' 
-    });
-
-    // Vérifier la taille
-    if (blob.size === 0) {
-      throw new Error('Fichier PDF corrompu');
-    }
-
-    // Créer l'URL et télécharger
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `facture-${location.id}-${new Date().toISOString().split('T')[0]}.pdf`;
-    link.style.display = 'none';
     
-    document.body.appendChild(link);
-    link.click();
+    console.log('✅ Réponse backend:', response.data);
     
-    // Nettoyer après téléchargement
-    setTimeout(() => {
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    }, 100);
+    if (response.data.success) {
+      const invoice = response.data.invoice;
+      
+      // Créer PDF avec jsPDF (ou afficher données)
+      const { jsPDF } = window.jspdf || {};
 
-    console.log('✅ Facture payée téléchargée avec succès');
-
+      if (jsPDF) {
+        // Générer PDF côté client avec données du backend
+        const doc = new jsPDF();
+        
+        // En-tête
+        doc.setFontSize(20);
+        doc.text('CEDII LOCATIONS', 105, 20, { align: 'center' });
+        doc.setFontSize(16);
+        doc.text(`FACTURE ${invoice.numero}`, 105, 30, { align: 'center' });
+        
+        // Client
+        doc.setFontSize(12);
+        doc.text(`Client: ${invoice.client.nom}`, 20, 50);
+        doc.text(`Email: ${invoice.client.email}`, 20, 57);
+        doc.text(`Téléphone: ${invoice.client.telephone}`, 20, 64);
+        
+        // Location
+        doc.text(`Location #${invoice.id}`, 20, 75);
+        doc.text(`Type: ${invoice.location.type}`, 20, 82);
+        doc.text(`Du: ${new Date(invoice.location.dateDebut).toLocaleDateString('fr-FR')}`, 20, 89);
+        doc.text(`Au: ${new Date(invoice.location.dateFin).toLocaleDateString('fr-FR')}`, 20, 96);
+        
+        if (invoice.location.materiel) {
+          doc.text(`Matériel: ${invoice.location.materiel}`, 20, 103);
+        }
+        if (invoice.location.salle) {
+          doc.text(`Salle: ${invoice.location.salle}`, 20, 103);
+        }
+        
+        // Montant
+        doc.setFontSize(14);
+        doc.text(`MONTANT PAYÉ: ${invoice.montant} Ar`, 20, 120);
+        
+        if (invoice.penalite > 0) {
+          doc.text(`Pénalité (${invoice.joursRetard} jours): ${invoice.penalite} Ar`, 20, 127);
+        }
+        
+        // Sauvegarder
+        doc.save(`facture-${invoice.numero}.pdf`);
+        
+      } else {
+        // Fallback: afficher données
+        const message = `
+          FACTURE ${invoice.numero}
+          ====================
+          Client: ${invoice.client.nom}
+          Location: #${invoice.id}
+          Montant: ${invoice.montant} Ar
+          Date: ${new Date(invoice.date).toLocaleDateString('fr-FR')}
+          
+          Données reçues du serveur avec succès!
+        `;
+        
+        alert(message);
+      }
+      
+    } else {
+      alert(`Erreur: ${response.data.message}`);
+    }
+    
   } catch (error) {
     console.error('❌ Erreur détaillée téléchargement facture terminée:', error);
     
     let message = 'Erreur lors du téléchargement de la facture';
     
     if (error.response) {
+      console.error('❌ Réponse erreur:', error.response.data);
+      
       switch (error.response.status) {
         case 404:
           message = 'Facture non trouvée pour cette location';
           break;
         case 500:
-          message = 'Erreur serveur lors de la génération du PDF';
+          message = 'Erreur serveur lors de la récupération des données';
           break;
         default:
           message = `Erreur serveur (${error.response.status})`;
@@ -954,8 +988,9 @@ const telechargerFactureTerminee = async (location) => {
       message = error.message;
     }
     
-    // Utiliser le système de notification
+    // Afficher erreur
     window.$message?.error(message);
+    console.error('Stack trace:', error.stack);
   }
 };
 

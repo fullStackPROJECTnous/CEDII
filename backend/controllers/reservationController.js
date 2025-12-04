@@ -1,6 +1,8 @@
 const { Reservation, Client, Materiel, Salle, Utilisateur, Notification, Catalogue } = require('../models');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const MadagascarTime = require('../utils/madagascarTime');
+
 
 // 🆕 MAPPING MANUEL idCatalogue → Ressources
 const getRessourceFromCatalogue = (idCatalogue, typeRes) => {
@@ -328,7 +330,7 @@ exports.createPublicReservation = async (req, res) => {
 // 🆕 MÉTHODE POUR RÉCUPÉRER LES DEMANDES EN ATTENTE
 exports.getPendingReservations = async (req, res) => {
     try {
-        console.log('📍 Récupération des réservations en attente...');
+        console.log('🌍 SERVEUR - Heure Madagascar:', MadagascarTime.now().toLocaleString('fr-FR'));
         
         const reservations = await Reservation.findAll({
             where: { 
@@ -339,34 +341,57 @@ exports.getPendingReservations = async (req, res) => {
                     model: Client,
                     as: 'client',
                     attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli', 'typeCli']
-                },
-                {
-                    model: Salle,
-                    as: 'salle',
-                    attributes: ['idSalle', 'nomSalle', 'numeroSalle', 'capaciteSalle'],
-                    required: false
-                },
-                {
-                    model: Materiel,
-                    as: 'materiel',
-                    attributes: ['codeMat', 'designationMat', 'categorieMat', 'tarifJour'],
-                    required: false
                 }
             ],
             order: [['dateCre', 'DESC']]
         });
 
-        console.log(`✅ ${reservations.length} réservation(s) en attente trouvée(s)`);
+        console.log(`📊 ${reservations.length} réservation(s) en attente`);
+
+        // 🎯 FORMATER LES DONNÉES
+        const reservationsFormatted = reservations.map(res => {
+            const reservation = res.toJSON();
+            
+            return {
+                ...reservation,
+                // 🎯 HEURES EXACTES MADAGASCAR
+                dateCreFormatted: MadagascarTime.format(reservation.dateCre, true),
+                debResFormatted: MadagascarTime.format(reservation.debRes, false),
+                timeAgo: MadagascarTime.timeAgo(reservation.dateCre),
+                timeUntil: MadagascarTime.timeUntil(reservation.debRes)
+            };
+        });
+
+        // 🎯 LOG DÉTAILLÉ POUR DÉBOGAGE
+        console.log('\n🔍 DÉBOGAGE COMPLET:');
+        if (reservationsFormatted.length > 0) {
+            const sample = reservationsFormatted[0];
+            console.log('📋 Exemple de réservation:');
+            console.log('   ID:', sample.idRes);
+            console.log('   Client:', sample.client?.nomCli, sample.client?.prenomCli);
+            console.log('   dateCre brute:', sample.dateCre);
+            console.log('   dateCre formatée:', sample.dateCreFormatted);
+            console.log('   debRes brute:', sample.debRes);
+            console.log('   debRes formatée:', sample.debResFormatted);
+            console.log('   Calculs:', sample.timeAgo, '/', sample.timeUntil);
+            
+            // Test moment.js
+            const testDate = new Date(sample.dateCre);
+            console.log('   Test Date:', testDate);
+            console.log('   Test getHours():', testDate.getHours());
+            console.log('   Test toLocaleString:', testDate.toLocaleString('fr-FR', { timeZone: 'Africa/Nairobi' }));
+        }
 
         res.json({
             success: true,
-            count: reservations.length,
-            pendingCount: reservations.length,
-            reservations: reservations
+            count: reservationsFormatted.length,
+            pendingCount: reservationsFormatted.length,
+            serverTime: MadagascarTime.now().toISOString(),
+            reservations: reservationsFormatted
         });
 
     } catch (error) {
-        console.error('❌ Erreur récupération réservations en attente:', error);
+        console.error('❌ Erreur récupération réservations:', error);
         res.status(500).json({
             success: false,
             message: "Erreur lors de la récupération des demandes",
@@ -410,7 +435,7 @@ exports.marquerNotificationLue = async (req, res) => {
 };
 
 // MÉTHODE POUR LES RÉSERVATIONS CLIENTS AUTHENTIFIÉS
-exports.createReservation = async (req, res) => {
+/*exports.createReservation = async (req, res) => {
     try {
         const {
             idCatalogue,
@@ -546,7 +571,7 @@ exports.createReservation = async (req, res) => {
         });
     }
 };
-
+*/
 // MÉTHODE POUR METTRE À JOUR LE STATUT D'UNE RÉSERVATION
 exports.updateReservationStatus = async (req, res) => {
     try {

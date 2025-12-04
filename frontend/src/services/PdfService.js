@@ -72,6 +72,57 @@ class PdfService {
     return doc;
   }
 
+   static async generateRetourPDF(data) {
+    const doc = new jsPDF();
+    
+    // En-tête
+    doc.setFontSize(20);
+    doc.text('CONTRAT DE RETOUR DE MATÉRIEL', 105, 20, { align: 'center' });
+    
+    // Informations location
+    doc.setFontSize(12);
+    doc.text(`Location #${data.locationId}`, 20, 40);
+    doc.text(`Client: ${data.client}`, 20, 50);
+    doc.text(`Date retour: ${data.dateRetour}`, 20, 60);
+    
+    // Tableau des matériels
+    const tableData = data.materiels.map(mat => [
+      mat.codeMat,
+      mat.designation,
+      mat.quantiteRetournee,
+      mat.etat,
+      mat.etat === 'Endommagé' ? `${mat.coutReparation} Ar` : '-'
+    ]);
+    
+    doc.autoTable({
+      startY: 70,
+      head: [['Code', 'Désignation', 'Qté', 'État', 'Coût réparation']],
+      body: tableData,
+      theme: 'grid'
+    });
+    
+    // Résumé financier
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.text('RÉSUMÉ FINANCIER', 20, finalY);
+    doc.text(`Pénalité retard (${data.joursRetard} jours): ${data.penaliteRetard} Ar`, 30, finalY + 10);
+    doc.text(`Coût réparations: ${data.coutTotalReparation} Ar`, 30, finalY + 20);
+    doc.text(`MONTANT TOTAL DÛ: ${data.montantTotal} Ar`, 30, finalY + 35);
+    
+    // Observations
+    if (data.observations) {
+      doc.text(`Observations: ${data.observations}`, 20, finalY + 50);
+    }
+    
+    // Pied de page
+    doc.text('Signature client:', 20, finalY + 70);
+    doc.text('_________________________', 20, finalY + 80);
+    doc.text('Signature responsable:', 120, finalY + 70);
+    doc.text('_________________________', 120, finalY + 80);
+    
+    return doc.output('bloburl');
+  }
+}
+
 
 
 /* generateInvoicePDF(invoiceData) {
@@ -122,7 +173,7 @@ class PdfService {
     }
   });
 }*/
-}
+
 
 
 export default new PdfService();

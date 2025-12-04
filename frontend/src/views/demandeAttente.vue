@@ -96,77 +96,101 @@
           </n-empty>
         </div>
 
-        <!-- Tableau des demandes - Version HTML simple -->
-        <div v-else class="table-responsive">
-          <table class="table table-hover">
-            <thead class="table-primary">
-              <tr>
-                <th width="80">ID</th>
-                <th width="200">Demandeur</th>
-                <th width="120">Type</th>
-                <th width="180">Date Début</th>
-                <th width="180">Soumission</th>
-                <th width="180" class="text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="request in pendingRequests" :key="request.idRes">
-                <td>
-                  <span class="badge bg-info">#{{ request.idRes }}</span>
-                </td>
-                <td>
-                  <div class="fw-bold">
-                    {{ request.client?.nomCli || 'N/A' }} {{ request.client?.prenomCli || '' }}
-                  </div>
-                  <div class="small text-muted">
-                    ID: {{ request.client?.idCli || 'N/A' }}
-                  </div>
-                </td>
-                <td class="text-center">
-                  <span :class="{
-                    'badge bg-primary': request.typeRes === 'Salle',
-                    'badge bg-warning text-dark': request.typeRes === 'Materiel',
-                    'badge bg-success': request.typeRes === 'Mixte'
-                  }">
-                    <i :class="{
-                      'bi bi-house-door me-1': request.typeRes === 'Salle',
-                      'bi bi-tools me-1': request.typeRes === 'Materiel',
-                      'bi bi-collection me-1': request.typeRes === 'Mixte'
-                    }"></i>
-                    {{ getRessourceType(request) }}
-                  </span>
-                </td>
-                <td>
-                  <div class="fw-bold">{{ formatDateTime(request.debRes) }}</div>
-                  <div class="small text-muted">Début prévu</div>
-                </td>
-                <td>
-                  <div class="fw-medium">{{ formatDateOnly(request.dateCre) }}</div>
-                  <div class="small text-muted">Date de soumission</div>
-                </td>
-                <td class="text-center">
-                  <div class="d-flex justify-content-center gap-2">
-                    <!-- Bouton Gérer -->
-                    <button 
-                      class="btn btn-primary btn-sm"
-                      @click="handleManage(request)"
-                    >
-                      <i class="bi bi-eye me-1"></i>
-                      Gérer
-                    </button>
-                    <!-- Bouton Refuser -->
-                    <button 
-                      class="btn btn-danger btn-sm"
-                      @click="handleRefuse(request)"
-                    >
-                      <i class="bi bi-x-lg me-1"></i>
-                      Refuser
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Tableau des demandes avec défilement -->
+        <div v-else class="table-container">
+          <div class="table-responsive" style="overflow-x: auto; max-height: 600px;">
+            <table class="table table-hover table-fixed">
+              <thead class="table-primary sticky-header">
+                <tr>
+                  <th width="80">ID</th>
+                  <th width="200">Demandeur</th>
+                  <th width="120">Type</th>
+                  <th width="250">Date & Heure Soumission</th>
+                  <th width="250">Début Réservation</th>
+                  <th width="180" class="text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="request in pendingRequests" :key="request.idRes">
+                  <td>
+                    <span class="badge bg-info">#{{ request.idRes }}</span>
+                  </td>
+                  <td>
+                    <div class="fw-bold text-ellipsis">
+                      {{ request.client?.nomCli || 'N/A' }} {{ request.client?.prenomCli || '' }}
+                    </div>
+                    <div class="small text-muted text-ellipsis">
+                      ID: {{ request.client?.idCli || 'N/A' }}
+                    </div>
+                  </td>
+                  <td class="text-center">
+                    <span :class="{
+                      'badge bg-primary': request.typeRes === 'Salle',
+                      'badge bg-warning text-dark': request.typeRes === 'Materiel',
+                      'badge bg-success': request.typeRes === 'Mixte'
+                    }">
+                      <i :class="{
+                        'bi bi-house-door me-1': request.typeRes === 'Salle',
+                        'bi bi-tools me-1': request.typeRes === 'Materiel',
+                        'bi bi-collection me-1': request.typeRes === 'Mixte'
+                      }"></i>
+                      {{ getRessourceType(request) }}
+                    </span>
+                  </td>
+                  <td>
+                    <!-- DATE ET HEURE EXACTE DE SOUMISSION À MADAGASCAR -->
+                    <div class="datetime-cell">
+                      <div class="fw-bold text-primary text-scroll">
+                        {{ getExactSubmissionDateTime(request) }}
+                      </div>
+                      <div class="small text-muted text-scroll">
+                        <i class="bi bi-clock me-1"></i>
+                        {{ getTimeAgo(request) }}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <!-- DATE ET HEURE EXACTE DE DEBUT À MADAGASCAR -->
+                    <div class="datetime-cell">
+                      <div class="fw-bold text-scroll">
+                        {{ getExactReservationStart(request) }}
+                      </div>
+                      <div class="small text-muted text-scroll">
+                        <i class="bi bi-calendar-event me-1"></i>
+                        {{ getTimeUntil(request) }}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-center">
+                    <div class="d-flex justify-content-center gap-2 action-buttons">
+                      <!-- Bouton Gérer -->
+                      <button 
+                        class="btn btn-primary btn-sm"
+                        @click="handleManage(request)"
+                      >
+                        <i class="bi bi-eye me-1"></i>
+                        Gérer
+                      </button>
+                      <!-- Bouton Refuser -->
+                      <button 
+                        class="btn btn-danger btn-sm"
+                        @click="handleRefuse(request)"
+                      >
+                        <i class="bi bi-x-lg me-1"></i>
+                        Refuser
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <!-- Indicateur de défilement -->
+          <div v-if="pendingRequests.length > 5" class="scroll-hint mt-2">
+            <i class="bi bi-arrow-left-right me-1"></i>
+            Défilez horizontalement pour voir toutes les colonnes
+          </div>
         </div>
 
         <!-- Erreur -->
@@ -223,7 +247,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, h } from 'vue';
+import { ref, onMounted, h } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   NButton, NIcon, NCard, NTag, NSpin, NSpace,
@@ -267,34 +291,21 @@ const showRefuseModal = ref(false);
 const selectedRequest = ref(null);
 const refuseLoading = ref(false);
 
-/* --- Utilities --- */
-const parseDate = (str) => {
-  if (!str) return new Date(NaN);
-  if (str instanceof Date) return str;
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return new Date(str + 'T00:00:00');
-  if (str.includes(' ')) return new Date(str.replace(' ', 'T'));
-
-  return new Date(str);
+/* --- Fonctions d'affichage SIMPLIFIÉES --- */
+const getExactSubmissionDateTime = (request) => {
+  return request.dateCreFormatted || 'Date non disponible';
 };
 
-const formatDateTime = (d) => {
-  if (!d) return 'N/A';
-  const date = parseDate(d);
-  if (isNaN(date)) return 'Date invalide';
-  const DD = String(date.getDate()).padStart(2, '0');
-  const MM = String(date.getMonth() + 1).padStart(2, '0');
-  const YY = date.getFullYear();
-  const HH = String(date.getHours()).padStart(2, '0');
-  const MIN = String(date.getMinutes()).padStart(2, '0');
-  return HH === '00' && MIN === '00' ? `${DD}/${MM}/${YY}` : `${DD}/${MM}/${YY} ${HH}:${MIN}`;
+const getExactReservationStart = (request) => {
+  return request.debResFormatted || 'Date non disponible';
 };
 
-const formatDateOnly = (d) => {
-  if (!d) return 'N/A';
-  const date = parseDate(d);
-  if (isNaN(date)) return 'Date invalide';
-  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+const getTimeAgo = (request) => {
+  return request.timeAgo || 'inconnu';
+};
+
+const getTimeUntil = (request) => {
+  return request.timeUntil || 'inconnu';
 };
 
 /* --- get type --- */
@@ -305,37 +316,68 @@ const getRessourceType = (req) =>
 const fetchPendingRequests = async () => {
   loading.value = true;
   errorMessage.value = null;
+  
   try {
+    console.log('🔄 Récupération des demandes en attente...');
     const res = await LocationService.getPendingReservations();
+    
     const data = res?.data;
-    if (Array.isArray(data)) {
-      pendingRequests.value = data;
-    } else if (Array.isArray(data?.data)) {
-      pendingRequests.value = data.data;
-    } else if (Array.isArray(data?.reservations)) {
-      pendingRequests.value = data.reservations;
+    console.log('📊 Données API reçues:', data);
+    
+    let requestsArray = [];
+    
+    // Extraction selon différents formats possibles
+    if (data && data.success && Array.isArray(data.reservations)) {
+      requestsArray = data.reservations;
+      console.log('✅ Format moderne détecté');
+    } else if (Array.isArray(data)) {
+      requestsArray = data;
+      console.log('⚠ Format tableau direct');
+    } else if (data && Array.isArray(data.data)) {
+      requestsArray = data.data;
+      console.log('⚠ Format data.data');
     } else {
       const key = Object.keys(data || {}).find(k => Array.isArray(data[k]));
-      pendingRequests.value = key ? data[key] : [];
+      requestsArray = key ? data[key] : [];
+      console.log('❓ Format inconnu, tableau trouvé via clé:', key);
     }
+    
+    console.log(`✅ ${requestsArray.length} demande(s) chargée(s)`);
+    
+    // Log de débogage
+    if (requestsArray.length > 0) {
+      console.log('🔍 PREMIÈRE DEMANDE:');
+      const sample = requestsArray[0];
+      console.log({
+        idRes: sample.idRes,
+        dateCreFormatted: sample.dateCreFormatted,
+        debResFormatted: sample.debResFormatted,
+        timeAgo: sample.timeAgo,
+        timeUntil: sample.timeUntil,
+        client: sample.client ? `${sample.client.nomCli} ${sample.client.prenomCli}` : 'N/A'
+      });
+    }
+    
+    pendingRequests.value = requestsArray;
+    
   } catch (e) {
-    console.error("Erreur récupération demandes:", e);
+    console.error("❌ Erreur récupération demandes:", e);
     pendingRequests.value = [];
-    errorMessage.value = e.response?.data?.message || e.message;
+    errorMessage.value = e.response?.data?.message || e.message || "Erreur de connexion au serveur";
   } finally {
     loading.value = false;
   }
 };
 
 /* --- actions --- */
-const handleManage = (row) => {
-  console.log('📝 Gérer la demande:', row.idRes);
-  router.push({ name: 'ReservationValid', params: { idRes: row.idRes } });
+const handleManage = (request) => {
+  console.log('📝 Gérer la demande:', request.idRes);
+  router.push({ name: 'ReservationValid', params: { idRes: request.idRes } });
 };
 
-const handleRefuse = (row) => {
-  console.log('❌ Refuser la demande:', row.idRes);
-  selectedRequest.value = row;
+const handleRefuse = (request) => {
+  console.log('❌ Refuser la demande:', request.idRes);
+  selectedRequest.value = request;
   showRefuseModal.value = true;
 };
 
@@ -353,14 +395,16 @@ const confirmRefuse = async () => {
     selectedRequest.value = null;
   } catch (e) {
     console.error("Erreur refus:", e);
-    actionMessage.value = e.response?.data?.message || e.message;
+    actionMessage.value = e.response?.data?.message || e.message || "Erreur lors du refus";
     actionMessageType.value = 'error';
   }
 
   refuseLoading.value = false;
 };
 
-onMounted(fetchPendingRequests);
+onMounted(() => {
+  fetchPendingRequests();
+});
 </script>
 
 <style scoped>
@@ -442,9 +486,48 @@ onMounted(fetchPendingRequests);
   justify-content: center;
 }
 
+/* Table Container */
+.table-container {
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+}
+
 /* Table Styles */
 .table-responsive {
   overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #007bff #f8f9fa;
+}
+
+.table-responsive::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #007bff;
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #0056b3;
+}
+
+.table {
+  margin-bottom: 0;
+  min-width: 1100px; /* Force horizontal scroll */
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f8f9fa !important;
 }
 
 .table th {
@@ -453,27 +536,89 @@ onMounted(fetchPendingRequests);
   color: #2c3e50;
   border-bottom: 2px solid #007bff;
   padding: 12px 16px;
+  white-space: nowrap;
+  position: relative;
 }
 
 .table td {
   vertical-align: middle;
   padding: 12px 16px;
   border-bottom: 1px solid #e9ecef;
+  max-width: 250px;
 }
 
 .table-hover tbody tr:hover {
   background-color: #f8f9ff !important;
 }
 
+/* Cellules de date avec scroll de texte */
+.datetime-cell {
+  max-width: 250px;
+  overflow: hidden;
+}
+
+.text-scroll {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
+  position: relative;
+}
+
+.text-scroll:hover {
+  overflow: auto;
+  text-overflow: clip;
+  white-space: normal;
+  cursor: ew-resize;
+  background-color: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  z-index: 5;
+}
+
+.text-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Badge */
 .badge {
   font-size: 0.85em;
   padding: 0.4em 0.8em;
+  white-space: nowrap;
+}
+
+/* Style pour les colonnes de date */
+.table td:nth-child(4) .fw-bold {
+  color: #5811EE; /* Violet pour date de soumission */
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.table td:nth-child(5) .fw-bold {
+  color: #067186; /* Bleu pour date de début */
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.table td .small {
+  color: #6c757d;
+  font-size: 0.8rem;
+}
+
+/* Action buttons */
+.action-buttons {
+  min-width: 160px;
 }
 
 /* Button Styles */
 .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .btn-primary {
@@ -507,6 +652,23 @@ onMounted(fetchPendingRequests);
   color: white;
 }
 
+/* Scroll hint */
+.scroll-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #6c757d;
+  padding: 4px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .demandes-container {
@@ -529,6 +691,41 @@ onMounted(fetchPendingRequests);
     flex-direction: column;
     gap: 1rem;
     text-align: center;
+  }
+  
+  .table td, .table th {
+    padding: 8px 10px;
+    font-size: 0.85rem;
+  }
+  
+  .table td:nth-child(4) .fw-bold,
+  .table td:nth-child(5) .fw-bold {
+    font-size: 0.8rem;
+  }
+  
+  .btn-sm {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 4px;
+    min-width: auto;
+  }
+  
+  .table-responsive {
+    max-height: 500px;
+  }
+}
+
+@media (max-width: 480px) {
+  .table-responsive {
+    max-height: 400px;
+  }
+  
+  .datetime-cell {
+    max-width: 180px;
   }
 }
 </style>

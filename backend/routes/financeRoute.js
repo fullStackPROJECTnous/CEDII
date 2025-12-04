@@ -15,7 +15,8 @@ router.post('/send-payment-reminder', financeController.sendPaymentReminder);
 // Routes pour la génération de factures
 router.post('/generate-invoices', financeController.generateInvoices);
 router.post('/send-invoice/:id', financeController.sendInvoice);
-
+// Dans financeRoute.js, ajoutez cette route :
+router.get('/download-invoice/:locationId', financeController.downloadInvoice);
 // Dans votre fichier de routes (ex: financeRoutes.js)
 router.get('/rapports-data', financeController.getRapportsData);
 router.get('/monthly-revenue', financeController.getMonthlyRevenue);
@@ -61,7 +62,7 @@ router.post('/cancel-payment/:id', financeController.cancelPayment);
 // Nouvelles routes pour l'interface avancée
 router.get('/confirmed-locations', financeController.getConfirmedLocationsToInvoice);
 router.post('/create-and-send-invoice', financeController.createAndSendInvoice);
-router.get('/download-invoice/:locationId', financeController.downloadInvoice);
+//router.get('/download-invoice/:locationId', financeController.downloadInvoice);
 router.get('/export-invoices', financeController.exportInvoices);
 
 // Routes pour les pénalités et workflow

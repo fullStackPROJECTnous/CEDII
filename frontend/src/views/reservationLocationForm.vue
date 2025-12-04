@@ -587,8 +587,6 @@ const fetchInitialData = async () => {
     loading.clients = false;
   }
 };
-
-// MÉTHODE DE SOUMISSION CORRIGÉE
 const submitForm = async () => {
   // Validation basique
   if (!isFormValid.value) {
@@ -607,30 +605,33 @@ const submitForm = async () => {
   isSubmitting.value = true;
   
   try {
-    // CORRECTION : Format des données selon le modèle backend
-    const requestData = {
-      idCli: parseInt(form.idCli), // S'assurer que c'est un nombre
-      typeRes: form.typeRes,
-      debRes: new Date(form.debRes).toISOString(),
-      finRes: new Date(form.finRes).toISOString(),
-      tarifTot: parseFloat(form.tarifTot), // S'assurer que c'est un float
-      etatRes: 'En attente',
-      dateCre: new Date().toISOString().split('T')[0], // Format date seulement (YYYY-MM-DD)
-      // Initialiser les deux champs avec des valeurs par défaut
-      qteMat: 0,
-      nbPerso: 0
-    };
+    // FORMAT CORRECT pour le backend
+   const requestData = {
+  idCli: parseInt(form.idCli),
+  typeRes: form.typeRes,
+  debRes: new Date(form.debRes).toISOString(),
+  finRes: new Date(form.finRes).toISOString(),
+  tarifTot: parseFloat(form.tarifTot),
+  etatRes: 'En attente',
+  dateCre: new Date().toISOString(),
+  qteMat: form.typeRes === 'Materiel' ? parseInt(form.qteMat) || 1 : 0,
+  nbPerso: form.typeRes === 'Salle' ? parseInt(form.nbPerso) || 1 : 0,
+  idSalle: form.typeRes === 'Salle' ? form.idCatalogue : null,
+  codeMat: form.typeRes === 'Materiel' ? form.idCatalogue : null
+};
 
-    // CORRECTION : Assigner les bonnes valeurs selon le type
+    // Ajouter les champs spécifiques selon le type
     if (form.typeRes === 'Materiel') {
       requestData.qteMat = parseInt(form.qteMat) || 1;
-      requestData.codeMat = form.idCatalogue; // Clé spécifique pour matériel
+      requestData.codeMat = form.idCatalogue;
+      requestData.nbPerso = 0; // Valeur par défaut
     } else if (form.typeRes === 'Salle') {
       requestData.nbPerso = parseInt(form.nbPerso) || 1;
-      requestData.idSalle = form.idCatalogue; // Clé spécifique pour salle
+      requestData.idSalle = form.idCatalogue;
+      requestData.qteMat = 0; // Valeur par défaut
     }
 
-    console.log('🔍 DONNÉES ENVOYÉES:', requestData);
+    console.log('🔍 DONNÉES ENVOYÉES AU BACKEND:', JSON.stringify(requestData, null, 2));
 
     const response = await LocationService.createReservation(requestData);
 
@@ -649,17 +650,18 @@ const submitForm = async () => {
       status: error.response?.status,
       message: error.response?.data?.message,
       errors: error.response?.data?.errors,
-      data: error.response?.data
+      data: error.response?.data,
+      config: error.config // Ajout pour voir la requête envoyée
     });
     
-    // AFFICHER LES ERREURS SPÉCIFIQUES
-    if (error.response?.data?.errors) {
+    // Messages d'erreur plus clairs
+    if (error.response?.data?.message) {
+      message.value = 'Erreur: ' + error.response.data.message;
+    } else if (error.response?.data?.errors) {
       const errorMessages = error.response.data.errors.map(err => err.message || err).join(', ');
       message.value = `Erreurs de validation: ${errorMessages}`;
-    } else if (error.response?.data?.message) {
-      message.value = 'Erreur: ' + error.response.data.message;
     } else {
-      message.value = 'Erreur lors de l\'envoi de votre demande.';
+      message.value = 'Erreur lors de l\'envoi de votre demande. Veuillez réessayer.';
     }
     isSuccess.value = false;
   } finally {

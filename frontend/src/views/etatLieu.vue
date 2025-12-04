@@ -97,11 +97,7 @@
             </tbody>
           </n-table>
         </n-form>
-
-        <!-- Bouton ajouter matériel -->
-        <n-button type="primary" dashed @click="addMateriel" class="mb-3" :disabled="loading">
-          <i class="bi bi-plus-circle me-2"></i>Ajouter un matériel
-        </n-button>
+>
 
         <!-- Observations générales -->
         <n-form-item label="Observations générales" class="mb-0">
@@ -155,6 +151,8 @@
     </template>
   </n-modal>
 </template>
+Donc : c’est un processus (processus de gestion des déclarations fiscales).
+
 
 <script setup>
 import { ref, computed, watch } from 'vue';

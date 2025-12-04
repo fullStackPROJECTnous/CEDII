@@ -56,8 +56,8 @@ app.use('/api/patrimoine', patrimoineRoutes);
 app.use('/api', routesUsers);
 app.use('/api/finance', financeRoute);
 app.use('/api/rapports', rapportRoutes);
-app.use('/api/locations', locationRoutes);
-
+//app.use('/api/locations', locationRoutes);
+app.use('/api', locationRoutes);
 // ✅ CORRIGÉ : Une seule déclaration pour les réservations
 app.use('/api/reservations', reservationRoutes);
 
