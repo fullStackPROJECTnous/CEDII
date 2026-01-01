@@ -7,6 +7,7 @@ const Reservation = db.Reservation;
 const Salle = db.Salle;
 const Materiel = db.Materiel;
 const sequelize = db.sequelize;
+const Paiement = db.Paiement;
 
 /* --- CREATE (POST) : Associe une nouvelle fiche client à un utilisateur existant --- */
 exports.createClient = async (req, res) => {
@@ -311,24 +312,97 @@ exports.getClientProfileByUtiId = async (req, res) => {
     }
 };
 
+
 exports.getRevenueByClientType = async (req, res) => {
     try {
-        // 🚨 VERSION SIMPLIFIÉE POUR ÉVITER LES ERREURS
-        const revenueData = [
-            { typeClient: 'particulier', totalRevenue: 1500000, transactionCount: 45, percentage: 60 },
-            { typeClient: 'entreprise', totalRevenue: 1000000, transactionCount: 25, percentage: 40 }
-        ];
+        // VERSION AVEC VRAIES DONNÉES
+        // Récupérer les paiements groupés par type de client
+        const revenueByClientType = await Paiement.findAll({
+            attributes: [
+                [db.Sequelize.fn('SUM', db.Sequelize.col('montantPaie')), 'totalRevenue'],
+                [db.Sequelize.fn('COUNT', db.Sequelize.col('idPaie')), 'transactionCount']
+            ],
+            include: [{
+                model: Location,
+                attributes: ['idLo'],
+                include: [{
+                    model: Client,
+                    attributes: ['typeCli'],
+                    where: { typeCli: { [db.Sequelize.Op.not]: null } }
+                }]
+            }],
+            where: {
+                statutPaie: 'Effectué' // Seulement les paiements validés
+            },
+            group: ['Location.Client.typeCli'],
+            raw: true
+        });
+
+        console.log('📊 Données réelles récupérées:', revenueByClientType);
+
+        // Si pas de données, retourner des statistiques de base
+        if (!revenueByClientType || revenueByClientType.length === 0) {
+            return res.json({
+                success: true,
+                data: [
+                    { typeClient: 'particulier', totalRevenue: 0, transactionCount: 0, percentage: 0 },
+                    { typeClient: 'entreprise', totalRevenue: 0, transactionCount: 0, percentage: 0 }
+                ],
+                totalRevenue: 0,
+                message: 'Aucune donnée financière disponible'
+            });
+        }
+
+        // Calculer le total pour les pourcentages
+        const totalRevenue = revenueByClientType.reduce((sum, item) => 
+            sum + (parseFloat(item.totalRevenue) || 0), 0
+        );
+
+        // Formater les données
+        const formattedData = revenueByClientType.map(item => {
+            const revenue = parseFloat(item.totalRevenue) || 0;
+            return {
+                typeClient: item['Location.Client.typeCli'] || 'non spécifié',
+                totalRevenue: revenue,
+                transactionCount: parseInt(item.transactionCount) || 0,
+                percentage: totalRevenue > 0 ? Math.round((revenue / totalRevenue) * 100) : 0
+            };
+        });
+
+        // Ajouter les types manquants avec valeur 0
+        const allClientTypes = ['particulier', 'entreprise', 'ONG', 'association', 'institution publique'];
+        const completeData = allClientTypes.map(type => {
+            const existingData = formattedData.find(item => 
+                item.typeClient.toLowerCase() === type.toLowerCase()
+            );
+            
+            return existingData || {
+                typeClient: type,
+                totalRevenue: 0,
+                transactionCount: 0,
+                percentage: 0
+            };
+        });
 
         res.json({
             success: true,
-            data: revenueData,
-            totalRevenue: 2500000
+            data: completeData,
+            totalRevenue: totalRevenue,
+            period: 'month', // Vous pouvez ajouter un paramètre pour la période
+            timestamp: new Date()
         });
 
     } catch (error) {
-        console.error('Erreur récupération revenus par type client:', error);
+        console.error('❌ Erreur récupération revenus par type client:', error);
+        
+        // Version de secours avec données minimales
         res.status(500).json({
             success: false,
+            data: [
+                { typeClient: 'particulier', totalRevenue: 0, transactionCount: 0, percentage: 0 },
+                { typeClient: 'entreprise', totalRevenue: 0, transactionCount: 0, percentage: 0 }
+            ],
+            totalRevenue: 0,
             message: 'Erreur lors de la récupération des données de revenus'
         });
     }

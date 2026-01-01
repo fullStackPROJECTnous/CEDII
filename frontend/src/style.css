@@ -1,48 +1,87 @@
-
+/* Ce fichier reste pour les styles globaux et CSS variables */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* Thème clair par défaut - adapté pour Tailwind */
+  color-scheme: light;
+  color: #1F2937; /* Gris foncé pour meilleure lisibilité */
+  background-color: #F9FAFB; /* Gris très clair */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   
-  --cedii-primary-light: #5811EE;
+  /* Variables CSS pour la palette CEDII */
+  --cedii-primary: #5811EE;
+  --cedii-primary-light: #7340F2;
   --cedii-primary-dark: #04058F;
   --cedii-dark: #02061E;
   --cedii-secondary: #067186;
+  --cedii-secondary-light: #0D9AAD;
   --cedii-neutral: #55555E;
-
+  --cedii-neutral-light: #73737D;
+  
+  /* Variables pour les espacements Tailwind-like */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  
+  /* Variables pour les bordures */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+/* Reset et styles de base */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
-  margin: 0; /* <-- CORRECTION 1: Suppression de la marge par défaut */
-  display: flex;
-  /* place-items: center; <-- Souvent problématique pour un dashboard plein écran */
+  margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #F9FAFB;
+  color: #1F2937;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Typographie améliorée */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #111827;
 }
 
 h1 {
-  font-size: 3.2em;
+  font-size: 2.5rem;
   line-height: 1.1;
 }
 
+/* Liens */
+a {
+  font-weight: 500;
+  color: var(--cedii-primary);
+  text-decoration: inherit;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: var(--cedii-primary-light);
+}
+
+/* Boutons de base (seront généralement remplacés par Tailwind) */
 button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -52,38 +91,99 @@ button {
   font-family: inherit;
   background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: all 0.25s;
 }
+
 button:hover {
-  border-color: #646cff;
+  border-color: var(--cedii-primary);
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+/* Card de base */
 .card {
   padding: 2em;
 }
 
+/* Conteneur principal */
 #app {
-  /* max-width: 1280px; <-- SUPPRIMÉ pour autoriser la pleine largeur */
   margin: 0 auto;
-  padding: 0; /* <-- CORRECTION 2: Padding réinitialisé */
-  width: 100%; /* <-- Ajout pour garantir la pleine largeur */
-  min-height: 100vh; /* <-- Reste à 100vh */
-  text-align: center;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
 }
 
-@media (prefers-color-scheme: light) {
+/* Thème sombre optionnel */
+@media (prefers-color-scheme: dark) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    color: #E5E7EB;
+    background-color: #111827;
   }
+  
   a:hover {
-    color: #747bff;
+    color: var(--cedii-primary-light);
   }
-  button {
-    background-color: #f9f9f9;
+  
+  body {
+    background-color: #111827;
+    color: #E5E7EB;
   }
+  
+  h1, h2, h3, h4, h5, h6 {
+    color: #F9FAFB;
+  }
+}
+
+/* Support pour le mode sombre avec classe */
+.dark-mode {
+  color: #E5E7EB;
+  background-color: #111827;
+}
+
+.dark-mode body {
+  background-color: #111827;
+  color: #E5E7EB;
+}
+
+/* Classes utilitaires CSS natives */
+.cedii-gradient {
+  background: linear-gradient(135deg, var(--cedii-primary), var(--cedii-primary-dark));
+}
+
+.cedii-gradient-dark {
+  background: linear-gradient(135deg, var(--cedii-primary-dark), var(--cedii-dark));
+}
+
+.cedii-gradient-light {
+  background: linear-gradient(135deg, var(--cedii-secondary), var(--cedii-secondary-light));
+}
+
+/* Animation de fade-in */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Pour les transitions entre pages Vue Router */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
 }

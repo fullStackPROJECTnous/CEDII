@@ -42,7 +42,7 @@ const sqlKpiUnavailable = `
     AS total_unavailable
 `;
 
-exports.getAllLocations = async (req, res) => {
+/*exports.getAllLocations = async (req, res) => {
     try {
         const locations = await Location.findAll({
             include: [{
@@ -64,25 +64,89 @@ exports.getAllLocations = async (req, res) => {
             error: error.message 
         });
     }
+};*/
+
+exports.getAllLocations = async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                l.*,
+                r.idCli,
+                r.typeRes,
+                c.nomCli,
+                c.prenomCli
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            ORDER BY l.dateCre DESC
+        `;
+        
+        const locations = await sequelize.query(sql, {
+            type: sequelize.QueryTypes.SELECT
+        });
+        
+        res.status(200).json(locations);
+        
+    } catch (error) {
+        console.error("Erreur de chargement des locations:", error);
+        res.status(500).json({ 
+            message: "Erreur serveur lors de la récupération des locations.", 
+            error: error.message 
+        });
+    }
 };
 
 exports.getPendingReservations = async (req, res) => {
     try {
-        const pendingRequests = await Reservation.findAll({
-            where: {
-                etatRes: 'En attente' 
-            },
-            include: [{
-                model: Client,
-                as: 'client',
-                attributes: ['nomCli', 'prenomCli'] 
-            }],
-            order: [
-                ['dateCre', 'DESC'] 
-            ]
+        console.log('📍 Début getPendingReservations');
+        
+        const sql = `
+            SELECT 
+                r.idRes,
+                r.idCli,
+                r.typeRes,
+                r.debRes,
+                r.finRes,
+                r.tarifTot,
+                r.etatRes,
+                r.qteMat,
+                r.nbPerso,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                c.telephoneCli
+            FROM reservation r
+            JOIN client c ON r.idCli = c.idCli
+            WHERE r.etatRes = 'En attente'
+            ORDER BY r.dateCre DESC
+        `;
+        
+        const pendingRequests = await sequelize.query(sql, {
+            type: sequelize.QueryTypes.SELECT
         });
         
-        res.status(200).json(pendingRequests);
+        console.log('📍 Réservations en attente trouvées:', pendingRequests.length);
+
+        // Formater la réponse pour correspondre à ce que le frontend attend
+        const formattedReservations = pendingRequests.map(reservation => ({
+            idRes: reservation.idRes,
+            idCli: reservation.idCli,
+            typeRes: reservation.typeRes,
+            debRes: reservation.debRes,
+            finRes: reservation.finRes,
+            tarifTot: reservation.tarifTot,
+            etatRes: reservation.etatRes,
+            qteMat: reservation.qteMat,
+            nbPerso: reservation.nbPerso,
+            Client: {
+                nomCli: reservation.nomCli,
+                prenomCli: reservation.prenomCli,
+                emailCli: reservation.emailCli,
+                telephoneCli: reservation.telephoneCli
+            }
+        }));
+
+        res.status(200).json(formattedReservations);
 
     } catch (error) {
         console.error("Erreur lors de la récupération des réservations en attente:", error);
@@ -868,28 +932,33 @@ exports.getMateriels = async (req, res) => {
         return res.status(500).json({ message: "Erreur serveur lors du chargement du matériel." });
     }
 };
-
 exports.getLocationHistory = async (req, res) => {
     try {
-        const locationsHistory = await Location.findAll({
-            include: [
-                {
-                    model: Reservation,
-                    attributes: ['idRes', 'dateCre', 'typeRes', 'tarifTot'],
-                    include: [
-                        {
-                            model: Client,
-                            attributes: ['nomCli', 'prenomCli']
-                        }
-                    ]
-                }
-            ],
-            where: {
-                etatLo: ['Terminée', 'Annulée']
-            },
-            order: [['dateCre', 'DESC']],
-            limit: 50
+        console.log('📍 Début getLocationHistory');
+        
+        const sql = `
+            SELECT 
+                l.idLo,
+                l.idRes,
+                l.dateCre,
+                l.typeLo,
+                l.tarifTot,
+                r.idCli,
+                c.nomCli,
+                c.prenomCli
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            WHERE l.etatLo IN ('Terminée', 'Annulée')
+            ORDER BY l.dateCre DESC
+            LIMIT 50
+        `;
+        
+        const locationsHistory = await sequelize.query(sql, {
+            type: sequelize.QueryTypes.SELECT
         });
+        
+        console.log('📍 Historique trouvé:', locationsHistory.length, 'locations');
 
         const formattedHistory = locationsHistory.map(location => ({
             idLo: location.idLo,
@@ -897,8 +966,8 @@ exports.getLocationHistory = async (req, res) => {
             dateCre: location.dateCre,
             typeLo: location.typeLo,
             tarifTot: location.tarifTot,
-            client: location.Reservation?.Client ? 
-                `${location.Reservation.Client.prenomCli || ''} ${location.Reservation.Client.nomCli}`.trim() : 'N/A'
+            client: location.nomCli && location.prenomCli ? 
+                `${location.prenomCli} ${location.nomCli}`.trim() : 'N/A'
         }));
 
         res.json({
@@ -908,7 +977,7 @@ exports.getLocationHistory = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Erreur récupération historique locations:', error);
+        console.error('❌ Erreur récupération historique locations:', error);
         res.status(500).json({
             success: false,
             message: 'Erreur lors de la récupération de l\'historique des locations',
@@ -916,6 +985,7 @@ exports.getLocationHistory = async (req, res) => {
         });
     }
 };
+
 exports.getConfirmedLocations = async (req, res) => {
     try {
         console.log('📍 Début getConfirmedLocations');
@@ -1153,6 +1223,438 @@ exports.getTerminatedLocations = async (req, res) => {
         res.status(500).send({ 
             message: "Échec de la récupération des locations terminées",
             error: error.message 
+        });
+    }
+};
+
+// 🔥 NOUVELLE MÉTHODE : Récupérer les locations avec leurs paiements
+exports.getLocationsWithPayments = async (req, res) => {
+    try {
+        console.log('📍 Début getLocationsWithPayments');
+        
+        const sql = `
+            SELECT 
+                l.idLo,
+                l.idRes,
+                l.typeLo,
+                l.debLo,
+                l.finLo,
+                l.tarifTot,
+                l.etatLo,
+                r.idCli,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                p.idPaie,
+                p.numeroFacture,
+                p.montantPaie,
+                p.statutPaie,
+                p.dateCre as datePaiement,
+                p.modePaie
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN paiement p ON l.idLo = p.idLo
+            WHERE l.etatLo IN ('Confirmée', 'En cours', 'Terminée')
+            ORDER BY l.debLo DESC, p.dateCre DESC
+        `;
+        
+        const locations = await sequelize.query(sql, {
+            type: sequelize.QueryTypes.SELECT
+        });
+        
+        console.log('📍 Locations avec paiements trouvées:', locations.length);
+        
+        // Grouper par location (une location peut avoir plusieurs paiements)
+        const groupedLocations = {};
+        
+        locations.forEach(item => {
+            const locationId = item.idLo;
+            
+            if (!groupedLocations[locationId]) {
+                groupedLocations[locationId] = {
+                    idLo: item.idLo,
+                    idRes: item.idRes,
+                    typeLo: item.typeLo,
+                    debLo: item.debLo,
+                    finLo: item.finLo,
+                    tarifTot: item.tarifTot,
+                    etatLo: item.etatLo,
+                    client: {
+                        idCli: item.idCli,
+                        nomCli: item.nomCli,
+                        prenomCli: item.prenomCli,
+                        emailCli: item.emailCli
+                    },
+                    paiements: []
+                };
+            }
+            
+            // Ajouter le paiement si disponible
+            if (item.idPaie) {
+                groupedLocations[locationId].paiements.push({
+                    idPaie: item.idPaie,
+                    numeroFacture: item.numeroFacture,
+                    montantPaie: item.montantPaie,
+                    statutPaie: item.statutPaie,
+                    datePaiement: item.datePaiement,
+                    modePaie: item.modePaie
+                });
+            }
+        });
+        
+        const result = Object.values(groupedLocations);
+        
+        res.status(200).json({
+            success: true,
+            data: result,
+            count: result.length
+        });
+        
+    } catch (error) {
+        console.error('❌ ERREUR getLocationsWithPayments:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des locations avec paiements',
+            error: error.message
+        });
+    }
+};
+
+
+// 🔥 NOUVELLE MÉTHODE : Récupérer les locations terminées cette semaine
+exports.getTerminatedLocationsWeek = async (req, res) => {
+    try {
+        const sqlTerminatedWeek = `
+            SELECT 
+                l.*,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                c.telephoneCli,
+                r.typeRes,
+                m.codeMat,
+                m.designationMat,
+                s.idSalle,
+                s.nomSalle,
+                p.numeroFacture,
+                p.montantPaie,
+                p.dateCre,
+                p.statutPaie
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN salle s ON r.idSalle = s.idSalle
+            LEFT JOIN paiement p ON l.idLo = p.idLo
+            WHERE l.etatLo = 'Terminée'
+            AND p.statutPaie = 'Effectué'
+            AND l.finLo >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            AND l.finLo <= CURDATE()
+            ORDER BY l.finLo DESC
+        `;
+
+        const terminatedLocations = await sequelize.query(sqlTerminatedWeek, { 
+            type: sequelize.QueryTypes.SELECT 
+        });
+
+        res.status(200).json({
+            success: true,
+            count: terminatedLocations.length,
+            data: terminatedLocations
+        });
+
+    } catch (error) {
+        console.error("Erreur getTerminatedLocationsWeek:", error);
+        res.status(500).json({ 
+            success: false,
+            message: "Échec de la récupération des locations terminées cette semaine",
+            error: error.message 
+        });
+    }
+};
+
+// 🔥 NOUVELLE MÉTHODE : Récupérer les locations en cours aujourd'hui
+exports.getActiveLocationsToday = async (req, res) => {
+    try {
+        const sqlActiveToday = `
+            SELECT 
+                l.*,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                c.telephoneCli,
+                r.typeRes,
+                m.codeMat,
+                m.designationMat,
+                s.idSalle,
+                s.nomSalle
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN salle s ON r.idSalle = s.idSalle
+            WHERE l.etatLo = 'En cours'
+            AND DATE(l.debLo) <= CURDATE()
+            AND DATE(l.finLo) >= CURDATE()
+            ORDER BY l.debLo ASC
+        `;
+
+        const activeLocations = await sequelize.query(sqlActiveToday, { 
+            type: sequelize.QueryTypes.SELECT 
+        });
+
+        res.status(200).json({
+            success: true,
+            count: activeLocations.length,
+            data: activeLocations
+        });
+
+    } catch (error) {
+        console.error("Erreur getActiveLocationsToday:", error);
+        res.status(500).json({ 
+            success: false,
+            message: "Échec de la récupération des locations en cours aujourd'hui",
+            error: error.message 
+        });
+    }
+};
+
+// 🔥 NOUVELLE MÉTHODE : Statistiques complètes pour le dashboard
+exports.getLocationStats = async (req, res) => {
+    try {
+        console.log('📍 Récupération des statistiques des locations...');
+        
+        const queries = await Promise.all([
+            // 1. Locations terminées cette semaine
+            sequelize.query(`
+                SELECT COUNT(*) as count
+                FROM location l
+                WHERE l.etatLo = 'Terminée'
+                AND l.finLo >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+                AND l.finLo <= CURDATE()
+            `, { type: sequelize.QueryTypes.SELECT }),
+            
+            // 2. Locations en cours aujourd'hui
+            sequelize.query(`
+                SELECT COUNT(*) as count
+                FROM location l
+                WHERE l.etatLo = 'En cours'
+                AND DATE(l.debLo) <= CURDATE()
+                AND DATE(l.finLo) >= CURDATE()
+            `, { type: sequelize.QueryTypes.SELECT }),
+            
+            // 3. Locations confirmées à venir
+            sequelize.query(`
+                SELECT COUNT(*) as count
+                FROM location l
+                WHERE l.etatLo = 'Confirmée'
+                AND l.debLo > CURDATE()
+            `, { type: sequelize.QueryTypes.SELECT }),
+            
+            // 4. Revenu total du mois
+            sequelize.query(`
+                SELECT COALESCE(SUM(p.montantPaie), 0) as revenue
+                FROM paiement p
+                JOIN location l ON p.idLo = l.idLo
+                WHERE p.statutPaie = 'Effectué'
+                AND MONTH(p.dateCre) = MONTH(CURDATE())
+                AND YEAR(p.dateCre) = YEAR(CURDATE())
+            `, { type: sequelize.QueryTypes.SELECT }),
+            
+            // 5. Répartition par type
+            sequelize.query(`
+                SELECT 
+                    l.typeLo,
+                    COUNT(*) as count,
+                    COALESCE(SUM(p.montantPaie), 0) as revenue
+                FROM location l
+                LEFT JOIN paiement p ON l.idLo = p.idLo AND p.statutPaie = 'Effectué'
+                WHERE l.etatLo IN ('Terminée', 'Confirmée', 'En cours')
+                GROUP BY l.typeLo
+            `, { type: sequelize.QueryTypes.SELECT })
+        ]);
+
+        const stats = {
+            terminatedThisWeek: queries[0][0]?.count || 0,
+            activeToday: queries[1][0]?.count || 0,
+            upcomingConfirmed: queries[2][0]?.count || 0,
+            monthlyRevenue: queries[3][0]?.revenue || 0,
+            byType: queries[4] || []
+        };
+
+        console.log('📊 Statistiques calculées:', stats);
+
+        res.status(200).json({
+            success: true,
+            message: 'Statistiques des locations récupérées avec succès',
+            data: stats
+        });
+
+    } catch (error) {
+        console.error('❌ Erreur getLocationStats:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des statistiques',
+            error: error.message
+        });
+    }
+};
+
+
+// 🔥 NOUVELLE MÉTHODE : Récupérer les locations terminées AVEC REVENUS (sans modifier l'existante)
+exports.getTerminatedLocationsWithRevenue = async (req, res) => {
+    try {
+        console.log('📍 Début getTerminatedLocationsWithRevenue');
+        
+        const sqlTerminatedWithRevenue = `
+            SELECT 
+                l.idLo,
+                l.idRes,
+                l.dateCre,
+                l.typeLo,
+                l.debLo,
+                l.finLo,
+                l.tarifTot as tarifLocation,
+                l.etatLo,
+                r.idCli,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                c.telephoneCli,
+                r.typeRes,
+                m.codeMat,
+                m.designationMat,
+                s.idSalle,
+                s.nomSalle,
+                COALESCE(p.numeroFacture, 'N/A') as numeroFacture,
+                COALESCE(p.montantPaie, 0) as revenuPerçu,
+                COALESCE(p.dateCre, l.dateCre) as datePaiement,
+                COALESCE(p.statutPaie, 'Non payé') as statutPaiement,
+                COALESCE(p.modePaie, 'N/A') as modePaiement,
+                DATEDIFF(l.finLo, l.debLo) + 1 as dureeJours,
+                CASE 
+                    WHEN p.statutPaie = 'Effectué' THEN l.tarifTot
+                    ELSE 0 
+                END as revenuEffectif,
+                CASE 
+                    WHEN p.statutPaie = 'Effectué' THEN 'Payé'
+                    WHEN p.statutPaie = 'En attente' THEN 'En attente'
+                    ELSE 'Non payé'
+                END as statutPaiementLisible
+            FROM location l
+            JOIN reservation r ON l.idRes = r.idRes
+            JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN salle s ON r.idSalle = s.idSalle
+            LEFT JOIN paiement p ON l.idLo = p.idLo
+            WHERE l.etatLo = 'Terminée'
+            ORDER BY l.finLo DESC
+            LIMIT 100
+        `;
+
+        console.log('📍 Exécution requête locations terminées avec revenus...');
+        
+        const terminatedLocations = await sequelize.query(sqlTerminatedWithRevenue, { 
+            type: sequelize.QueryTypes.SELECT 
+        });
+
+        console.log('📍 Nombre de locations terminées avec revenus trouvées:', terminatedLocations.length);
+        
+        // Calcul des totaux
+        const totalRevenu = terminatedLocations.reduce((sum, loc) => sum + (parseFloat(loc.revenuEffectif) || 0), 0);
+        const totalTarif = terminatedLocations.reduce((sum, loc) => sum + (parseFloat(loc.tarifLocation) || 0), 0);
+        const locationsPayees = terminatedLocations.filter(loc => loc.statutPaiement === 'Effectué').length;
+        
+        // Statistiques par type
+        const statsParType = terminatedLocations.reduce((acc, loc) => {
+            const type = loc.typeLo || 'Non spécifié';
+            if (!acc[type]) {
+                acc[type] = { count: 0, revenu: 0 };
+            }
+            acc[type].count++;
+            acc[type].revenu += parseFloat(loc.revenuEffectif) || 0;
+            return acc;
+        }, {});
+
+        // Formater la réponse
+        const formattedLocations = terminatedLocations.map(location => ({
+            idLo: location.idLo,
+            idRes: location.idRes,
+            dateCreation: location.dateCre,
+            dateDebut: location.debLo,
+            dateFin: location.finLo,
+            dureeJours: location.dureeJours,
+            typeLocation: location.typeLo,
+            typeReservation: location.typeRes,
+            tarifLocation: parseFloat(location.tarifLocation) || 0,
+            revenuPerçu: parseFloat(location.revenuPerçu) || 0,
+            revenuEffectif: parseFloat(location.revenuEffectif) || 0,
+            client: {
+                idCli: location.idCli,
+                nom: `${location.nomCli} ${location.prenomCli || ''}`.trim(),
+                email: location.emailCli,
+                telephone: location.telephoneCli
+            },
+            materiel: location.codeMat ? {
+                code: location.codeMat,
+                designation: location.designationMat
+            } : null,
+            salle: location.idSalle ? {
+                id: location.idSalle,
+                nom: location.nomSalle
+            } : null,
+            paiement: {
+                numeroFacture: location.numeroFacture,
+                montant: parseFloat(location.revenuPerçu) || 0,
+                date: location.datePaiement,
+                statut: location.statutPaiementLisible,
+                mode: location.modePaiement
+            },
+            statutLocation: location.etatLo
+        }));
+
+        console.log('📍 Statistiques calculées:', {
+            totalLocations: terminatedLocations.length,
+            locationsPayees: locationsPayees,
+            totalTarif: totalTarif,
+            totalRevenu: totalRevenu,
+            statsParType: statsParType
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Locations terminées avec revenus récupérées avec succès',
+            data: {
+                locations: formattedLocations,
+                statistiques: {
+                    totalLocations: terminatedLocations.length,
+                    locationsPayees: locationsPayees,
+                    locationsNonPayees: terminatedLocations.length - locationsPayees,
+                    totalTarifAttendu: totalTarif,
+                    totalRevenuPerçu: totalRevenu,
+                    tauxEncaisse: terminatedLocations.length > 0 ? 
+                        Math.round((totalRevenu / totalTarif) * 100) : 0,
+                    statsParType: statsParType,
+                    dureeMoyenne: terminatedLocations.length > 0 ?
+                        Math.round(terminatedLocations.reduce((sum, loc) => sum + (loc.dureeJours || 0), 0) / terminatedLocations.length) : 0
+                },
+                resume: {
+                    count: terminatedLocations.length,
+                    totalRevenu: totalRevenu,
+                    tauxPaiement: terminatedLocations.length > 0 ?
+                        Math.round((locationsPayees / terminatedLocations.length) * 100) : 0
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ ERREUR getTerminatedLocationsWithRevenue:', error);
+        res.status(500).json({
+            success: false,
+            message: "Échec de la récupération des locations terminées avec revenus",
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };

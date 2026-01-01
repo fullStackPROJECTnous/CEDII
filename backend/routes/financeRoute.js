@@ -56,13 +56,21 @@ router.get('/factures-envoyees', async (req, res) => {
   }
 });
 
+// ✅ Nouvelle route pour valider un paiement avec les détails
+router.post(
+  '/payments/:paymentId/validate-with-details',
+  
+  financeController.validatePaymentWithDetails
+);
+
+
 // Nouvelle route pour annuler les paiements
 router.post('/cancel-payment/:id', financeController.cancelPayment);
 
 // Nouvelles routes pour l'interface avancée
 router.get('/confirmed-locations', financeController.getConfirmedLocationsToInvoice);
 router.post('/create-and-send-invoice', financeController.createAndSendInvoice);
-//router.get('/download-invoice/:locationId', financeController.downloadInvoice);
+
 router.get('/export-invoices', financeController.exportInvoices);
 
 // Routes pour les pénalités et workflow
@@ -73,7 +81,7 @@ router.post('/penalties/notify', financeController.sendPenaltyNotifications);
 router.get('/payment-history', financeController.getPaymentHistory);
 router.get('/litigation-count', financeController.getLitigationCount);
 router.get('/penalites', financeController.getPenalitesData);
-router.get('/monthly-revenue', financeController.getMonthlyRevenueTrend);
+//router.get('/monthly-revenue', financeController.getMonthlyRevenueTrend);
 router.get('/reports', financeController.getRapportsSyntheseData);
 // Dans financeRoutes.js - AJOUTEZ cette route
 router.post('/send-payment-reminder/:id', financeController.sendPaymentReminder);

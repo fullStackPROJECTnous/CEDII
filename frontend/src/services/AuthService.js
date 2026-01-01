@@ -104,7 +104,7 @@ const AuthService = {
     /**
      * Récupère les données utilisateur (y compris le token) si l'utilisateur est connecté.
      */
-    getCurrentUser() {
+   getCurrentUser() {
         const user = JSON.parse(localStorage.getItem('user') || 'null');
         console.log('👤 Utilisateur actuel:', user);
         return user;
@@ -157,7 +157,7 @@ const AuthService = {
     /**
      * 🆕 Synchronise les informations client après la connexion
      */
-    async syncClientProfile() {
+   async syncClientProfile() {
         try {
             const token = this.getToken();
             if (!token) {
@@ -230,3 +230,188 @@ const AuthService = {
 };
 
 export default AuthService;
+
+/*
+
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:5000/api/auth';
+
+// Configuration d'axios avec intercepteur pour le token
+const api = axios.create({
+  baseURL: 'http://localhost:5000/api',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Intercepteur pour ajouter le token automatiquement
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Gestion des erreurs
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      // Token expiré ou invalide
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('clientInfo');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
+
+const AuthService = {
+  /**
+   * Connexion
+   
+  async login(loginUti, motDePasseUti) {
+    try {
+      console.log('🔐 Tentative de connexion...');
+      
+      const response = await api.post('/auth/login', { 
+        loginUti,
+        motDePasseUti
+      });
+      
+      console.log('✅ Réponse login:', response.data);
+      
+      return response.data;
+    } catch (error) {
+      console.error("❌ Erreur d'authentification:", error.response?.data || error);
+      throw error;
+    }
+  },
+
+  /**
+   * Inscription
+  
+  async register(userData) {
+    try {
+      console.log('📝 Tentative d\'inscription...');
+      
+      const response = await api.post('/auth/register', userData);
+      
+      console.log('✅ Inscription réussie:', response.data);
+      
+      return response.data;
+    } catch (error) {
+      console.error("❌ Erreur d'inscription:", error.response?.data || error);
+      throw error;
+    }
+  },
+
+  /**
+   * Déconnexion
+  
+  logout() {
+    console.log('🚪 Déconnexion...');
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('clientInfo');
+    localStorage.removeItem('userInfo');
+  },
+
+  /**
+   * Récupérer l'utilisateur courant
+  
+  getCurrentUser() {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      return user;
+    } catch (error) {
+      console.error('❌ Erreur parsing user:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Récupérer le rôle de l'utilisateur
+ 
+  getCurrentUserRole() {
+    const user = this.getCurrentUser();
+    return user ? user.roleUti?.toLowerCase() : null;
+  },
+
+  /**
+   * Vérifier l'authentification
+   
+  isAuthenticated() {
+    const token = localStorage.getItem('token');
+    const user = this.getCurrentUser();
+    return !!(token && user);
+  },
+
+  /**
+   * Récupérer le token
+  
+  getToken() {
+    return localStorage.getItem('token');
+  },
+
+  /**
+   * Récupérer les infos client
+  
+  getClientInfo() {
+    try {
+      return JSON.parse(localStorage.getItem('clientInfo') || 'null');
+    } catch (error) {
+      console.error('❌ Erreur récupération clientInfo:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Synchroniser le profil client
+   
+  async syncClientProfile() {
+    try {
+      const token = this.getToken();
+      if (!token) {
+        throw new Error('Utilisateur non authentifié');
+      }
+
+      console.log('🔄 Synchronisation du profil client...');
+      
+      const response = await api.get('/clients/profile');
+      
+      if (response.data.success && response.data.data) {
+        const clientData = response.data.data;
+        return clientData;
+      }
+      
+      throw new Error('Données de profil invalides');
+    } catch (error) {
+      console.error('❌ Erreur synchronisation profil client:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Vérifier les permissions d'inscription
+  
+  async canRegister(role) {
+    try {
+      const response = await api.get(`/auth/permissions/${role}`);
+      return response.data.canRegister || false;
+    } catch (error) {
+      console.error('❌ Erreur vérification permissions:', error);
+      return false;
+    }
+  },
+
+  /**
+   * API pour les requêtes authentifiées
+  
+  api
+};
+
+export default AuthService; */

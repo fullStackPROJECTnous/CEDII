@@ -313,29 +313,27 @@ const hasStats = computed(() =>
     reservationStats.value.salle > 0 || 
     reservationStats.value.mixte > 0
 );
-// Dans dashboardReception.vue - MODIFIEZ la fonction fetchReservationStats
 const fetchReservationStats = async () => {
     loadingStats.value = true;
     try {
-        // ESSAYEZ d'abord avec ReservationService
+        // Essayez d'abord avec ReservationService
         const response = await ReservationService.getReservationStats();
         
-        // Si la méthode n'existe pas encore, utilisez des données simulées
-        if (!response || !response.data) {
-            throw new Error('Méthode non disponible');
-        }
-        
+        // Adaptez la structure de réponse selon votre API
         reservationStats.value = {
-            materiel: response.data.materielCount || 0,
-            salle: response.data.salleCount || 0,
-            mixte: response.data.mixteCount || 0
+            materiel: response.materiel || response.materielCount || 0,
+            salle: response.salle || response.salleCount || 0,
+            mixte: response.mixte || response.mixteCount || 0
         };
         
         console.log('📊 Statistiques chargées:', reservationStats.value);
         
     } catch (error) {
         console.error("Erreur de chargement des statistiques:", error);
+        
         // 🎯 DONNÉES SIMULÉES TEMPORAIRES
+        // Si vous avez un backend en développement, vous pouvez commenter cette partie
+        // une fois l'API disponible
         reservationStats.value = { 
             materiel: Math.floor(Math.random() * 50) + 20, 
             salle: Math.floor(Math.random() * 40) + 15,

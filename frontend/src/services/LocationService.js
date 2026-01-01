@@ -19,7 +19,7 @@ axiosInstance.interceptors.request.use(
     config.headers['Content-Type'] = 'application/json';
     return config;
   },
-  
+
   (error) => {
     return Promise.reject(error);
   }
@@ -241,13 +241,17 @@ class LocationService {
     return axiosInstance.get('/reception/dashboard');
   }
 
-  getPendingReservations() {
+  /*getPendingReservations() {
     return axiosInstance.get('/reservations/pending/requests'); 
+  }*/
+
+   getPendingReservations() {
+    return axiosInstance.get('/reservations/pending/'); 
   }
 
-  getLocationHistory() {
-    return axiosInstance.get('/history'); 
-  }
+ getLocationHistory() {
+    return axiosInstance.get('/locations/history');  // Utilisez la route correcte
+}
 
   getConfirmedEvents() {
     return axiosInstance.get('/events/confirmed');
@@ -292,6 +296,112 @@ class LocationService {
   getNotifications() {
     return axiosInstance.get('/reservations/notifications');
   }
+
+  // Dans LocationService.js - ajoutez cette méthode
+async getLocationsWithPayments() {
+  try {
+    console.log('📍 Appel API pour locations avec paiements...');
+    
+    const response = await axiosInstance.get('/locations/with-payments');
+    console.log('✅ Réponse locations avec paiements:', response.data);
+    return response;
+    
+  } catch (error) {
+    console.error('❌ Erreur LocationService - getLocationsWithPayments:', error);
+    throw error;
+  }
+}
+
+// OU méthode alternative si la route n'existe pas
+async getPaymentData() {
+  try {
+    console.log('📍 Appel API pour données de paiement...');
+    
+    // Essayer plusieurs endpoints
+    const endpoints = [
+      '/finance/payments',
+      '/locations/payments',
+      '/paiements',
+      '/paiement/all'
+    ];
+    
+    let lastError = null;
+    
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`📍 Essai sur l'endpoint: ${endpoint}`);
+        const response = await axiosInstance.get(endpoint);
+        console.log('✅ Données chargées sur', endpoint, ':', response.data.length || '?', 'éléments');
+        return response;
+      } catch (error) {
+        console.log(`⚠️ Échec sur ${endpoint}:`, error.response?.status);
+        lastError = error;
+      }
+    }
+    
+    throw lastError || new Error('Aucun endpoint valide trouvé');
+    
+  } catch (error) {
+    console.error('❌ Erreur LocationService - getPaymentData:', error);
+    throw error;
+  }
+}
+
+// Dans LocationService.js
+
+
+// Ajoutez ces méthodes dans la classe LocationService
+
+async getTerminatedLocationsWeek() {
+  try {
+    console.log('📍 Appel API pour locations terminées cette semaine...');
+    const response = await axiosInstance.get('/locations/terminated/week');
+    console.log('✅ Locations terminées cette semaine:', response.data.count);
+    return response;
+  } catch (error) {
+    console.error('❌ Erreur getTerminatedLocationsWeek:', error);
+    throw error;
+  }
+}
+
+async getActiveLocationsToday() {
+  try {
+    console.log('📍 Appel API pour locations en cours aujourd\'hui...');
+    const response = await axiosInstance.get('/locations/active/today');
+    console.log('✅ Locations en cours aujourd\'hui:', response.data.count);
+    return response;
+  } catch (error) {
+    console.error('❌ Erreur getActiveLocationsToday:', error);
+    throw error;
+  }
+}
+
+async getLocationStats() {
+  try {
+    console.log('📍 Appel API pour statistiques des locations...');
+    const response = await axiosInstance.get('/stats/locations');
+    console.log('✅ Statistiques chargées:', response.data.data);
+    return response;
+  } catch (error) {
+    console.error('❌ Erreur getLocationStats:', error);
+    throw error;
+  }
+}
+
+// Ajoutez cette méthode dans la classe LocationService
+async getTerminatedLocationsWithRevenue() {
+  try {
+    console.log('📍 Appel API pour locations terminées avec revenus...');
+    // CORRECTION : Enlever "/locations" du début
+    const response = await axiosInstance.get('/terminated/revenue');
+    console.log('✅ Locations terminées avec revenus:', response.data.data.locations.length);
+    return response;
+  } catch (error) {
+    console.error('❌ Erreur getTerminatedLocationsWithRevenue:', error);
+    throw error;
+  }
+}
+
 }
 
 export default new LocationService();

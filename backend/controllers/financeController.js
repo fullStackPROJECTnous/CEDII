@@ -1,7 +1,9 @@
 const db = require('../models');
 const { Op } = require('sequelize');
 const sequelize = db.sequelize;
-
+const { jsPDF } = require('jspdf');
+const fs = require('fs');
+const path = require('path');
 const nodemailer = require('nodemailer');
 
 // Configuration email
@@ -269,6 +271,668 @@ exports.getConfirmedLocationsToInvoice = async (req, res) => {
     });
   }
 };
+
+exports.createAndSendInvoice = async (req, res) => {
+  console.log('🔍 Début createAndSendInvoice');
+  
+  try {
+    const { locationId, clientEmail } = req.body;
+    console.log('📍 Données reçues:', { locationId, clientEmail });
+
+    if (!locationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'locationId est requis'
+      });
+    }
+
+    // CORRECTION : Vérifier la location avec TOUTES les informations nécessaires
+    const sqlCheckLocation = `
+      SELECT 
+        l.idLo, l.etatLo, l.tarifTot, l.typeLo, l.debLo, l.finLo,
+        c.nomCli, c.prenomCli, c.emailCli, c.telephoneCli, c.addresseCli,
+        r.idRes,
+        m.designationMat,
+        m.codeMat,
+        s.nomSalle,
+        s.numeroSalle
+      FROM location l
+      JOIN reservation r ON l.idRes = r.idRes
+      JOIN client c ON r.idCli = c.idCli
+      LEFT JOIN materiel m ON r.codeMat = m.codeMat
+      LEFT JOIN salle s ON r.idSalle = s.idSalle
+      WHERE l.idLo = ? AND l.etatLo IN ('En cours', 'Confirmée')
+    `;
+
+    const [locationData] = await sequelize.query(sqlCheckLocation, {
+      replacements: [locationId],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (!locationData) {
+      return res.status(404).json({
+        success: false,
+        message: `Location ${locationId} non trouvée ou doit être "En cours" ou "Confirmée" pour être facturée`
+      });
+    }
+
+    console.log(`📍 Location trouvée: ${locationData.idLo} (${locationData.etatLo})`);
+    console.log(`📋 Informations client récupérées:`, {
+      telephone: locationData.telephoneCli,
+      adresse: locationData.addresseCli,
+      email: locationData.emailCli,
+      designation: locationData.designationMat || locationData.nomSalle
+    });
+
+    // Calculer pénalités
+    const finLocation = new Date(locationData.finLo);
+    const aujourdhui = new Date();
+    const joursRetard = Math.max(0, Math.floor((aujourdhui - finLocation) / (1000 * 60 * 60 * 24)));
+    const tauxPenalite = 0.02;
+    const penalite = joursRetard * tauxPenalite * parseFloat(locationData.tarifTot);
+    const montantTotal = parseFloat(locationData.tarifTot) + penalite;
+
+    // Générer numéro de facture
+    const annee = new Date().getFullYear();
+    const [lastInvoice] = await sequelize.query(
+      `SELECT numeroFacture FROM paiement WHERE numeroFacture LIKE ? ORDER BY idPaie DESC LIMIT 1`,
+      {
+        replacements: [`FACT-${annee}-%`],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    let numeroFacture = `FACT-${annee}-0001`;
+    if (lastInvoice) {
+      const lastNumber = parseInt(lastInvoice.numeroFacture.split('-').pop());
+      numeroFacture = `FACT-${annee}-${(lastNumber + 1).toString().padStart(4, '0')}`;
+    }
+
+    // Créer le paiement/facture
+    const description = locationData.designationMat || locationData.nomSalle || `${locationData.typeLo} #${locationData.idLo}`;
+    const libellePaie = `Location ${locationData.typeLo} - ${description}`;
+    
+    const sqlInsertPaiement = `
+      INSERT INTO paiement 
+      (idLo, numeroFacture, dateCre, montantPaie, statutPaie, libellePaie, emailEnvoye)
+      VALUES (?, ?, NOW(), ?, 'En attente', ?, FALSE)
+    `;
+
+    await sequelize.query(sqlInsertPaiement, {
+      replacements: [
+        locationId,
+        numeroFacture,
+        montantTotal,
+        libellePaie
+      ]
+    });
+
+    console.log(`📍 Facture créée: ${numeroFacture} pour location ${locationId}`);
+
+    // GÉNÉRER LE PDF POUR L'EMAIL
+    let pdfBuffer = null;
+    
+    try {
+      // CORRECTION : Créer les données pour le PDF avec TOUTES les informations
+      const invoiceDataForPDF = {
+        numeroFacture: numeroFacture,
+        montantPaie: montantTotal,
+        statutPaie: 'En attente',
+        dateFacturation: new Date(),
+        dateCre: new Date(),
+        modePaie: null, // Pas encore défini lors de la création
+        idLo: locationId,
+        typeLo: locationData.typeLo,
+        debLo: locationData.debLo,
+        finLo: locationData.finLo,
+        tarifTot: locationData.tarifTot,
+        nomClient: `${locationData.prenomCli} ${locationData.nomCli}`,
+        emailCli: locationData.emailCli || clientEmail,
+        telephoneCli: locationData.telephoneCli, // ← AJOUTÉ
+        addresseCli: locationData.addresseCli,   // ← AJOUTÉ
+        designationMat: locationData.designationMat,
+        codeMat: locationData.codeMat,           // ← AJOUTÉ
+        nomSalle: locationData.nomSalle,
+        numeroSalle: locationData.numeroSalle,   // ← AJOUTÉ
+        joursRetard: joursRetard
+      };
+      
+      // Générer le PDF
+      pdfBuffer = await generateInvoicePDF(invoiceDataForPDF);
+      console.log(`✅ PDF généré pour email: ${pdfBuffer.length} bytes`);
+      
+    } catch (pdfError) {
+      console.error('❌ Erreur génération PDF pour email:', pdfError);
+    }
+
+    // Envoyer l'email
+    const emailFinal = clientEmail || locationData.emailCli;
+    let emailEnvoye = false;
+
+    if (emailFinal && emailFinal.trim() !== '') {
+      try {
+        const emailSent = await sendInvoiceEmail(
+          emailFinal, 
+          locationData, 
+          numeroFacture, 
+          montantTotal, 
+          joursRetard, 
+          penalite,
+          pdfBuffer
+        );
+        
+        if (emailSent) {
+          emailEnvoye = true;
+          
+          await sequelize.query(
+            `UPDATE paiement SET emailEnvoye = TRUE, dateEnvoiEmail = NOW() WHERE numeroFacture = ?`,
+            { replacements: [numeroFacture] }
+          );
+
+          await sequelize.query(
+            `INSERT INTO historique_email (idPaie, dateEnvoi, destinataire, sujet, statutEnvoi)
+             SELECT idPaie, NOW(), ?, 'Facture Location', 'succes'
+             FROM paiement WHERE numeroFacture = ?`,
+            { 
+              replacements: [emailFinal, numeroFacture] 
+            }
+          );
+
+          console.log('✅ Email envoyé avec succès');
+        }
+        
+      } catch (emailError) {
+        console.error('❌ Erreur envoi email:', emailError);
+        
+        await sequelize.query(
+          `INSERT INTO historique_email (idPaie, dateEnvoi, destinataire, sujet, statutEnvoi, erreurMessage)
+           SELECT idPaie, NOW(), ?, 'Facture Location', 'echec', ?
+           FROM paiement WHERE numeroFacture = ?`,
+          { 
+            replacements: [emailFinal, emailError.message, numeroFacture] 
+          }
+        );
+      }
+    }
+
+    // Récupérer les stats mises à jour
+    const updatedStats = await getUpdatedDashboardStats();
+
+    res.json({
+      success: true,
+      message: 'Facture créée avec succès (statut: En attente)' + (emailEnvoye ? ' et email envoyé' : ''),
+      invoiceNumber: numeroFacture,
+      locationId: locationId,
+      locationStatus: locationData.etatLo,
+      montantTotal: montantTotal,
+      joursRetard: joursRetard,
+      penalite: penalite,
+      emailEnvoye: emailEnvoye,
+      description: description,
+      newStats: updatedStats
+    });
+
+  } catch (error) {
+    console.error('❌ ERREUR createAndSendInvoice:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message
+    });
+  }
+};
+
+/*
+exports.createAndSendInvoice = async (req, res) => {
+  console.log('🔍 Début createAndSendInvoice');
+  
+  try {
+    const { locationId, clientEmail } = req.body;
+    console.log('📍 Données reçues:', { locationId, clientEmail });
+
+    if (!locationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'locationId est requis'
+      });
+    }
+
+    // Vérifier la location
+    const sqlCheckLocation = `
+      SELECT 
+        l.idLo, l.etatLo, l.tarifTot, l.typeLo, l.debLo, l.finLo,
+        c.nomCli, c.prenomCli, c.emailCli,
+        r.idRes,
+        COALESCE(m.designationMat, '') as designationMat,
+        COALESCE(s.nomSalle, '') as nomSalle
+      FROM location l
+      JOIN reservation r ON l.idRes = r.idRes
+      JOIN client c ON r.idCli = c.idCli
+      LEFT JOIN materiel m ON r.codeMat = m.codeMat
+      LEFT JOIN salle s ON r.idSalle = s.idSalle
+      WHERE l.idLo = ? AND l.etatLo IN ('En cours', 'Confirmée')
+    `;
+
+    const [locationData] = await sequelize.query(sqlCheckLocation, {
+      replacements: [locationId],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (!locationData) {
+      return res.status(404).json({
+        success: false,
+        message: `Location ${locationId} non trouvée ou doit être "En cours" ou "Confirmée" pour être facturée`
+      });
+    }
+
+    console.log(`📍 Location trouvée: ${locationData.idLo} (${locationData.etatLo})`);
+
+    // Calculer pénalités
+    const finLocation = new Date(locationData.finLo);
+    const aujourdhui = new Date();
+    const joursRetard = Math.max(0, Math.floor((aujourdhui - finLocation) / (1000 * 60 * 60 * 24)));
+    const tauxPenalite = 0.02;
+    const penalite = joursRetard * tauxPenalite * parseFloat(locationData.tarifTot);
+    const montantTotal = parseFloat(locationData.tarifTot) + penalite;
+
+    // Générer numéro de facture
+    const annee = new Date().getFullYear();
+    const [lastInvoice] = await sequelize.query(
+      `SELECT numeroFacture FROM paiement WHERE numeroFacture LIKE ? ORDER BY idPaie DESC LIMIT 1`,
+      {
+        replacements: [`FACT-${annee}-%`],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    let numeroFacture = `FACT-${annee}-0001`;
+    if (lastInvoice) {
+      const lastNumber = parseInt(lastInvoice.numeroFacture.split('-').pop());
+      numeroFacture = `FACT-${annee}-${(lastNumber + 1).toString().padStart(4, '0')}`;
+    }
+
+    // Créer le paiement/facture
+    const description = locationData.designationMat || locationData.nomSalle || `${locationData.typeLo} #${locationData.idLo}`;
+    const libellePaie = `Location ${locationData.typeLo} - ${description}`;
+    
+    const sqlInsertPaiement = `
+      INSERT INTO paiement 
+      (idLo, numeroFacture, dateCre, montantPaie, statutPaie, libellePaie, emailEnvoye)
+      VALUES (?, ?, NOW(), ?, 'En attente', ?, FALSE)
+    `;
+
+    await sequelize.query(sqlInsertPaiement, {
+      replacements: [
+        locationId,
+        numeroFacture,
+        montantTotal,
+        libellePaie
+      ]
+    });
+
+    console.log(`📍 Facture créée: ${numeroFacture} pour location ${locationId}`);
+
+    // GÉNÉRER LE PDF POUR L'EMAIL
+    let pdfBuffer = null;
+    
+    try {
+      // Créer les données pour le PDF
+      const invoiceDataForPDF = {
+        numeroFacture: numeroFacture,
+        montantPaie: montantTotal,
+        statutPaie: 'En attente',
+        dateFacturation: new Date(),
+        dateCre: new Date(),
+        modePaie: null,
+        idLo: locationId,
+        typeLo: locationData.typeLo,
+        debLo: locationData.debLo,
+        finLo: locationData.finLo,
+        tarifTot: locationData.tarifTot,
+        nomClient: `${locationData.prenomCli} ${locationData.nomCli}`,
+        emailCli: locationData.emailCli || clientEmail,
+        telephoneCli: null,
+        addresseCli: null,
+        designationMat: locationData.designationMat,
+        codeMat: null,
+        nomSalle: locationData.nomSalle,
+        numeroSalle: null,
+        joursRetard: joursRetard
+      };
+      
+      // Générer le PDF
+      pdfBuffer = await generateInvoicePDF(invoiceDataForPDF);
+      console.log(`✅ PDF généré pour email: ${pdfBuffer.length} bytes`);
+      
+    } catch (pdfError) {
+      console.error('❌ Erreur génération PDF pour email:', pdfError);
+    }
+
+    // Envoyer l'email
+    const emailFinal = clientEmail || locationData.emailCli;
+    let emailEnvoye = false;
+
+    if (emailFinal && emailFinal.trim() !== '') {
+      try {
+        const emailSent = await sendInvoiceEmail(
+          emailFinal, 
+          locationData, 
+          numeroFacture, 
+          montantTotal, 
+          joursRetard, 
+          penalite,
+          pdfBuffer
+        );
+        
+        if (emailSent) {
+          emailEnvoye = true;
+          
+          await sequelize.query(
+            `UPDATE paiement SET emailEnvoye = TRUE, dateEnvoiEmail = NOW() WHERE numeroFacture = ?`,
+            { replacements: [numeroFacture] }
+          );
+
+          await sequelize.query(
+            `INSERT INTO historique_email (idPaie, dateEnvoi, destinataire, sujet, statutEnvoi)
+             SELECT idPaie, NOW(), ?, 'Facture Location', 'succes'
+             FROM paiement WHERE numeroFacture = ?`,
+            { 
+              replacements: [emailFinal, numeroFacture] 
+            }
+          );
+
+          console.log('✅ Email envoyé avec succès');
+        }
+        
+      } catch (emailError) {
+        console.error('❌ Erreur envoi email:', emailError);
+        
+        await sequelize.query(
+          `INSERT INTO historique_email (idPaie, dateEnvoi, destinataire, sujet, statutEnvoi, erreurMessage)
+           SELECT idPaie, NOW(), ?, 'Facture Location', 'echec', ?
+           FROM paiement WHERE numeroFacture = ?`,
+          { 
+            replacements: [emailFinal, emailError.message, numeroFacture] 
+          }
+        );
+      }
+    }
+
+    // Récupérer les stats mises à jour
+    const updatedStats = await getUpdatedDashboardStats();
+
+    res.json({
+      success: true,
+      message: 'Facture créée avec succès (statut: En attente)' + (emailEnvoye ? ' et email envoyé' : ''),
+      invoiceNumber: numeroFacture,
+      locationId: locationId,
+      locationStatus: locationData.etatLo,
+      montantTotal: montantTotal,
+      joursRetard: joursRetard,
+      penalite: penalite,
+      emailEnvoye: emailEnvoye,
+      description: description,
+      newStats: updatedStats
+    });
+
+  } catch (error) {
+    console.error('❌ ERREUR createAndSendInvoice:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message
+    });
+  }
+};
+*/
+/*
+exports.createAndSendInvoice = async (req, res) => {
+  console.log('🔍 Début createAndSendInvoice');
+  
+  try {
+    const { locationId, clientEmail } = req.body;
+    console.log('📍 Données reçues:', { locationId, clientEmail });
+
+    if (!locationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'locationId est requis'
+      });
+    }
+
+    // 🔥 CORRECTION : Requête avec COALESCE pour éviter les valeurs null
+    const sqlCheckLocation = `
+      SELECT 
+        l.idLo, l.etatLo, l.tarifTot, l.typeLo, l.debLo, l.finLo,
+        c.nomCli, c.prenomCli, c.emailCli,
+        r.idRes,
+        COALESCE(m.designationMat, '') as designationMat,
+        COALESCE(s.nomSalle, '') as nomSalle
+      FROM location l
+      JOIN reservation r ON l.idRes = r.idRes
+      JOIN client c ON r.idCli = c.idCli
+      LEFT JOIN materiel m ON r.codeMat = m.codeMat
+      LEFT JOIN salle s ON r.idSalle = s.idSalle
+      WHERE l.idLo = ? AND l.etatLo IN ('En cours', 'Confirmée')
+    `;
+
+    const [locationData] = await sequelize.query(sqlCheckLocation, {
+      replacements: [locationId],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (!locationData) {
+      return res.status(404).json({
+        success: false,
+        message: `Location ${locationId} non trouvée ou doit être "En cours" ou "Confirmée" pour être facturée`
+      });
+    }
+
+    console.log(`📍 Location trouvée: ${locationData.idLo} (${locationData.etatLo})`);
+
+    // Déterminer la description
+    let description = '';
+    if (locationData.designationMat && locationData.designationMat.trim() !== '') {
+      description = locationData.designationMat;
+    } else if (locationData.nomSalle && locationData.nomSalle.trim() !== '') {
+      description = locationData.nomSalle;
+    } else {
+      description = `${locationData.typeLo} #${locationData.idLo}`;
+    }
+
+    // 2. Calculer les pénalités si la location est en retard
+    const finLocation = new Date(locationData.finLo);
+    const aujourdhui = new Date();
+    const joursRetard = Math.max(0, Math.floor((aujourdhui - finLocation) / (1000 * 60 * 60 * 24)));
+    const tauxPenalite = 0.02;
+    const penalite = joursRetard * tauxPenalite * parseFloat(locationData.tarifTot);
+    const montantTotal = parseFloat(locationData.tarifTot) + penalite;
+
+    // 3. Générer numéro de facture
+    const annee = new Date().getFullYear();
+    const [lastInvoice] = await sequelize.query(
+      `SELECT numeroFacture FROM paiement WHERE numeroFacture LIKE ? ORDER BY idPaie DESC LIMIT 1`,
+      {
+        replacements: [`FACT-${annee}-%`],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    let numeroFacture = `FACT-${annee}-0001`;
+    if (lastInvoice) {
+      const lastNumber = parseInt(lastInvoice.numeroFacture.split('-').pop());
+      numeroFacture = `FACT-${annee}-${(lastNumber + 1).toString().padStart(4, '0')}`;
+    }
+
+    // Créer le paiement/facture avec statut "En attente"
+    const libellePaie = `Location ${locationData.typeLo} - ${description}`;
+    
+    const sqlInsertPaiement = `
+      INSERT INTO paiement 
+      (idLo, numeroFacture, dateCre, montantPaie, statutPaie, libellePaie, emailEnvoye)
+      VALUES (?, ?, NOW(), ?, 'En attente', ?, FALSE)
+    `;
+
+    await sequelize.query(sqlInsertPaiement, {
+      replacements: [
+        locationId,
+        numeroFacture,
+        montantTotal,
+        libellePaie
+      ]
+    });
+
+    console.log(`📍 Facture créée: ${numeroFacture} pour location ${locationId}`);
+
+    // 5. GÉNÉRER LE PDF DE LA FACTURE
+    let pdfBuffer = null;
+    let pdfBase64 = null;
+    
+    try {
+      // Requête SQL similaire à downloadInvoice
+      const sqlInvoiceData = `
+        SELECT 
+          ? as numeroFacture, 
+          ? as montantPaie,
+          'En attente' as statutPaie,
+          NOW() as dateFacturation,
+          NULL as modePaie,
+          l.idLo, 
+          l.typeLo, 
+          l.debLo, 
+          l.finLo,
+          l.tarifTot,
+          CONCAT(c.nomCli, ' ', c.prenomCli) AS nomClient,
+          c.emailCli,
+          c.telephoneCli,
+          c.addresseCli,
+          m.designationMat,
+          m.codeMat,
+          s.nomSalle,
+          s.numeroSalle,
+          ? as joursRetard
+        FROM location l
+        JOIN reservation r ON l.idRes = r.idRes
+        JOIN client c ON r.idCli = c.idCli
+        LEFT JOIN materiel m ON r.codeMat = m.codeMat
+        LEFT JOIN salle s ON r.idSalle = s.idSalle
+        WHERE l.idLo = ?
+        LIMIT 1
+      `;
+
+      const [invoiceData] = await sequelize.query(sqlInvoiceData, {
+        replacements: [numeroFacture, montantTotal, joursRetard, locationId],
+        type: sequelize.QueryTypes.SELECT
+      });
+
+      if (invoiceData) {
+        // Créer le PDF
+        const doc = new jsPDF();
+        
+        // VOTRE CODE DE GÉNÉRATION PDF ICI (le même que dans downloadInvoice)
+        // ===== CONSTANTES DE MISE EN PAGE =====
+        const pageWidth = 210;
+        const marginLeft = 15;
+        const marginRight = 15;
+        const centerX = pageWidth / 2;
+        const columnWidth = (pageWidth - marginLeft - marginRight) / 2;
+        
+        // Fond d'en-tête bleu CEDII
+        doc.setFillColor(4, 5, 143);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        // ... [COPIEZ TOUT LE CODE DE GÉNÉRATION PDF ICI] ...
+        
+        // ===== GÉNÉRATION DU PDF =====
+        pdfBuffer = doc.output('arraybuffer');
+        pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
+      }
+    } catch (pdfError) {
+      console.error('❌ Erreur génération PDF pour email:', pdfError);
+      // Continuer même si le PDF échoue
+    }
+
+    // 6. Envoyer l'email si email fourni
+    const emailFinal = clientEmail || locationData.emailCli;
+    let emailEnvoye = false;
+
+    if (emailFinal && emailFinal.trim() !== '') {
+      try {
+        const emailSent = await sendInvoiceEmail(
+          emailFinal, 
+          locationData, 
+          numeroFacture, 
+          montantTotal, 
+          joursRetard, 
+          penalite,
+          pdfBuffer, // Ajout du buffer PDF
+          pdfBase64  // Ajout du base64 PDF
+        );
+        
+        if (emailSent) {
+          emailEnvoye = true;
+          
+          await sequelize.query(
+            `UPDATE paiement SET emailEnvoye = TRUE, dateEnvoiEmail = NOW() WHERE numeroFacture = ?`,
+            { replacements: [numeroFacture] }
+          );
+
+          await sequelize.query(
+            `INSERT INTO historique_email (idPaie, dateEnvoi, destinataire, sujet, statutEnvoi)
+             SELECT idPaie, NOW(), ?, 'Facture Location', 'succes'
+             FROM paiement WHERE numeroFacture = ?`,
+            { 
+              replacements: [emailFinal, numeroFacture] 
+            }
+          );
+
+          console.log('✅ Email envoyé avec succès avec pièce jointe PDF');
+        }
+        
+      } catch (emailError) {
+        console.error('❌ Erreur envoi email:', emailError);
+        
+        await sequelize.query(
+          `INSERT INTO historique_email (idPaie, dateEnvoi, destinataire, sujet, statutEnvoi, erreurMessage)
+           SELECT idPaie, NOW(), ?, 'Facture Location', 'echec', ?
+           FROM paiement WHERE numeroFacture = ?`,
+          { 
+            replacements: [emailFinal, emailError.message, numeroFacture] 
+          }
+        );
+      }
+    }
+
+    // 7. Récupérer les stats mises à jour
+    const updatedStats = await getUpdatedDashboardStats();
+
+    res.json({
+      success: true,
+      message: 'Facture créée avec succès (statut: En attente)' + (emailEnvoye ? ' et email envoyé avec PDF' : ''),
+      invoiceNumber: numeroFacture,
+      locationId: locationId,
+      locationStatus: locationData.etatLo,
+      montantTotal: montantTotal,
+      joursRetard: joursRetard,
+      penalite: penalite,
+      emailEnvoye: emailEnvoye,
+      description: description,
+      newStats: updatedStats
+    });
+
+  } catch (error) {
+    console.error('❌ ERREUR createAndSendInvoice:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message
+    });
+  }
+};
+*/
+
+
+/*
 exports.createAndSendInvoice = async (req, res) => {
   console.log('🔍 Début createAndSendInvoice');
   
@@ -442,6 +1106,8 @@ exports.createAndSendInvoice = async (req, res) => {
     });
   }
 };
+*/
+
 
 // 🔥 NOUVELLE MÉTHODE : Annuler un paiement
 exports.cancelPayment = async (req, res) => {
@@ -701,6 +1367,7 @@ exports.validatePayment = async (req, res) => {
 /**
  * Télécharge une facture PDF
  */
+/*
 exports.downloadInvoice = async (req, res) => {
   const { locationId } = req.params;
 
@@ -760,7 +1427,7 @@ exports.downloadInvoice = async (req, res) => {
       error: error.message
     });
   } // <-- SUPPRIMEZ LE "1" ICI !!!
-};
+};*/
 
 // 📊 VERSION SANS DONNÉES DE DÉMONSTRATION - DONNÉES RÉELLES UNIQUEMENT
 exports.getCashflowSynthese = async (req, res) => {
@@ -933,6 +1600,144 @@ async function getUpdatedDashboardStats() {
   }
 }
 
+async function sendInvoiceEmail(email, locationData, numeroFacture, montantTotal, joursRetard, penalite, pdfBuffer) {
+  try {
+    // DEBUG: Vérifier le buffer PDF
+    console.log('🔍 DEBUG sendInvoiceEmail:');
+    console.log('- pdfBuffer existe?', !!pdfBuffer);
+    console.log('- Type:', typeof pdfBuffer);
+    console.log('- Est Buffer?', Buffer.isBuffer(pdfBuffer));
+    console.log('- Taille:', pdfBuffer?.length || pdfBuffer?.byteLength || 0);
+    
+    // Sauvegarder localement pour debug
+    if (pdfBuffer) {
+      const debugPath = path.join(__dirname, `debug-facture-${numeroFacture}.pdf`);
+      const bufferToSave = Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
+      fs.writeFileSync(debugPath, bufferToSave);
+      console.log(`✅ PDF sauvegardé pour debug: ${debugPath} (${bufferToSave.length} bytes)`);
+    }
+    
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER || 'miharinandrasana@gmail.com',
+        pass: process.env.EMAIL_PASS || ''
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const mailOptions = {
+      from: `"CEDII Locations" <${process.env.EMAIL_USER || 'miharinandrasana@gmail.com'}>`,
+      to: email,
+      subject: `Facture ${numeroFacture} - CEDII Locations`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #5811EE 0%, #04058F 100%); color: white; padding: 20px; text-align: center;">
+            <h1>CEDII LOCATIONS</h1>
+      
+          
+          <div style="padding: 20px;">
+            <p>Bonjour <strong>${locationData.prenomCli} ${locationData.nomCli}</strong>,</p>
+            
+            <div style="background-color: #e8f4ff; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #28a745;">
+              <p style="margin: 0; font-size: 16px;">
+                ✅ <strong>Remarque :</strong> Votre location <strong>#${locationData.idLo}</strong> a été traitée avec succès et est maintenant au statut <strong>"${locationData.etatLo}"</strong>.
+              </p>
+            </div>
+            
+            <div style="border: 2px dashed #5811EE; padding: 15px; margin: 20px 0; border-radius: 8px; background-color: #f9f9ff;">
+              <h3 style="color: #5811EE; margin-top: 0;">📄 Votre facture en pièce jointe</h3>
+              <p>Votre facture détaillée au format PDF est jointe à cet email.</p>
+              <div style="background: white; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                <p style="margin: 5px 0;"><strong>📎 Fichier :</strong> facture-${numeroFacture}.pdf</p>
+                <p style="margin: 5px 0;"><strong>💰 Montant :</strong> ${parseFloat(montantTotal).toLocaleString('fr-FR')} Ar</p>
+                ${joursRetard > 0 ? `<p style="margin: 5px 0; color: #dc3545;"><strong>⚠️ Retard :</strong> ${joursRetard} jours (pénalité incluse)</p>` : ''}
+              </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+              <h3 style="margin: 0; font-size: 18px;">
+                TOTAL À RÉGLER : ${parseFloat(montantTotal).toLocaleString('fr-FR')} Ar
+              </h3>
+            </div>
+            
+            <p style="margin-top: 25px; font-size: 14px;">
+              Pour toute question concernant cette location ou la facture, n'hésitez pas à nous contacter.
+            </p>
+            
+            <p style="margin-top: 30px;">
+              Cordialement,<br>
+              <strong>L'équipe CEDII </strong>
+            </p>
+          </div>
+          
+          <div style="background: #f1f1f1; color: #666; padding: 15px; text-align: center; font-size: 12px; border-top: 1px solid #ddd;">
+            <p style="margin: 5px 0;">
+              <strong>CEDII - Centre d'Échange, de Documentation et d'Information Inter-Institutionnelles</strong>
+            </p>
+            <p style="margin: 5px 0;">
+              Boulevard Philibert Tsiranana Tsianonlondroa Fianarantsoa 301
+    Madagascar   (Fianarantsoa / Haute Matsiatra) Lat:-21.4559295 Long:47.0826977
+            </p>
+            <p style="margin: 5px 0;">
+              📞 Tél.: +261 34 03 931 91/ +261 34 60 020 34  Fax: +261 20 75 511 06 | ✉️  cedii.fia@gmail.com
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 11px; color: #999;">
+              Ceci est un email automatique, merci de ne pas y répondre.
+            </p>
+          </div>
+        </div>
+      `,
+      attachments: []
+    };
+
+    // Ajouter le PDF en pièce jointe
+    if (pdfBuffer && (pdfBuffer.length > 0 || pdfBuffer.byteLength > 0)) {
+      let bufferData;
+      
+      // Convertir en Buffer si nécessaire
+      if (Buffer.isBuffer(pdfBuffer)) {
+        bufferData = pdfBuffer;
+      } else if (pdfBuffer instanceof ArrayBuffer) {
+        bufferData = Buffer.from(pdfBuffer);
+      } else if (pdfBuffer.buffer instanceof ArrayBuffer) {
+        bufferData = Buffer.from(pdfBuffer.buffer);
+      } else {
+        bufferData = Buffer.from(pdfBuffer);
+      }
+      
+      if (bufferData && bufferData.length > 0) {
+        mailOptions.attachments.push({
+          filename: `facture-${numeroFacture}.pdf`,
+          content: bufferData,
+          contentType: 'application/pdf'
+        });
+        console.log(`📎 PDF joint avec succès: facture-${numeroFacture}.pdf (${bufferData.length} bytes)`);
+      } else {
+        console.log('⚠️ Buffer PDF vide ou invalide');
+      }
+    } else {
+      console.log('⚠️ Aucun PDF à joindre (pdfBuffer est null ou vide)');
+    }
+
+    // Envoyer l'email
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email envoyé avec succès à: ${email}`);
+    console.log(`📧 Message ID: ${info.messageId}`);
+    
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Erreur détaillée sendInvoiceEmail:', error);
+    throw error;
+  }
+}
+
+/*
 async function sendInvoiceEmail(email, locationData, numeroFacture, montantTotal, joursRetard, penalite) {
   const mailOptions = {
     from: process.env.EMAIL_USER || 'miharinandrasana@gmail.com',
@@ -980,7 +1785,9 @@ async function sendInvoiceEmail(email, locationData, numeroFacture, montantTotal
   };
 
   await transporter.sendMail(mailOptions);
-}
+}*/
+
+
 
 async function sendPenaltyEmail(penalty) {
   const mailOptions = {
@@ -1022,6 +1829,7 @@ async function sendPenaltyEmail(penalty) {
   await transporter.sendMail(mailOptions);
 }
 
+
 function generatePDFContent(invoiceData) {
   return `
     FACTURE CEDII
@@ -1054,23 +1862,40 @@ function generatePDFContent(invoiceData) {
   `;
 }
 
-/**
- * Télécharge une facture PDF
- */exports.downloadInvoice = async (req, res) => {
+exports.downloadInvoice = async (req, res) => {
   const { locationId } = req.params;
 
   try {
-    console.log(`📍 Téléchargement facture pour location ${locationId}`);
+    console.log(`📍 Génération facture PDF professionnelle pour location ${locationId}`);
 
+    // Requête SQL avec toutes les informations nécessaires
     const sqlInvoiceData = `
       SELECT 
-        p.numeroFacture, p.montantPaie, p.statutPaie,
-        l.idLo, l.typeLo, l.debLo, l.finLo,
-        CONCAT(c.nomCli, ' ', c.prenomCli) AS client
+        p.numeroFacture, 
+        p.montantPaie, 
+        p.statutPaie,
+        p.dateCre as dateFacturation,
+        p.modePaie,
+        l.idLo, 
+        l.typeLo, 
+        l.debLo, 
+        l.finLo,
+        l.tarifTot,
+        CONCAT(c.nomCli, ' ', c.prenomCli) AS nomClient,
+        c.emailCli,
+        c.telephoneCli,
+        c.addresseCli,
+        m.designationMat,
+        m.codeMat,
+        s.nomSalle,
+        s.numeroSalle,
+        DATEDIFF(CURDATE(), DATE(l.finLo)) AS joursRetard
       FROM paiement p
       JOIN location l ON p.idLo = l.idLo
       JOIN reservation r ON l.idRes = r.idRes
       JOIN client c ON r.idCli = c.idCli
+      LEFT JOIN materiel m ON r.codeMat = m.codeMat
+      LEFT JOIN salle s ON r.idSalle = s.idSalle
       WHERE l.idLo = ?
       LIMIT 1
     `;
@@ -1087,40 +1912,543 @@ function generatePDFContent(invoiceData) {
       });
     }
 
-    // 🔥 CORRECTION SIMPLE : Texte formaté
-    const factureContent = `
-      FACTURE CEDII
-      =============
-      Numéro: ${invoiceData.numeroFacture}
-      Client: ${invoiceData.client}
-      Location: #${invoiceData.idLo} - ${invoiceData.typeLo}
-      Période: ${new Date(invoiceData.debLo).toLocaleDateString('fr-FR')} au ${new Date(invoiceData.finLo).toLocaleDateString('fr-FR')}
-      Montant: ${parseFloat(invoiceData.montantPaie || 0).toLocaleString('fr-FR')} Ar
-      Statut: ${invoiceData.statutPaie}
-      
-      Merci pour votre confiance!
-      CEDII Locations
-    `;
-
-    // 🔥 CORRECTION : Créer un blob côté client
-    res.setHeader('Content-Type', 'text/plain');
-    res.setHeader('Content-Disposition', `attachment; filename="facture-${invoiceData.numeroFacture}.txt"`);
-    res.send(factureContent);
+    // Générer le PDF
+    const pdfBuffer = await generateInvoicePDF(invoiceData);
+    
+    // Envoyer la réponse
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="facture-${invoiceData.numeroFacture}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
 
   } catch (error) {
-    console.error("❌ Erreur téléchargement facture:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erreur serveur",
-      error: error.message
-    });
-  }1
+    console.error("❌ Erreur génération PDF:", error);
+    
+    try {
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.setTextColor(220, 53, 69);
+      doc.text('ERREUR DE GÉNÉRATION', 105, 50, { align: 'center' });
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Impossible de générer la facture demandée', 105, 70, { align: 'center' });
+      doc.text(`Détail: ${error.message.substring(0, 80)}`, 105, 80, { align: 'center' });
+      const errorBuffer = Buffer.from(doc.output('arraybuffer'));
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="erreur-facture.pdf"');
+      res.send(errorBuffer);
+    } catch (fallbackError) {
+      res.status(500).json({
+        success: false,
+        message: "Erreur lors de la génération du PDF",
+        error: error.message
+      });
+    }
+  }
 };
 
+/*exports.downloadInvoice = async (req, res) => {
+  const { locationId } = req.params;
 
-/**
- * Télécharge une facture PDF pour les locations TERMINÉES ET PAYÉES
- */
+  try {
+    console.log(`📍 Génération facture PDF professionnelle pour location ${locationId}`);
+
+    // Requête SQL avec toutes les informations nécessaires
+    const sqlInvoiceData = `
+      SELECT 
+        p.numeroFacture, 
+        p.montantPaie, 
+        p.statutPaie,
+        p.dateCre as dateFacturation,
+        p.modePaie,
+        l.idLo, 
+        l.typeLo, 
+        l.debLo, 
+        l.finLo,
+        l.tarifTot,
+        CONCAT(c.nomCli, ' ', c.prenomCli) AS nomClient,
+        c.emailCli,
+        c.telephoneCli,
+        c.addresseCli,
+        m.designationMat,
+        m.codeMat,
+        s.nomSalle,
+        s.numeroSalle,
+        DATEDIFF(CURDATE(), DATE(l.finLo)) AS joursRetard
+      FROM paiement p
+      JOIN location l ON p.idLo = l.idLo
+      JOIN reservation r ON l.idRes = r.idRes
+      JOIN client c ON r.idCli = c.idCli
+      LEFT JOIN materiel m ON r.codeMat = m.codeMat
+      LEFT JOIN salle s ON r.idSalle = s.idSalle
+      WHERE l.idLo = ?
+      LIMIT 1
+    `;
+
+    const [invoiceData] = await sequelize.query(sqlInvoiceData, {
+      replacements: [locationId],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (!invoiceData) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Aucune facture trouvée pour cette location" 
+      });
+    }
+
+    // ===== CRÉATION PDF PROFESSIONNEL =====
+    const doc = new jsPDF();
+    
+    // ===== CONSTANTES DE MISE EN PAGE =====
+    const pageWidth = 210;
+    const marginLeft = 15;
+    const marginRight = 15;
+    const centerX = pageWidth / 2;
+    const columnWidth = (pageWidth - marginLeft - marginRight) / 2;
+    
+    // Fond d'en-tête bleu CEDII
+    doc.setFillColor(4, 5, 143); // Bleu CEDII
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    // --- LOGO CEDII (à gauche) - EXACTEMENT COMME VOTRE MODÈLE MAIS ADAPTÉ POUR NODE.JS ---
+    const cheminsLogo = [
+      path.join(process.cwd(), 'frontend', 'public', 'images', 'logo.jpg'),
+      path.join(__dirname, '../frontend/public/images/logo.jpg'),
+      path.join(__dirname, '../../frontend/public/images/logo.jpg'),
+      path.join(process.cwd(), 'public', 'images', 'logo.jpg'),
+      path.join(process.cwd(), 'images', 'logo.jpg'),
+      'logo.jpg'
+    ];
+    
+    let logoAjoute = false;
+    
+    console.log('🔍 Recherche du logo...');
+    
+    for (const chemin of cheminsLogo) {
+      try {
+        console.log(`  Essai: ${chemin}`);
+        
+        if (fs.existsSync(chemin)) {
+          console.log(`✅ Fichier trouvé: ${chemin}`);
+          
+          try {
+            doc.addImage(chemin, 'JPEG', marginLeft, 8, 30, 30);
+            logoAjoute = true;
+            console.log('✅ Logo ajouté avec succès!');
+            break;
+          } catch (addError) {
+            console.log(`❌ Impossible d'ajouter avec chemin: ${addError.message}`);
+            
+            try {
+              const imgData = fs.readFileSync(chemin);
+              const base64Image = imgData.toString('base64');
+              const dataUrl = `data:image/jpeg;base64,${base64Image}`;
+              doc.addImage(dataUrl, 'JPEG', marginLeft, 8, 30, 30);
+              logoAjoute = true;
+              console.log('✅ Logo ajouté avec Data URL!');
+              break;
+            } catch (dataUrlError) {
+              console.log(`❌ Data URL échoué aussi: ${dataUrlError.message}`);
+              continue;
+            }
+          }
+        } else {
+          console.log(`❌ Fichier non trouvé: ${chemin}`);
+        }
+      } catch (e) {
+        console.log(`❌ Erreur avec chemin ${chemin}:`, e.message);
+        continue;
+      }
+    }
+    
+    if (!logoAjoute) {
+      console.warn('⚠️ Logo non trouvé, ajout du texte CEDII');
+      
+      doc.setFontSize(14);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text('CEDII', marginLeft + 5, 20);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text("Centre d'Échange et de", marginLeft + 5, 27);
+      doc.text("Diffusion d'Informations", marginLeft + 5, 32);
+      doc.text("Informatiques", marginLeft + 5, 37);
+    }
+    
+    // Titre principal
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    
+    if (logoAjoute) {
+      doc.text('CEDII LOCATIONS', centerX, 20, { align: 'center' });
+    } else {
+      doc.text('CEDII LOCATIONS', centerX + 15, 20, { align: 'center' });
+    }
+    
+    // Badge "FACTURE"
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(255, 255, 255);
+    doc.roundedRect(centerX - 25, 25, 50, 8, 4, 4, 'F');
+    doc.setTextColor(4, 5, 143);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FACTURE', centerX, 30, { align: 'center' });
+    
+    // Numéro de facture
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.text(invoiceData.numeroFacture, centerX, 38, { align: 'center' });
+    
+    // Ligne décorative sous l'en-tête
+    doc.setDrawColor(88, 17, 238);
+    doc.setLineWidth(0.8);
+    doc.line(marginLeft, 45, pageWidth - marginRight, 45);
+    
+    // ===== SECTION INFORMATIONS (DEUX COLONNES) =====
+    const startY = 55;
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(centerX, startY - 5, centerX, startY + 65);
+    
+    // === COLONNE GAUCHE - ÉMETTEUR (CEDII) ===
+    doc.setFontSize(11);
+    doc.setTextColor(4, 5, 143);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ÉMETTEUR', marginLeft, startY);
+    
+    doc.setDrawColor(4, 5, 143);
+    doc.setLineWidth(0.2);
+    doc.setFillColor(240, 245, 255);
+    doc.roundedRect(marginLeft, startY + 5, columnWidth, 60, 3, 3, 'FD');
+    
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    
+    const emitterInfo = [
+      { label: 'Société', value: 'CEDII Locations' },
+      { label: 'Adresse', value: 'Lot IVH 32 Ter Amboditsiry' },
+      { label: 'Ville', value: 'Fianarantsoa 301, Madagascar' },
+      { label: 'Téléphone', value: '+261 34 05 120 30' },
+      { label: 'Email', value: 'contact@cedii.mg' },
+      { label: 'Site web', value: 'www.cedii.mg' },
+      { label: 'NIF', value: 'X XXXX XXXXX X' },
+      { label: 'STAT', value: 'XXXXX XXXXX X' }
+    ];
+    
+    emitterInfo.forEach((info, index) => {
+      const y = startY + 12 + (index * 6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(info.label + ':', marginLeft + 5, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(info.value, marginLeft + 25, y);
+    });
+    
+    // === COLONNE DROITE - CLIENT ===
+    doc.setFontSize(11);
+    doc.setTextColor(88, 17, 238);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLIENT', centerX + 5, startY);
+    
+    doc.setDrawColor(88, 17, 238);
+    doc.setLineWidth(0.2);
+    doc.setFillColor(248, 246, 255);
+    doc.roundedRect(centerX + 5, startY + 5, columnWidth - 5, 60, 3, 3, 'FD');
+    
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    
+    const clientInfo = [
+      { label: 'Nom', value: invoiceData.nomClient },
+      { label: 'Email', value: invoiceData.emailCli || 'Non renseigné' },
+      { label: 'Téléphone', value: invoiceData.telephoneCli || 'Non renseigné' },
+      { label: 'Adresse', value: invoiceData.addresseCli || 'Non renseigné' },
+      { label: 'Référence', value: `#${invoiceData.idLo}` },
+      { label: 'Type', value: invoiceData.typeLo },
+      { label: 'Statut', value: invoiceData.statutPaie },
+      { label: 'Mode paiement', value: invoiceData.modePaie || 'Non spécifié' }
+    ];
+    
+    clientInfo.forEach((info, index) => {
+      const y = startY + 12 + (index * 6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(info.label + ':', centerX + 10, y);
+      doc.setFont('helvetica', 'normal');
+      
+      const value = String(info.value || '');
+      if (value.length > 30) {
+        const parts = doc.splitTextToSize(value, columnWidth - 40);
+        parts.forEach((part, i) => {
+          doc.text(part, centerX + 35, y + (i * 4));
+        });
+      } else {
+        doc.text(value, centerX + 35, y);
+      }
+    });
+    
+    // ===== DÉTAILS DE LA FACTURE =====
+    const detailsY = startY + 75;
+    
+    doc.setFontSize(12);
+    doc.setTextColor(52, 58, 64);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DÉTAILS DE LA FACTURE', marginLeft, detailsY);
+    
+    const tableY = detailsY + 8;
+    
+    doc.setFillColor(4, 5, 143);
+    doc.rect(marginLeft, tableY, pageWidth - marginLeft - marginRight, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.text('DESCRIPTION', marginLeft + 5, tableY + 6);
+    doc.text('VALEUR', pageWidth - marginRight - 30, tableY + 6, { align: 'right' });
+    
+    const details = [
+      { label: 'Numéro de facture', value: invoiceData.numeroFacture },
+      { label: 'Date de facturation', value: invoiceData.dateFacturation ? 
+          new Date(invoiceData.dateFacturation).toLocaleDateString('fr-FR') : 'N/A' },
+      { label: 'Date d\'échéance', value: new Date(invoiceData.finLo).toLocaleDateString('fr-FR') },
+      { label: 'Type de location', value: invoiceData.typeLo },
+      { label: 'Désignation', value: invoiceData.designationMat || invoiceData.nomSalle || 'Non spécifié' },
+      { label: 'Période', value: `${new Date(invoiceData.debLo).toLocaleDateString('fr-FR')} - ${new Date(invoiceData.finLo).toLocaleDateString('fr-FR')}` },
+      { label: 'Durée', value: `${Math.ceil((new Date(invoiceData.finLo) - new Date(invoiceData.debLo)) / (1000 * 60 * 60 * 24))} jours` }
+    ];
+    
+    if (invoiceData.joursRetard > 0) {
+      details.push({ 
+        label: `Retard (${invoiceData.joursRetard} jours)`, 
+        value: '⚠️ Pénalité applicable' 
+      });
+    }
+    
+    details.forEach((detail, index) => {
+      const y = tableY + 8 + (index * 7);
+      
+      if (index % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(marginLeft, y, pageWidth - marginLeft - marginRight, 7, 'F');
+      }
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(detail.label, marginLeft + 5, y + 5);
+      doc.text(detail.value, pageWidth - marginRight - 5, y + 5, { align: 'right' });
+    });
+    
+    // ===== RÉCAPITULATIF FINANCIER =====
+    const financeY = tableY + 8 + (details.length * 7) + 15;
+    
+    doc.setFontSize(12);
+    doc.setTextColor(52, 58, 64);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RÉCAPITULATIF FINANCIER', marginLeft, financeY);
+    
+    const montantBase = parseFloat(invoiceData.tarifTot || invoiceData.montantPaie || 0);
+    const penalite = invoiceData.joursRetard > 0 ? montantBase * 0.02 * invoiceData.joursRetard : 0;
+    const montantTotal = montantBase + penalite;
+    
+    const financeTableY = financeY + 8;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Montant de la location:', marginLeft + 5, financeTableY + 5);
+    doc.text(`${montantBase.toLocaleString('fr-FR')} Ar`, 
+            pageWidth - marginRight - 5, financeTableY + 5, { align: 'right' });
+    
+    if (penalite > 0) {
+      doc.text(`Pénalité de retard (${invoiceData.joursRetard} jours @ 2%):`, 
+              marginLeft + 5, financeTableY + 15);
+      doc.setTextColor(220, 53, 69);
+      doc.text(`+ ${penalite.toLocaleString('fr-FR')} Ar`, 
+              pageWidth - marginRight - 5, financeTableY + 15, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+    }
+    
+    const totalLineY = penalite > 0 ? financeTableY + 25 : financeTableY + 15;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(marginLeft + 50, totalLineY + 5, pageWidth - marginRight - 50, totalLineY + 5);
+    
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(40, 167, 69);
+    doc.text('TOTAL TTC:', marginLeft + 5, totalLineY + 15);
+    doc.text(`${montantTotal.toLocaleString('fr-FR')} Ar`, 
+            pageWidth - marginRight - 5, totalLineY + 15, { align: 'right' });
+    
+    // Montant en toutes lettres
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'italic');
+    
+    // ===== FONCTION UTILITAIRE POUR CHIFFRES EN LETTRES =====
+    const chiffreEnLettres = (montant) => {
+      const unites = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
+      const dizaines = ['', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
+      const exceptions = {
+        11: 'onze', 12: 'douze', 13: 'treize', 14: 'quatorze', 15: 'quinze',
+        16: 'seize', 17: 'dix-sept', 18: 'dix-huit', 19: 'dix-neuf'
+      };
+      
+      const partieEntiere = Math.floor(montant);
+      if (partieEntiere === 0) return 'zéro';
+      if (partieEntiere === 1) return 'un';
+      
+      let resultat = '';
+      
+      if (partieEntiere >= 1000000) {
+        const millions = Math.floor(partieEntiere / 1000000);
+        resultat += (millions === 1 ? 'un million' : `${chiffreEnPetit(millions)} millions `);
+        const reste = partieEntiere % 1000000;
+        if (reste > 0) resultat += chiffreEnPetit(reste);
+      } else if (partieEntiere >= 1000) {
+        const milliers = Math.floor(partieEntiere / 1000);
+        resultat += (milliers === 1 ? 'mille' : `${chiffreEnPetit(milliers)} mille `);
+        const reste = partieEntiere % 1000;
+        if (reste > 0) resultat += chiffreEnPetit(reste);
+      } else {
+        resultat = chiffreEnPetit(partieEntiere);
+      }
+      
+      resultat += ' Ariary';
+      
+      function chiffreEnPetit(n) {
+        if (n === 0) return '';
+        if (n < 10) return unites[n];
+        if (n in exceptions) return exceptions[n];
+        if (n < 100) {
+          const d = Math.floor(n / 10);
+          const u = n % 10;
+          let result = dizaines[d];
+          if (u > 0) {
+            if (d === 7 || d === 9) {
+              result = dizaines[d - 1] + '-' + exceptions[u + 10];
+            } else {
+              const separator = (d === 1 && u > 0) ? '-' : (d === 8 && u === 0) ? 's' : '-';
+              result += (u === 1 && d > 1) ? ' et ' : separator;
+              result += unites[u];
+            }
+          }
+          return result;
+        }
+        if (n < 1000) {
+          const c = Math.floor(n / 100);
+          const reste = n % 100;
+          let result = (c === 1 ? 'cent' : `${unites[c]} cent`);
+          if (reste > 0) result += ` ${chiffreEnPetit(reste)}`;
+          return result;
+        }
+        return '';
+      }
+      
+      return resultat.charAt(0).toUpperCase() + resultat.slice(1);
+    };
+    
+    const montantLettres = chiffreEnLettres(montantTotal);
+    doc.text(`Arrêtée la présente facture à la somme de: ${montantLettres}`, 
+            marginLeft, totalLineY + 25);
+    
+    // ===== CONDITIONS ET MENTIONS =====
+    const conditionsY = totalLineY + 35;
+    
+    doc.setFontSize(10);
+    doc.setTextColor(4, 5, 143);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONDITIONS DE PAIEMENT', marginLeft, conditionsY);
+    
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    
+    const conditions = [
+      '• Paiement à réception de la facture',
+      '• Délai de paiement: 30 jours nets',
+      '• Escompte pour paiement anticipé: Non applicable',
+      '• Pénalité de retard: 2% par mois de retard',
+      '• En cas de litige, compétence exclusive des tribunaux de Fianarantsoa'
+    ];
+    
+    conditions.forEach((condition, index) => {
+      doc.text(condition, marginLeft, conditionsY + 8 + (index * 4));
+    });
+    
+    // ===== PIED DE PAGE PROFESSIONNEL =====
+    const footerY = 270;
+    
+    doc.setDrawColor(4, 5, 143);
+    doc.setLineWidth(0.5);
+    doc.line(marginLeft, footerY, pageWidth - marginRight, footerY);
+    
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'bold');
+    doc.text('COORDONNÉES BANCAIRES:', marginLeft, footerY + 8);
+    
+    doc.setFont('helvetica', 'normal');
+    const coordonnees = [
+      'Bank of Africa Madagascar',
+      'RIB: XXXX XXXX XXXX XXXX XXXXX XX',
+      'IBAN: MGXX XXXX XXXX XXXX XXXX XXXX XXXX',
+      'Code BIC: XXXXXXXXXXX'
+    ];
+    
+    coordonnees.forEach((info, index) => {
+      doc.text(info, marginLeft, footerY + 15 + (index * 4));
+    });
+    
+    doc.setFont('helvetica', 'italic');
+    doc.text('Facture électronique - Document ayant valeur contractuelle', 
+            centerX, footerY + 35, { align: 'center' });
+    doc.text('CEDII - Centre d\'Échange, de Documentation et d\'Information Inter-Institutionnelles', 
+            centerX, footerY + 39, { align: 'center' });
+    doc.text(`Généré le ${new Date().toLocaleString('fr-FR')}`, 
+            centerX, footerY + 43, { align: 'center' });
+    
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Page ${i}/${pageCount}`, pageWidth - marginRight, 295, { align: 'right' });
+    }
+    
+    // ===== GÉNÉRATION DU PDF =====
+    const pdfBuffer = doc.output('arraybuffer');
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="facture-${invoiceData.numeroFacture}.pdf"`);
+    res.send(Buffer.from(pdfBuffer));
+
+  } catch (error) {
+    console.error("❌ Erreur génération PDF:", error);
+    
+    try {
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.setTextColor(220, 53, 69);
+      doc.text('ERREUR DE GÉNÉRATION', 105, 50, { align: 'center' });
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Impossible de générer la facture demandée', 105, 70, { align: 'center' });
+      doc.text(`Détail: ${error.message.substring(0, 80)}`, 105, 80, { align: 'center' });
+      const pdfBuffer = doc.output('arraybuffer');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="erreur-facture.pdf"');
+      res.send(Buffer.from(pdfBuffer));
+    } catch (fallbackError) {
+      res.status(500).json({
+        success: false,
+        message: "Erreur lors de la génération du PDF",
+        error: error.message
+      });
+    }
+  }
+};
+*/
+
 exports.downloadPaidInvoice = async (req, res) => {
   const { locationId } = req.params;
 
@@ -1268,6 +2596,7 @@ startxref
 /**
  * Génère un PDF détaillé pour les factures payées
  */
+/*
 function generateDetailedPDF(invoiceData) {
   const PDFDocument = require('jspdf');
   const doc = new PDFDocument({ margin: 50 });
@@ -1395,6 +2724,412 @@ function generateDetailedPDF(invoiceData) {
 
   return Buffer.concat(buffers);
 }
+
+*/
+
+function generateDetailedPDF(invoiceData) {
+  const { jsPDF } = require('jspdf');
+  const doc = new jsPDF();
+  
+  // Variables pour la mise en page
+  const margeGauche = 15;
+  const margeDroite = 15;
+  const ligneCentre = 105;
+  const largeurPage = 210; // A4 width in mm
+  let yPosition = 50;
+  
+  // ===== EN-TÊTE PROFESSIONNELLE =====
+  try {
+    // Logo CEDII (à gauche) - Essayer plusieurs chemins
+    const cheminsLogo = [
+      '/images/cedii-logo.jpg',
+      'public/images/cedii-logo.jpg',
+      './images/cedii-logo.jpg',
+      'cedii-logo.jpg'
+    ];
+    
+    let logoAjoute = false;
+    for (const chemin of cheminsLogo) {
+      try {
+        doc.addImage(chemin, 'JPEG', margeGauche, 15, 30, 30);
+        logoAjoute = true;
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    if (!logoAjoute) {
+      // Texte de remplacement pour le logo
+      doc.setFontSize(14);
+      doc.setTextColor(0, 51, 102);
+      doc.setFont("helvetica", "bold");
+      doc.text('CEDII', margeGauche + 5, 25);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text("Centre d'Échange, de", margeGauche + 5, 32);
+      doc.text("Documentation et", margeGauche + 5, 37);
+      doc.text("d'Information", margeGauche + 5, 42);
+      doc.text("Inter-Institutionnelles", margeGauche + 5, 47);
+    }
+  } catch (error) {
+    console.warn('Logo non chargé:', error);
+  }
+  
+  // Titre principal
+  doc.setFontSize(20);
+  doc.setTextColor(4, 5, 143); // Bleu foncé CEDII
+  doc.setFont("helvetica", "bold");
+  doc.text('CEDII LOCATIONS', ligneCentre, 25, { align: 'center' });
+  
+  // Titre Facture
+  doc.setFontSize(18);
+  doc.setTextColor(88, 17, 238); // Violet CEDII
+  doc.text('FACTURE', ligneCentre, 35, { align: 'center' });
+  
+  // Sous-titre
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.setFont("helvetica", "normal");
+  doc.text('Centre d\'Échange, de Documentation et d\'Information Inter-Institutionnelles', ligneCentre, 42, { align: 'center' });
+  
+  // Ligne séparatrice
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.5);
+  doc.line(20, 48, 190, 48);
+  
+  // ===== INFORMATIONS FACTURE ET CLIENT (2 COLONNES) =====
+  yPosition = 55;
+  doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "bold");
+  doc.text('INFORMATIONS DE LA FACTURE :', margeGauche, yPosition);
+  yPosition += 10;
+  
+  // === COLONNE GAUCHE - INFORMATIONS FACTURE ===
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text('DÉTAILS FACTURE :', margeGauche, yPosition);
+  doc.setFont("helvetica", "normal");
+  
+  const infoFacture = [
+    `Numéro: ${invoiceData.numeroFacture || 'N/A'}`,
+    `Date: ${invoiceData.dateFacturation ? new Date(invoiceData.dateFacturation).toLocaleDateString('fr-FR') : 'N/A'}`,
+    `Statut: ${invoiceData.statutPaie || 'Non spécifié'}`,
+    `Mode de paiement: ${invoiceData.modePaie || 'Non spécifié'}`,
+    `Référence location: #${invoiceData.idLo || 'N/A'}`
+  ];
+  
+  infoFacture.forEach((ligne, index) => {
+    doc.text(String(ligne), margeGauche + 5, yPosition + 7 + (index * 5));
+  });
+  
+  // === COLONNE DROITE - INFORMATIONS CLIENT ===
+  doc.setFont("helvetica", "bold");
+  doc.text('INFORMATIONS CLIENT :', ligneCentre + 10, yPosition);
+  doc.setFont("helvetica", "normal");
+  
+  const clientInfo = [
+    `Nom: ${invoiceData.nomCli || 'N/A'}`,
+    `Prénom: ${invoiceData.prenomCli || 'N/A'}`,
+    `Email: ${invoiceData.emailCli || 'Non renseigné'}`,
+    `Téléphone: ${invoiceData.telephoneCli || 'Non renseigné'}`,
+    invoiceData.addresseCli ? `Adresse: ${invoiceData.addresseCli}` : ''
+  ].filter(Boolean); // Supprime les lignes vides
+  
+  clientInfo.forEach((ligne, index) => {
+    doc.text(String(ligne), ligneCentre + 15, yPosition + 7 + (index * 5));
+  });
+  
+  yPosition += 40;
+  
+  // Ligne séparatrice
+  doc.setDrawColor(0, 51, 102);
+  doc.setLineWidth(0.3);
+  doc.line(20, yPosition, 190, yPosition);
+  yPosition += 15;
+  
+  // ===== DÉTAILS DE LA LOCATION =====
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text('DÉTAILS DE LA LOCATION :', margeGauche, yPosition);
+  yPosition += 10;
+  
+  // Encadré pour les détails de location
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.2);
+  doc.rect(margeGauche, yPosition - 2, 175, 35);
+  
+  const detailsLocation = [
+    { label: 'Type:', value: invoiceData.typeLo || 'N/A' },
+    { label: 'Date début:', value: invoiceData.debLo ? new Date(invoiceData.debLo).toLocaleString('fr-FR') : 'N/A' },
+    { label: 'Date fin:', value: invoiceData.finLo ? new Date(invoiceData.finLo).toLocaleString('fr-FR') : 'N/A' },
+    { label: 'Durée:', value: invoiceData.dureeLo ? `${invoiceData.dureeLo} jours` : 'N/A' }
+  ];
+  
+  // Ajouter les informations spécifiques selon le type
+  if (invoiceData.designationMat) {
+    detailsLocation.push(
+      { label: 'Matériel:', value: invoiceData.designationMat },
+      { label: 'Code matériel:', value: invoiceData.codeMat || 'N/A' }
+    );
+  }
+  
+  if (invoiceData.nomSalle) {
+    detailsLocation.push(
+      { label: 'Salle:', value: invoiceData.nomSalle },
+      { label: 'Numéro:', value: invoiceData.numeroSalle || 'N/A' }
+    );
+  }
+  
+  detailsLocation.forEach((detail, index) => {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text(String(detail.label), margeGauche + 5, yPosition + (index * 5) + 5);
+    doc.setFont("helvetica", "normal");
+    
+    // Positionner la valeur plus à droite
+    const valueX = margeGauche + 50;
+    doc.text(String(detail.value), valueX, yPosition + (index * 5) + 5);
+  });
+  
+  yPosition += 45;
+  
+  // ===== RÉCAPITULATIF DES MONTANTS =====
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text('RÉCAPITULATIF DES MONTANTS :', margeGauche, yPosition);
+  yPosition += 10;
+  
+  // Encadré pour les montants
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.2);
+  const hauteurMontants = 45;
+  doc.rect(margeGauche, yPosition - 2, 175, hauteurMontants);
+  
+  const montantLocation = parseFloat(invoiceData.tarifTot || 0);
+  const penalite = parseFloat(invoiceData.penalite || 0);
+  const montantTotal = parseFloat(invoiceData.montantPaie || montantLocation + penalite);
+  
+  // Tableau des montants
+  const montants = [
+    { 
+      label: 'Montant de la location:', 
+      value: montantLocation, 
+      style: 'normal' 
+    }
+  ];
+  
+  if (penalite > 0 && invoiceData.joursRetard) {
+    montants.push({
+      label: `Pénalité de retard (${invoiceData.joursRetard} jours):`,
+      value: penalite,
+      style: 'warning'
+    });
+  }
+  
+  montants.push({
+    label: 'MONTANT TOTAL:',
+    value: montantTotal,
+    style: 'total'
+  });
+  
+  montants.forEach((item, index) => {
+    const ligneY = yPosition + (index * 8) + 5;
+    
+    // Libellé
+    doc.setFontSize(10);
+    if (item.style === 'total') {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(40, 167, 69); // Vert pour le total
+    } else if (item.style === 'warning') {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(220, 53, 69); // Rouge pour les pénalités
+    } else {
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+    }
+    
+    doc.text(String(item.label), margeGauche + 5, ligneY);
+    
+    // Valeur (alignée à droite)
+    const montantFormat = `${item.value.toLocaleString('fr-FR')} Ar`;
+    const textWidth = doc.getTextWidth(montantFormat);
+    doc.text(montantFormat, margeGauche + 175 - textWidth - 5, ligneY);
+  });
+  
+  yPosition += hauteurMontants + 20;
+  
+  // ===== INFORMATIONS DE PAIEMENT =====
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "bold");
+  doc.text('INFORMATIONS DE PAIEMENT :', margeGauche, yPosition);
+  yPosition += 8;
+  
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  
+  const infosPaiement = [
+    'Paiement accepté: Espèces, Cheque, Mobile Money',
+    
+  ];
+  
+  infosPaiement.forEach((info, index) => {
+    doc.text(String(info), margeGauche, yPosition + (index * 4));
+  });
+  
+  yPosition += 25;
+  
+  // ===== CONDITIONS GÉNÉRALES =====
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "bold");
+  doc.text('CONDITIONS GÉNÉRALES :', margeGauche, yPosition);
+  yPosition += 8;
+  
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  
+  const conditions = [
+    
+    "1. Tout retard de paiement entraînera des pénalités de retard de 1% par heures ou jours.",
+
+    "4. la location sera payé dès que votre location est confirmée jusqu'avant de le terminé.",
+    "5. Pour toute réclamation, merci de nous contacter dans les 7 jours."
+  ];
+  
+  conditions.forEach(condition => {
+    if (yPosition > 270) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    try {
+      const splitText = doc.splitTextToSize(String(condition), 170);
+      if (Array.isArray(splitText)) {
+        splitText.forEach((line) => {
+          if (yPosition > 280) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          doc.text(String(line), margeGauche, yPosition);
+          yPosition += 4;
+        });
+      } else {
+        doc.text(String(condition), margeGauche, yPosition);
+        yPosition += 4;
+      }
+    } catch (error) {
+      doc.text(String(condition), margeGauche, yPosition);
+      yPosition += 4;
+    }
+  });
+  
+  yPosition += 10;
+  
+  // ===== SIGNATURES =====
+  // Ligne de séparation
+  doc.setDrawColor(0, 51, 102);
+  doc.setLineWidth(0.5);
+  doc.line(20, yPosition, 190, yPosition);
+  yPosition += 15;
+  
+  // Zone signatures
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  
+  // Signature Client (droite)
+  doc.text('Pour acquit, bon pour accord,', ligneCentre + 40, yPosition, { align: 'center' });
+  doc.text('Le Client,', ligneCentre + 40, yPosition + 5, { align: 'center' });
+  doc.setDrawColor(150, 150, 150);
+  doc.line(ligneCentre + 20, yPosition + 15, ligneCentre + 60, yPosition + 15);
+  doc.text('Signature et cachet', ligneCentre + 40, yPosition + 25, { align: 'center' });
+  doc.text('Date: _____/_____/_____', ligneCentre + 40, yPosition + 30, { align: 'center' });
+  
+  // Signature CEDII (gauche)
+  doc.text('Pour le CEDII,', margeGauche + 40, yPosition, { align: 'center' });
+  doc.text('Le Responsable Financier,', margeGauche + 40, yPosition + 5, { align: 'center' });
+  doc.setDrawColor(150, 150, 150);
+  doc.line(margeGauche + 20, yPosition + 15, margeGauche + 60, yPosition + 15);
+  doc.text('Signature et cachet', margeGauche + 40, yPosition + 25, { align: 'center' });
+  doc.text('Date: _____/_____/_____', margeGauche + 40, yPosition + 30, { align: 'center' });
+  
+  // ===== PIED DE PAGE =====
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    
+    // Ligne de séparation du footer
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.2);
+    doc.line(20, 280, 190, 280);
+    
+    // Informations CEDII
+    const footerY = 285;
+    doc.text('CEDII - Centre d\'Échange, de Documentation et d\'Information Inter-Institutionnelles', ligneCentre, footerY, { align: 'center' });
+    doc.text('Boulevard Philibert Tsiranana Tsianolondroa, Fianarantsoa 301 - Madagascar', ligneCentre, footerY + 5, { align: 'center' });
+    doc.text('Tél: +261 34 03 931 91/ +261 34 60 020 34 | Email: cedii.fia@gmail.mg', ligneCentre, footerY + 10, { align: 'center' });
+    doc.text(`Facture ${invoiceData.numeroFacture || ''} - Page ${i}/${pageCount}`, ligneCentre, footerY + 15, { align: 'center' });
+    doc.text('NIF: xxxxxxxx | STAT: xxxxxxxx', ligneCentre, footerY + 20, { align: 'center' });
+  }
+  
+  // Générer le PDF
+  const pdfBlob = doc.output('blob');
+  return pdfBlob;
+}
+
+// Version adaptée pour l'usage avec Buffer (si nécessaire)
+function generateDetailedPDFWithBuffer(invoiceData) {
+  const pdfBlob = generateDetailedPDF(invoiceData);
+  
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      resolve(Buffer.from(reader.result));
+    };
+    reader.readAsArrayBuffer(pdfBlob);
+  });
+}
+
+// Exemple d'utilisation
+async function exempleUtilisation() {
+  const invoiceData = {
+    numeroFacture: 'FAC-2024-001',
+    dateFacturation: new Date(),
+    statutPaie: 'Payé',
+    modePaie: 'Virement bancaire',
+    idLo: 'LOC-2024-123',
+    prenomCli: 'Jean',
+    nomCli: 'Dupont',
+    emailCli: 'jean.dupont@email.com',
+    telephoneCli: '+261 32 12 345 67',
+    addresseCli: '123 Rue de la République, Fianarantsoa',
+    typeLo: 'Matériel',
+    debLo: new Date('2024-01-15'),
+    finLo: new Date('2024-01-20'),
+    dureeLo: 5,
+    designationMat: 'Ordinateur Portable HP EliteBook',
+    codeMat: 'MAT-001',
+    tarifTot: 250000,
+    penalite: 0,
+    montantPaie: 250000,
+    joursRetard: 0
+  };
+  
+  try {
+    const pdfBuffer = await generateDetailedPDFWithBuffer(invoiceData);
+    // Utiliser le buffer pour sauvegarder ou envoyer le PDF
+    return pdfBuffer;
+  } catch (error) {
+    console.error('Erreur génération PDF:', error);
+    throw error;
+  }
+}
+
 // Fonctions simplifiées pour les routes manquantes
 exports.getFacturationData = async (req, res) => {
   res.status(200).send({ message: "Fonction en développement" });
@@ -1644,11 +3379,787 @@ function generateEmailTemplate(data) {
 }
 */
 
-// 📊 RAPPORTS ET SYNTHÈSE FINANCIÈRE
+// Fonction réutilisable pour générer le PDF
 
-/**
- * Récupère les données pour les rapports financiers
- */
+
+
+/*
+
+async function generateInvoicePDF(invoiceData) {
+  try {
+    // ===== CRÉATION PDF PROFESSIONNEL =====
+    const doc = new jsPDF();
+    
+    // ===== CONSTANTES DE MISE EN PAGE =====
+    const pageWidth = 210;
+    const marginLeft = 15;
+    const marginRight = 15;
+    const centerX = pageWidth / 2;
+    const columnWidth = (pageWidth - marginLeft - marginRight) / 2;
+    
+    // Fond d'en-tête bleu CEDII
+    doc.setFillColor(4, 5, 143); // Bleu CEDII
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    // --- LOGO CEDII ---
+    const cheminsLogo = [
+      path.join(process.cwd(), 'frontend', 'public', 'images', 'logo.jpg'),
+      path.join(__dirname, '../frontend/public/images/logo.jpg'),
+      path.join(__dirname, '../../frontend/public/images/logo.jpg'),
+      path.join(process.cwd(), 'public', 'images', 'logo.jpg'),
+      path.join(process.cwd(), 'images', 'logo.jpg'),
+      'logo.jpg'
+    ];
+    
+    let logoAjoute = false;
+    
+    for (const chemin of cheminsLogo) {
+      try {
+        if (fs.existsSync(chemin)) {
+          try {
+            doc.addImage(chemin, 'JPEG', marginLeft, 8, 30, 30);
+            logoAjoute = true;
+            break;
+          } catch (addError) {
+            try {
+              const imgData = fs.readFileSync(chemin);
+              const base64Image = imgData.toString('base64');
+              const dataUrl = `data:image/jpeg;base64,${base64Image}`;
+              doc.addImage(dataUrl, 'JPEG', marginLeft, 8, 30, 30);
+              logoAjoute = true;
+              break;
+            } catch (dataUrlError) {
+              continue;
+            }
+          }
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    if (!logoAjoute) {
+      doc.setFontSize(14);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text('CEDII', marginLeft + 5, 20);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text("Centre d'Échange,", marginLeft + 5, 27);
+      doc.text("Documentation d'Information ", marginLeft + 5, 32);
+      doc.text("Inter-Institutionnelles de Fianarantsoa", marginLeft + 5, 37);
+    }
+    
+    // Titre principal
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    
+    if (logoAjoute) {
+      doc.text('CEDII LOCATIONS', centerX, 20, { align: 'center' });
+    } else {
+      doc.text('CEDII LOCATIONS', centerX + 15, 20, { align: 'center' });
+    }
+    
+    // Badge "FACTURE"
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(255, 255, 255);
+    doc.roundedRect(centerX - 25, 25, 50, 8, 4, 4, 'F');
+    doc.setTextColor(4, 5, 143);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FACTURE', centerX, 30, { align: 'center' });
+    
+    // Numéro de facture
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.text(invoiceData.numeroFacture || 'N/A', centerX, 38, { align: 'center' });
+    
+    // Ligne décorative sous l'en-tête
+    doc.setDrawColor(88, 17, 238);
+    doc.setLineWidth(0.8);
+    doc.line(marginLeft, 45, pageWidth - marginRight, 45);
+    
+    // ===== SECTION INFORMATIONS (DEUX COLONNES) =====
+    const startY = 55;
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(centerX, startY - 5, centerX, startY + 65);
+    
+    // === COLONNE GAUCHE - ÉMETTEUR (CEDII) ===
+    doc.setFontSize(11);
+    doc.setTextColor(4, 5, 143);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ÉMETTEUR', marginLeft, startY);
+    
+    doc.setDrawColor(4, 5, 143);
+    doc.setLineWidth(0.2);
+    doc.setFillColor(240, 245, 255);
+    doc.roundedRect(marginLeft, startY + 5, columnWidth, 60, 3, 3, 'FD');
+    
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    
+    const emitterInfo = [
+      { label: 'Société', value: 'CEDII' },
+      { label: 'Adresse', value: 'Boulevard Philibert Tsiranana Tsianolondroa' },
+      { label: 'Ville', value: 'Fianarantsoa 301, Madagascar' },
+      { label: 'Téléphone', value: ' +261 34 03 931 91/ +261 34 60 020 34' },
+      { label: 'Email', value: 'cedii.fia@gmail.mg' },
+      { label: 'NIF', value: 'X XXXX XXXXX X' },
+      { label: 'STAT', value: 'XXXXX XXXXX X' }
+    ];
+    
+    emitterInfo.forEach((info, index) => {
+      const y = startY + 12 + (index * 6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(info.label + ':', marginLeft + 5, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(info.value || '', marginLeft + 25, y);
+    });
+    
+    // === COLONNE DROITE - CLIENT ===
+    doc.setFontSize(11);
+    doc.setTextColor(88, 17, 238);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLIENT', centerX + 5, startY);
+    
+    doc.setDrawColor(88, 17, 238);
+    doc.setLineWidth(0.2);
+    doc.setFillColor(248, 246, 255);
+    doc.roundedRect(centerX + 5, startY + 5, columnWidth - 5, 60, 3, 3, 'FD');
+    
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    
+    const clientInfo = [
+      { label: 'Nom', value: invoiceData.nomClient || 'Non renseigné' },
+      { label: 'Email', value: invoiceData.emailCli || 'Non renseigné' },
+      { label: 'Téléphone', value: invoiceData.telephoneCli || 'Non renseigné' },
+      { label: 'Adresse', value: invoiceData.addresseCli || 'Non renseigné' },
+      { label: 'Référence', value: `#${invoiceData.idLo || 'N/A'}` },
+      { label: 'Type', value: invoiceData.typeLo || 'Location' },
+      { label: 'Statut', value: invoiceData.statutPaie || 'En attente' },
+      { label: 'Mode paiement', value: invoiceData.modePaie || 'Non spécifié' }
+    ];
+    
+    clientInfo.forEach((info, index) => {
+      const y = startY + 12 + (index * 6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(info.label + ':', centerX + 10, y);
+      doc.setFont('helvetica', 'normal');
+      
+      const value = String(info.value || '');
+      if (value.length > 30) {
+        const parts = doc.splitTextToSize(value, columnWidth - 40);
+        parts.forEach((part, i) => {
+          doc.text(part, centerX + 35, y + (i * 4));
+        });
+      } else {
+        doc.text(value, centerX + 35, y);
+      }
+    });
+    
+    // ===== DÉTAILS DE LA FACTURE =====
+    const detailsY = startY + 75;
+    
+    doc.setFontSize(12);
+    doc.setTextColor(52, 58, 64);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DÉTAILS DE LA FACTURE', marginLeft, detailsY);
+    
+    const tableY = detailsY + 8;
+    
+    doc.setFillColor(4, 5, 143);
+    doc.rect(marginLeft, tableY, pageWidth - marginLeft - marginRight, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.text('DESCRIPTION', marginLeft + 5, tableY + 6);
+    doc.text('VALEUR', pageWidth - marginRight - 30, tableY + 6, { align: 'right' });
+    
+    const details = [
+      { label: 'Numéro de facture', value: invoiceData.numeroFacture || 'N/A' },
+      { label: 'Date de facturation', value: invoiceData.dateFacturation ? 
+          new Date(invoiceData.dateFacturation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR') },
+      { label: 'Date d\'échéance', value: invoiceData.finLo ? 
+          new Date(invoiceData.finLo).toLocaleDateString('fr-FR') : 'N/A' },
+      { label: 'Type de location', value: invoiceData.typeLo || 'Location' },
+      { label: 'Désignation', value: invoiceData.designationMat || invoiceData.nomSalle || 'Non spécifié' },
+    ];
+    
+    if (invoiceData.debLo && invoiceData.finLo) {
+      details.push({ 
+        label: 'Période', 
+        value: `${new Date(invoiceData.debLo).toLocaleDateString('fr-FR')} - ${new Date(invoiceData.finLo).toLocaleDateString('fr-FR')}` 
+      });
+      
+      const duree = Math.ceil((new Date(invoiceData.finLo) - new Date(invoiceData.debLo)) / (1000 * 60 * 60 * 24));
+      details.push({ label: 'Durée', value: `${duree} jours` });
+    }
+    
+    if (invoiceData.joursRetard > 0) {
+      details.push({ 
+        label: `Retard (${invoiceData.joursRetard} jours)`, 
+        value: '⚠️ Pénalité applicable' 
+      });
+    }
+    
+    details.forEach((detail, index) => {
+      const y = tableY + 8 + (index * 7);
+      
+      if (index % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(marginLeft, y, pageWidth - marginLeft - marginRight, 7, 'F');
+      }
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(detail.label, marginLeft + 5, y + 5);
+      doc.text(detail.value, pageWidth - marginRight - 5, y + 5, { align: 'right' });
+    });
+    
+    // ===== RÉCAPITULATIF FINANCIER =====
+    const financeY = tableY + 8 + (details.length * 7) + 15;
+    
+    doc.setFontSize(12);
+    doc.setTextColor(52, 58, 64);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RÉCAPITULATIF FINANCIER', marginLeft, financeY);
+    
+    const montantBase = parseFloat(invoiceData.tarifTot || invoiceData.montantPaie || 0);
+    const penaliteCalc = invoiceData.joursRetard > 0 ? montantBase * 0.02 * invoiceData.joursRetard : 0;
+    const montantTotal = montantBase + penaliteCalc;
+    
+    const financeTableY = financeY + 8;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Montant de la location:', marginLeft + 5, financeTableY + 5);
+    doc.text(`${montantBase.toLocaleString('fr-FR')} Ar`, 
+            pageWidth - marginRight - 5, financeTableY + 5, { align: 'right' });
+    
+    if (penaliteCalc > 0) {
+      doc.text(`Pénalité de retard (${invoiceData.joursRetard} jours @ 2%):`, 
+              marginLeft + 5, financeTableY + 15);
+      doc.setTextColor(220, 53, 69);
+      doc.text(`+ ${penaliteCalc.toLocaleString('fr-FR')} Ar`, 
+              pageWidth - marginRight - 5, financeTableY + 15, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+    }
+    
+    const totalLineY = penaliteCalc > 0 ? financeTableY + 25 : financeTableY + 15;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(marginLeft + 50, totalLineY + 5, pageWidth - marginRight - 50, totalLineY + 5);
+    
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(40, 167, 69);
+    doc.text('TOTAL TTC:', marginLeft + 5, totalLineY + 15);
+    doc.text(`${montantTotal.toLocaleString('fr-FR')} Ar`, 
+            pageWidth - marginRight - 5, totalLineY + 15, { align: 'right' });
+    
+    // ===== CONDITIONS ET MENTIONS =====
+    const conditionsY = totalLineY + 35;
+    
+    doc.setFontSize(10);
+    doc.setTextColor(4, 5, 143);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONDITIONS DE PAIEMENT', marginLeft, conditionsY);
+    
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    
+    const conditions = [
+      '• Paiement à réception de la facture',
+      '• Pénalité de retard: 1% par heure ou jour de retard',
+    ];
+    
+    conditions.forEach((condition, index) => {
+      doc.text(condition, marginLeft, conditionsY + 8 + (index * 4));
+    });
+    
+    // ===== PIED DE PAGE PROFESSIONNEL =====
+    const footerY = 270;
+    
+    doc.setDrawColor(4, 5, 143);
+    doc.setLineWidth(0.5);
+    doc.line(marginLeft, footerY, pageWidth - marginRight, footerY);
+    
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Facture électronique - Document ayant valeur contractuelle', 
+            centerX, footerY + 8, { align: 'center' });
+    doc.text('CEDII - Centre d\'Échange, de Documentation et d\'Information Inter-Institutionnelles', 
+            centerX, footerY + 12, { align: 'center' });
+    doc.text(`Généré le ${new Date().toLocaleString('fr-FR')}`, 
+            centerX, footerY + 16, { align: 'center' });
+    
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Page ${i}/${pageCount}`, pageWidth - marginRight, 295, { align: 'right' });
+    }
+    
+    // ===== GÉNÉRATION DU BUFFER =====
+    const pdfArrayBuffer = doc.output('arraybuffer');
+    const pdfBuffer = Buffer.from(pdfArrayBuffer);
+    
+    console.log(`✅ PDF généré: ${pdfBuffer.length} bytes`);
+    return pdfBuffer;
+    
+  } catch (error) {
+    console.error("❌ Erreur dans generateInvoicePDF:", error);
+    throw error;
+  }
+}
+*/
+
+async function generateInvoicePDF(invoiceData) {
+  try {
+    // ===== CRÉATION PDF PROFESSIONNEL =====
+    const doc = new jsPDF();
+    
+    // ===== CONSTANTES DE MISE EN PAGE =====
+    const pageWidth = 210;
+    const marginLeft = 15;
+    const marginRight = 15;
+    const centerX = pageWidth / 2;
+    const columnWidth = (pageWidth - marginLeft - marginRight) / 2;
+    
+    // Fond d'en-tête bleu CEDII
+    doc.setFillColor(4, 5, 143); // Bleu CEDII
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    // --- LOGO CEDII ---
+    const cheminsLogo = [
+      path.join(process.cwd(), 'frontend', 'public', 'images', 'logo.jpg'),
+      path.join(__dirname, '../frontend/public/images/logo.jpg'),
+      path.join(__dirname, '../../frontend/public/images/logo.jpg'),
+      path.join(process.cwd(), 'public', 'images', 'logo.jpg'),
+      path.join(process.cwd(), 'images', 'logo.jpg'),
+      'logo.jpg'
+    ];
+    
+    let logoAjoute = false;
+    
+    for (const chemin of cheminsLogo) {
+      try {
+        if (fs.existsSync(chemin)) {
+          try {
+            doc.addImage(chemin, 'JPEG', marginLeft, 8, 30, 30);
+            logoAjoute = true;
+            break;
+          } catch (addError) {
+            try {
+              const imgData = fs.readFileSync(chemin);
+              const base64Image = imgData.toString('base64');
+              const dataUrl = `data:image/jpeg;base64,${base64Image}`;
+              doc.addImage(dataUrl, 'JPEG', marginLeft, 8, 30, 30);
+              logoAjoute = true;
+              break;
+            } catch (dataUrlError) {
+              continue;
+            }
+          }
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    if (!logoAjoute) {
+      doc.setFontSize(14);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.text('CEDII', marginLeft + 5, 20);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text("Centre d'Échange,", marginLeft + 5, 27);
+      doc.text("Documentation d'Information ", marginLeft + 5, 32);
+      doc.text("Inter-Institutionnelles de Fianarantsoa", marginLeft + 5, 37);
+    }
+    
+    // Titre principal - différent selon le statut
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    
+    if (logoAjoute) {
+      doc.text('CEDII LOCATIONS', centerX, 20, { align: 'center' });
+    } else {
+      doc.text('CEDII LOCATIONS', centerX + 15, 20, { align: 'center' });
+    }
+    
+    // Badge différent selon le statut
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(255, 255, 255);
+    doc.roundedRect(centerX - 25, 25, 50, 8, 4, 4, 'F');
+    doc.setTextColor(4, 5, 143);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    
+    if (invoiceData.statutPaie === 'Effectué') {
+      doc.text('REÇU', centerX, 30, { align: 'center' });
+    } else {
+      doc.text('FACTURE', centerX, 30, { align: 'center' });
+    }
+    
+    // Numéro de facture
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.text(invoiceData.numeroFacture || 'N/A', centerX, 38, { align: 'center' });
+    
+    // Ligne décorative sous l'en-tête
+    doc.setDrawColor(88, 17, 238);
+    doc.setLineWidth(0.8);
+    doc.line(marginLeft, 45, pageWidth - marginRight, 45);
+    
+    // ===== SECTION INFORMATIONS (DEUX COLONNES) =====
+    const startY = 55;
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(centerX, startY - 5, centerX, startY + 65);
+    
+    // === COLONNE GAUCHE - ÉMETTEUR (CEDII) ===
+    doc.setFontSize(11);
+    doc.setTextColor(4, 5, 143);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ÉMETTEUR', marginLeft, startY);
+    
+    doc.setDrawColor(4, 5, 143);
+    doc.setLineWidth(0.2);
+    doc.setFillColor(240, 245, 255);
+    doc.roundedRect(marginLeft, startY + 5, columnWidth, 60, 3, 3, 'FD');
+    
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    
+    const emitterInfo = [
+      { label: 'Société', value: 'CEDII' },
+      { label: 'Adresse', value: 'Boulevard Philibert Tsiranana Tsianolondroa' },
+      { label: 'Ville', value: 'Fianarantsoa 301, Madagascar' },
+      { label: 'Téléphone', value: ' +261 34 03 931 91/ +261 34 60 020 34' },
+      { label: 'Email', value: 'cedii.fia@gmail.mg' },
+      { label: 'NIF', value: 'X XXXX XXXXX X' },
+      { label: 'STAT', value: 'XXXXX XXXXX X' }
+    ];
+    
+    emitterInfo.forEach((info, index) => {
+      const y = startY + 12 + (index * 6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(info.label + ':', marginLeft + 5, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(info.value || '', marginLeft + 25, y);
+    });
+    
+    // === COLONNE DROITE - CLIENT ===
+    doc.setFontSize(11);
+    doc.setTextColor(88, 17, 238);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLIENT', centerX + 5, startY);
+    
+    doc.setDrawColor(88, 17, 238);
+    doc.setLineWidth(0.2);
+    doc.setFillColor(248, 246, 255);
+    doc.roundedRect(centerX + 5, startY + 5, columnWidth - 5, 60, 3, 3, 'FD');
+    
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    
+    const clientInfo = [
+      { label: 'Nom', value: invoiceData.nomClient || 'Non renseigné' },
+      { label: 'Email', value: invoiceData.emailCli || 'Non renseigné' },
+      { label: 'Téléphone', value: invoiceData.telephoneCli || 'Non renseigné' },
+      { label: 'Adresse', value: invoiceData.addresseCli || 'Non renseigné' },
+      { label: 'Référence', value: `#${invoiceData.idLo || 'N/A'}` },
+      { label: 'Type', value: invoiceData.typeLo || 'Location' },
+      { label: 'Statut paiement', value: invoiceData.statutPaie || 'En attente' },
+      { label: 'Mode paiement', value: invoiceData.modePaie || 'Non spécifié' }
+    ];
+    
+    clientInfo.forEach((info, index) => {
+      const y = startY + 12 + (index * 6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(info.label + ':', centerX + 10, y);
+      doc.setFont('helvetica', 'normal');
+      
+      const value = String(info.value || '');
+      if (value.length > 30) {
+        const parts = doc.splitTextToSize(value, columnWidth - 40);
+        parts.forEach((part, i) => {
+          doc.text(part, centerX + 35, y + (i * 4));
+        });
+      } else {
+        doc.text(value, centerX + 35, y);
+      }
+    });
+    
+    // ===== CONTENU DIFFÉRENT SELON LE STATUT =====
+    const contentY = startY + 75;
+    
+    if (invoiceData.statutPaie === 'Effectué') {
+      // ===== CONTENU POUR PAIEMENT EFFECTUÉ =====
+      doc.setFontSize(16);
+      doc.setTextColor(40, 167, 69); // Vert
+      doc.setFont('helvetica', 'bold');
+      doc.text('Paiement Confirmé ✅', centerX, contentY, { align: 'center' });
+      
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Votre paiement a été traité avec succès.', centerX, contentY + 10, { align: 'center' });
+      
+      // Zone de remerciement
+      const thanksY = contentY + 25;
+      doc.setDrawColor(40, 167, 69);
+      doc.setFillColor(248, 255, 248);
+      doc.roundedRect(marginLeft, thanksY, pageWidth - marginLeft - marginRight, 40, 5, 5, 'FD');
+      
+      doc.setFontSize(14);
+      doc.setTextColor(40, 167, 69);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Merci pour votre confiance !', centerX, thanksY + 15, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      doc.text('A très bientôt', centerX, thanksY + 25, { align: 'center' });
+      
+      // Détails de la transaction
+      const detailsY = thanksY + 45;
+      doc.setFontSize(12);
+      doc.setTextColor(52, 58, 64);
+      doc.setFont('helvetica', 'bold');
+      doc.text('DÉTAILS DE LA TRANSACTION', marginLeft, detailsY);
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.2);
+      doc.setFillColor(250, 250, 250);
+      doc.rect(marginLeft, detailsY + 5, pageWidth - marginLeft - marginRight, 60, 'FD');
+      
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      
+      const transactionDetails = [
+       // { label: 'Numéro de transaction', value: invoiceData.numeroFacture || 'N/A' },
+        { label: 'Date de paiement', value: invoiceData.dateFacturation ? 
+            new Date(invoiceData.dateFacturation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR') },
+        { label: 'Mode de paiement', value: invoiceData.modePaie || 'Non spécifié' },
+        { label: 'Montant payé', value: `${parseFloat(invoiceData.montantPaie || 0).toLocaleString('fr-FR')} Ar` },
+        { label: 'Référence location', value: `LO-${invoiceData.idLo || 'N/A'}` },
+        { label: 'Statut', value: invoiceData.statutPaie || 'Effectué' }
+      ];
+      
+      transactionDetails.forEach((detail, index) => {
+        const y = detailsY + 12 + (index * 10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(detail.label + ':', marginLeft + 5, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(detail.value, marginLeft + 70, y);
+      });
+      
+      // Message final
+      const finalY = detailsY + 70;
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Ce document fait foi de paiement pour votre location.', centerX, finalY, { align: 'center' });
+      doc.text('Conservez-le pour vos archives.', centerX, finalY + 6, { align: 'center' });
+      
+    } else {
+      // ===== CONTENU POUR FACTURE (PAS ENCORE PAYÉE) =====
+      doc.setFontSize(12);
+      doc.setTextColor(52, 58, 64);
+      doc.setFont('helvetica', 'bold');
+      doc.text('DÉTAILS DE LA FACTURE', marginLeft, contentY);
+      
+      const tableY = contentY + 8;
+      
+      doc.setFillColor(4, 5, 143);
+      doc.rect(marginLeft, tableY, pageWidth - marginLeft - marginRight, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.text('DESCRIPTION', marginLeft + 5, tableY + 6);
+      doc.text('VALEUR', pageWidth - marginRight - 30, tableY + 6, { align: 'right' });
+      
+      const details = [
+        { label: 'Numéro de facture', value: invoiceData.numeroFacture || 'N/A' },
+        { label: 'Date de facturation', value: invoiceData.dateFacturation ? 
+            new Date(invoiceData.dateFacturation).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR') },
+        { label: 'Date d\'échéance', value: invoiceData.finLo ? 
+            new Date(invoiceData.finLo).toLocaleDateString('fr-FR') : 'N/A' },
+        { label: 'Type de location', value: invoiceData.typeLo || 'Location' },
+        { label: 'Désignation', value: invoiceData.designationMat || invoiceData.nomSalle || 'Non spécifié' },
+      ];
+      
+      if (invoiceData.debLo && invoiceData.finLo) {
+        details.push({ 
+          label: 'Période', 
+          value: `${new Date(invoiceData.debLo).toLocaleDateString('fr-FR')} - ${new Date(invoiceData.finLo).toLocaleDateString('fr-FR')}` 
+        });
+        
+        const duree = Math.ceil((new Date(invoiceData.finLo) - new Date(invoiceData.debLo)) / (1000 * 60 * 60 * 24));
+        details.push({ label: 'Durée', value: `${duree} jours` });
+      }
+      
+      if (invoiceData.joursRetard > 0) {
+        details.push({ 
+          label: `Retard (${invoiceData.joursRetard} jours)`, 
+          value: '⚠️ Pénalité applicable' 
+        });
+      }
+      
+      details.forEach((detail, index) => {
+        const y = tableY + 8 + (index * 7);
+        
+        if (index % 2 === 0) {
+          doc.setFillColor(250, 250, 250);
+          doc.rect(marginLeft, y, pageWidth - marginLeft - marginRight, 7, 'F');
+        }
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(detail.label, marginLeft + 5, y + 5);
+        doc.text(detail.value, pageWidth - marginRight - 5, y + 5, { align: 'right' });
+      });
+      
+      // ===== RÉCAPITULATIF FINANCIER =====
+      const financeY = tableY + 8 + (details.length * 7) + 15;
+      
+      doc.setFontSize(12);
+      doc.setTextColor(52, 58, 64);
+      doc.setFont('helvetica', 'bold');
+      doc.text('RÉCAPITULATIF FINANCIER', marginLeft, financeY);
+      
+      const montantBase = parseFloat(invoiceData.tarifTot || invoiceData.montantPaie || 0);
+      const penaliteCalc = invoiceData.joursRetard > 0 ? montantBase * 0.02 * invoiceData.joursRetard : 0;
+      const montantTotal = montantBase + penaliteCalc;
+      
+      const financeTableY = financeY + 8;
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Montant de la location:', marginLeft + 5, financeTableY + 5);
+      doc.text(`${montantBase.toLocaleString('fr-FR')} Ar`, 
+              pageWidth - marginRight - 5, financeTableY + 5, { align: 'right' });
+      
+      if (penaliteCalc > 0) {
+        doc.text(`Pénalité de retard (${invoiceData.joursRetard} jours @ 2%):`, 
+                marginLeft + 5, financeTableY + 15);
+        doc.setTextColor(220, 53, 69);
+        doc.text(`+ ${penaliteCalc.toLocaleString('fr-FR')} Ar`, 
+                pageWidth - marginRight - 5, financeTableY + 15, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+      }
+      
+      const totalLineY = penaliteCalc > 0 ? financeTableY + 25 : financeTableY + 15;
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.line(marginLeft + 50, totalLineY + 5, pageWidth - marginRight - 50, totalLineY + 5);
+      
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(40, 167, 69);
+      doc.text('TOTAL À PAYER:', marginLeft + 5, totalLineY + 15);
+      doc.text(`${montantTotal.toLocaleString('fr-FR')} Ar`, 
+              pageWidth - marginRight - 5, totalLineY + 15, { align: 'right' });
+    }
+    
+    // ===== CONDITIONS ET MENTIONS =====
+    let conditionsY;
+    if (invoiceData.statutPaie === 'Effectué') {
+      conditionsY = contentY + 150; // Position différente pour le reçu
+    } else {
+      conditionsY = contentY + 100; // Position pour la facture
+    }
+    
+    // Ajuster si on dépasse la page
+    if (conditionsY > 250) {
+      conditionsY = 250;
+    }
+    
+    doc.setFontSize(10);
+    doc.setTextColor(4, 5, 143);
+    doc.setFont('helvetica', 'bold');
+    
+    if (invoiceData.statutPaie === 'Effectué') {
+      doc.text('INFORMATIONS IMPORTANTES', marginLeft, conditionsY);
+    } else {
+      doc.text('CONDITIONS DE PAIEMENT', marginLeft, conditionsY);
+    }
+    
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'normal');
+    
+    let conditions;
+    if (invoiceData.statutPaie === 'Effectué') {
+      conditions = [
+        '• Ce document fait foi de paiement',
+        '• Conservez-le pour vos archives',
+        '• Pour toute question, contactez notre service client',
+        
+      ];
+    } else {
+      conditions = [
+        '• Paiement à réception de la facture',
+        '• Pénalité de retard: 1% par heure ou jour de retard',
+      ];
+    }
+    
+    conditions.forEach((condition, index) => {
+      doc.text(condition, marginLeft, conditionsY + 8 + (index * 4));
+    });
+    
+    // ===== PIED DE PAGE PROFESSIONNEL =====
+    const footerY = 270;
+    
+    doc.setDrawColor(4, 5, 143);
+    doc.setLineWidth(0.5);
+    doc.line(marginLeft, footerY, pageWidth - marginRight, footerY);
+    
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont('helvetica', 'italic');
+    doc.text(' CEDII ', 
+            centerX, footerY + 8, { align: 'center' });
+    doc.text('CEDII - Centre d\'Échange, de Documentation et d\'Information Inter-Institutionnelles', 
+            centerX, footerY + 12, { align: 'center' });
+    doc.text(`Généré le ${new Date().toLocaleString('fr-FR')}`, 
+            centerX, footerY + 16, { align: 'center' });
+    
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.text(`Page ${i}/${pageCount}`, pageWidth - marginRight, 295, { align: 'right' });
+    }
+    
+    // ===== GÉNÉRATION DU BUFFER =====
+    const pdfArrayBuffer = doc.output('arraybuffer');
+    const pdfBuffer = Buffer.from(pdfArrayBuffer);
+    
+    console.log(`✅ PDF généré pour statut "${invoiceData.statutPaie}": ${pdfBuffer.length} bytes`);
+    return pdfBuffer;
+    
+  } catch (error) {
+    console.error("❌ Erreur dans generateInvoicePDF:", error);
+    throw error;
+  }
+}
+
+
 exports.getRapportsData = async (req, res) => {
   try {
     console.log('=== DÉBUT getRapportsData ===');
@@ -2190,7 +4701,7 @@ exports.sendPaymentReminder = async (req, res) => {
     });
   }
 };
-
+/*
 // Fonction pour envoyer l'email de rappel de paiement
 async function sendPaymentReminderEmail(emailData) {
   const mailOptions = {
@@ -2244,9 +4755,392 @@ async function sendPaymentReminderEmail(emailData) {
 
   await transporter.sendMail(mailOptions);
 }
+/**
+ * Mapper le mode de paiement du frontend vers la base de données
+ */
 
-exports.getMonthlyRevenueTrend = async (req, res) => {
-  res.status(200).send([]);
+// Fonction pour envoyer l'email de rappel de paiement
+async function sendPaymentReminderEmail(emailData) {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT) || 587,
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER || 'miharinandrasana@gmail.com',
+        pass: process.env.EMAIL_PASS || ''
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    const mailOptions = {
+      from: `"CEDII Locations" <${process.env.EMAIL_USER || 'miharinandrasana@gmail.com'}>`,
+      to: emailData.to,
+      subject: emailData.subject || `Rappel de paiement - Facture ${emailData.invoiceNumber}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #5811EE 0%, #04058F 100%); color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0 0 10px 0; font-size: 24px;">CEDII LOCATIONS</h1>
+            <h2 style="margin: 0 0 10px 0; font-size: 20px;">RAPPEL DE PAIEMENT</h2>
+          
+          
+          <div style="padding: 20px;">
+            <p>Bonjour <strong>${emailData.clientName}</strong>,</p>
+            
+            <div style="background-color: #fff8e6; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #ffc107;">
+              <p style="margin: 0; font-size: 16px; color: #856404;">
+                ⚠️ <strong>Rappel :</strong> Votre paiement pour la location <strong>#${emailData.locationId}</strong> est toujours en attente.
+              </p>
+            </div>
+            
+            <div style="border: 2px solid #dc3545; padding: 15px; margin: 20px 0; border-radius: 8px; background-color: #fff5f5;">
+              <h3 style="color: #dc3545; margin-top: 0; border-bottom: 1px solid #f1aeb5; padding-bottom: 10px;">📋 Détails du paiement en attente</h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                <div style="background: white; padding: 10px; border-radius: 5px;">
+                  <p style="margin: 0; font-size: 12px; color: #6c757d;">Numéro de facture</p>
+                  <p style="margin: 5px 0 0 0; font-weight: bold; color: #04058F;">${emailData.invoiceNumber}</p>
+                </div>
+                <div style="background: white; padding: 10px; border-radius: 5px;">
+                  <p style="margin: 0; font-size: 12px; color: #6c757d;">Montant dû</p>
+                  <p style="margin: 5px 0 0 0; font-weight: bold; color: #dc3545;">${parseFloat(emailData.amountDue).toLocaleString('fr-FR')} Ar</p>
+                </div>
+                <div style="background: white; padding: 10px; border-radius: 5px;">
+                  <p style="margin: 0; font-size: 12px; color: #6c757d;">Référence</p>
+                  <p style="margin: 5px 0 0 0; font-weight: bold;">#${emailData.locationId}</p>
+                </div>
+                <div style="background: white; padding: 10px; border-radius: 5px;">
+                  <p style="margin: 0; font-size: 12px; color: #6c757d;">Type</p>
+                  <p style="margin: 5px 0 0 0; font-weight: bold;">${emailData.locationType || 'Location'}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #dc3545 0%, #bb2d3b 100%); color: white; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+              <h3 style="margin: 0; font-size: 18px;">
+                MONTANT À RÉGLER : ${parseFloat(emailData.amountDue).toLocaleString('fr-FR')} Ar
+              </h3>
+              ${emailData.daysLate > 0 ? `
+                <p style="margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;">
+                  ⏳ En retard depuis ${emailData.daysLate} jour(s)
+                </p>
+              ` : ''}
+            </div>
+            
+            <div style="border: 1px solid #e0e0e0; padding: 15px; margin: 20px 0; border-radius: 8px;">
+              <h4 style="color: #5811EE; margin-top: 0;">📋 Modalités de paiement</h4>
+              <p>Pour régler cette facture, vous pouvez :</p>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+               
+                <li>Vous présenter à notre agence pour un paiement en espèces ou par chèque</li>
+                <li>Contacter notre service financier pour le paiement en Mobile Money</li>
+              </ul>
+              <p style="font-size: 12px; color: #ff6b6b; margin-top: 10px;">
+                ⚠️ <strong>Important:</strong> Une pénalité de % par hueres ou jours s'applique en cas de retard de paiement.
+              </p>
+            </div>
+            
+            <div style="background-color: #e7f5ff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0d6efd;">
+              <h4 style="color: #0d6efd; margin-top: 0;">📞 Assistance</h4>
+              <p>Pour toute question concernant ce paiement :</p>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Service Financier :</strong>+261 34 03 931 91/ +261 34 60 020 34</li>
+                
+                <li><strong>Heures d'ouverture :</strong> Lundi-Vendredi, 8h-17h</li>
+              </ul>
+            </div>
+            
+            <p style="margin-top: 25px; font-size: 14px;">
+              Nous vous remercions de régulariser votre situation dans les plus brefs délais.
+            </p>
+            
+            <p style="margin-top: 30px;">
+              Cordialement,<br>
+              <strong>Service Financier - CEDII</strong>
+            </p>
+          </div>
+          
+          <div style="background: linear-gradient(135deg, #f1f1f1 0%, #e0e0e0 100%); color: #666; padding: 15px; text-align: center; font-size: 12px; border-top: 1px solid #ddd;">
+            <p style="margin: 5px 0;">
+              <strong>CEDII - Centre d'Échange, de Documentation et d'Information Inter-Institutionnelles</strong>
+            </p>
+            <p style="margin: 5px 0;">
+              Boulevard Philibert Tsiranana Tsianonlondroa Fianarantsoa 301 Madagascar   
+            </p>
+            <p style="margin: 5px 0;">
+              📞 +261 34 03 931 91/ +261 34 60 020 34 | ✉️ cedii.fia@gmail.mg 
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 11px; color: #999;">
+              Ceci est un email automatique de rappel. Pour toute question, contactez notre service client.
+            </p>
+          </div>
+        </div>
+      `,
+      attachments: []
+    };
+
+    // Ajouter la facture PDF en pièce jointe si disponible
+    if (emailData.pdfBuffer && (emailData.pdfBuffer.length > 0 || emailData.pdfBuffer.byteLength > 0)) {
+      let bufferData;
+      
+      if (Buffer.isBuffer(emailData.pdfBuffer)) {
+        bufferData = emailData.pdfBuffer;
+      } else if (emailData.pdfBuffer instanceof ArrayBuffer) {
+        bufferData = Buffer.from(emailData.pdfBuffer);
+      } else {
+        bufferData = Buffer.from(emailData.pdfBuffer);
+      }
+      
+      if (bufferData && bufferData.length > 0) {
+        mailOptions.attachments.push({
+          filename: `facture-${emailData.invoiceNumber}.pdf`,
+          content: bufferData,
+          contentType: 'application/pdf'
+        });
+        console.log(`📎 Facture jointe au rappel: ${emailData.invoiceNumber}`);
+      }
+    }
+
+    // Envoyer l'email
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Rappel de paiement envoyé à: ${emailData.to}`);
+    console.log(`📧 Sujet: ${mailOptions.subject}`);
+    
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'envoi du rappel de paiement:', error);
+    throw error;
+  }
+}
+
+
+function mapPaymentMethodToDB(paymentMethod) {
+  const mapping = {
+    'cash': 'Cash',
+    'mobile_money': 'MobileMoney',
+    'cheque': 'Chèque',
+    'carte': 'Carte',
+    'virement': 'Virement',
+    'Cash': 'Cash',
+    'MobileMoney': 'MobileMoney',
+    'Chèque': 'Chèque',
+    'Carte': 'Carte',
+    'Virement': 'Virement'
+  };
+
+  return mapping[paymentMethod] || paymentMethod;
+}
+/**
+ * Valider un paiement avec les détails du mode de paiement
+ * @route POST /api/finance/payments/:paymentId/validate-with-details
+ */
+exports.validatePaymentWithDetails = async (req, res) => {
+  let transaction;
+  
+  try {
+    const { paymentId } = req.params;
+    const { paymentMethod, referenceId, senderName, notes } = req.body;
+    const userId = req.user?.id || 1;
+
+    console.log('📝 Validation paiement avec détails - Données reçues:', {
+      paymentId,
+      paymentMethod,
+      referenceId,
+      senderName,
+      notes,
+      userId
+    });
+
+    // Vérifier les paramètres requis
+    if (!paymentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID du paiement requis'
+      });
+    }
+
+    if (!paymentMethod) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mode de paiement requis'
+      });
+    }
+
+    // Vérifier que le paiement existe et est en attente
+    const paymentQuery = `
+      SELECT 
+        p.idPaie,
+        p.numeroFacture,
+        p.montantPaie,
+        p.statutPaie,
+        p.modePaie,
+        p.idLo,
+        p.dateCre,
+        c.nomCli,
+        c.prenomCli,
+        c.telephoneCli as telCli
+      FROM Paiement p
+      LEFT JOIN Location l ON p.idLo = l.idLo
+      LEFT JOIN Reservation r ON l.idRes = r.idRes
+      LEFT JOIN Client c ON r.idCli = c.idCli
+      WHERE p.idPaie = ?
+    `;
+
+    const paymentRows = await sequelize.query(paymentQuery, {
+      replacements: [paymentId],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (!paymentRows || paymentRows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `Paiement #${paymentId} non trouvé`
+      });
+    }
+
+    const payment = paymentRows[0];
+    
+    // Vérifier le statut
+    if (payment.statutPaie !== 'En attente') {
+      return res.status(400).json({
+        success: false,
+        message: `Le paiement #${paymentId} n'est pas en attente. Statut actuel: ${payment.statutPaie}`
+      });
+    }
+
+    // Vérification des champs obligatoires selon le mode de paiement
+    if (paymentMethod === 'mobile_money') {
+      if (!referenceId || referenceId.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'Pour Mobile Money, le reference ID est requis'
+        });
+      }
+      if (!senderName || senderName.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          message: 'Pour Mobile Money, le nom de l\'envoyeur est requis'
+        });
+      }
+    }
+
+    if (paymentMethod === 'cheque' && (!referenceId || referenceId.trim() === '')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pour un chèque, le numéro de référence est requis'
+      });
+    }
+
+    // Mapper les valeurs du frontend vers la base de données
+    const dbPaymentMethod = mapPaymentMethodToDB(paymentMethod);
+    
+    // Créer l'objet additional_details
+    const additionalDetails = {
+      paymentMethod: paymentMethod,
+      referenceId: referenceId || null,
+      senderName: senderName || null,
+      notes: notes || null,
+      validatedBy: userId,
+      validatedAt: new Date().toISOString()
+    };
+
+    // Démarrer une transaction
+    transaction = await sequelize.transaction();
+
+    // CORRECTION : Utiliser dateCre (qui existe) au lieu de datePaie (qui n'existe pas)
+    const updateQuery = `
+      UPDATE Paiement 
+      SET 
+        statutPaie = 'Effectué',
+        modePaie = ?,
+        dateCre = NOW(),  -- Utiliser dateCre qui existe déjà dans la table
+        additional_details = ?
+      WHERE idPaie = ?
+    `;
+
+    const [updateResults, metadata] = await sequelize.query(updateQuery, {
+      replacements: [dbPaymentMethod, JSON.stringify(additionalDetails), paymentId],
+      type: sequelize.QueryTypes.UPDATE,
+      transaction
+    });
+
+    // Si la table existe, enregistrer dans l'historique (optionnel)
+    try {
+      const logHistoryQuery = `
+        INSERT INTO PaymentHistory (
+          paymentId, 
+          actionType, 
+          userId, 
+          details, 
+          createdAt
+        ) VALUES (?, ?, ?, ?, NOW())
+      `;
+      
+      await sequelize.query(logHistoryQuery, {
+        replacements: [
+          paymentId, 
+          'VALIDATION_AVEC_DETAILS', 
+          userId, 
+          JSON.stringify({
+            oldStatus: 'En attente',
+            newStatus: 'Effectué',
+            paymentMethod: dbPaymentMethod,
+            additionalDetails: additionalDetails
+          })
+        ],
+        transaction
+      });
+    } catch (historyError) {
+      console.log('ℹ️ Table PaymentHistory non disponible:', historyError.message);
+    }
+
+    // Commit de la transaction
+    await transaction.commit();
+
+    // Préparer la réponse
+    const response = {
+      success: true,
+      message: `Paiement #${paymentId} validé avec succès`,
+      data: {
+        paymentId: parseInt(paymentId),
+        invoiceNumber: payment.numeroFacture,
+        clientName: `${payment.nomCli || ''} ${payment.prenomCli || ''}`.trim(),
+        amount: payment.montantPaie,
+        paymentMethod: dbPaymentMethod,
+        referenceId: referenceId || null,
+        senderName: senderName || null,
+        validationDate: new Date().toISOString(),
+        additionalDetails: additionalDetails
+      }
+    };
+
+    console.log('✅ Paiement validé avec succès:', response);
+    
+    return res.json(response);
+
+  } catch (error) {
+    // Rollback de la transaction en cas d'erreur
+    if (transaction) {
+      try {
+        await transaction.rollback();
+        console.log('🔄 Transaction rollback');
+      } catch (rollbackError) {
+        console.error('❌ Erreur rollback:', rollbackError);
+      }
+    }
+    
+    console.error('❌ Erreur validation paiement avec détails:', error);
+    
+    let errorMessage = 'Erreur serveur lors de la validation du paiement';
+    
+    res.status(500).json({
+      success: false,
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 };
 
 exports.getRapportsSyntheseData = async (req, res) => {

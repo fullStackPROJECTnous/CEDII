@@ -1,0 +1,210 @@
+/* index.css - CSS pur sans Tailwind */
+
+/* Reset de base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Variables CEDII */
+:root {
+  --cedii-primary: #5811EE;
+  --cedii-primary-light: #7340F2;
+  --cedii-primary-dark: #04058F;
+  --cedii-dark: #02061E;
+  --cedii-secondary: #067186;
+  --cedii-secondary-light: #0D9AAD;
+  --cedii-neutral: #55555E;
+  
+  /* Espacements */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  
+  /* Bordures */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+/* Classes utilitaires CEDII */
+.cedii-btn {
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-lg);
+  font-weight: 500;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: none;
+  font-size: 0.875rem;
+}
+
+.cedii-btn-primary {
+  background-color: var(--cedii-primary);
+  color: white;
+}
+
+.cedii-btn-primary:hover {
+  background-color: var(--cedii-primary-light);
+}
+
+.cedii-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.cedii-btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--cedii-secondary);
+  color: var(--cedii-secondary);
+}
+
+.cedii-btn-secondary:hover {
+  background-color: var(--cedii-secondary);
+  color: white;
+}
+
+.cedii-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  padding: var(--spacing-6);
+  transition: box-shadow 0.3s ease;
+}
+
+.cedii-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.cedii-input {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid #d1d5db;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+}
+
+.cedii-input:focus {
+  border-color: var(--cedii-primary);
+  box-shadow: 0 0 0 3px rgba(88, 17, 238, 0.1);
+  outline: none;
+}
+
+.cedii-sidebar {
+  background: linear-gradient(135deg, var(--cedii-primary-dark) 0%, var(--cedii-dark) 100%);
+  color: white;
+  min-height: 100vh;
+  padding: var(--spacing-6);
+}
+
+.cedii-header {
+  background: linear-gradient(135deg, var(--cedii-primary) 0%, var(--cedii-primary-dark) 100%);
+  color: white;
+  padding: var(--spacing-4) var(--spacing-6);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.cedii-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.cedii-badge-primary {
+  background-color: rgba(88, 17, 238, 0.1);
+  color: var(--cedii-primary);
+}
+
+/* Layout utilities */
+.cedii-flex {
+  display: flex;
+}
+
+.cedii-flex-col {
+  flex-direction: column;
+}
+
+.cedii-items-center {
+  align-items: center;
+}
+
+.cedii-justify-between {
+  justify-content: space-between;
+}
+
+.cedii-gap-4 {
+  gap: var(--spacing-4);
+}
+
+.cedii-p-4 {
+  padding: var(--spacing-4);
+}
+
+.cedii-p-6 {
+  padding: var(--spacing-6);
+}
+
+.cedii-m-4 {
+  margin: var(--spacing-4);
+}
+
+.cedii-w-full {
+  width: 100%;
+}
+
+.cedii-h-screen {
+  height: 100vh;
+}
+
+.cedii-text-center {
+  text-align: center;
+}
+
+.cedii-font-bold {
+  font-weight: 700;
+}
+
+.cedii-text-lg {
+  font-size: 1.125rem;
+}
+
+/* Override pour Naive UI */
+.n-button--primary-type {
+  background-color: var(--cedii-primary) !important;
+}
+
+.n-button--primary-type:hover {
+  background-color: var(--cedii-primary-light) !important;
+}
+
+.n-tag, .n-alert {
+  border-radius: var(--radius-lg) !important;
+}
+
+/* Scrollbar personnalisée */
+.scrollbar-cedii::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-cedii::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.scrollbar-cedii::-webkit-scrollbar-thumb {
+  background: var(--cedii-primary);
+  border-radius: 4px;
+}
+
+.scrollbar-cedii::-webkit-scrollbar-thumb:hover {
+  background: var(--cedii-primary-light);
+}

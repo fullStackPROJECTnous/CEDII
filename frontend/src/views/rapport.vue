@@ -1,13 +1,13 @@
-<template>
+<!--<template>
   <div class="reports-management-container">
-    <!-- Header amélioré comme dans la gestion des clients -->
+    <!-- Header amélioré 
     <div class="row mb-4">
       <div class="col-12">
         <div class="custom-header p-4 rounded">
           <div class="d-flex justify-content-between align-items-center">
             <div>
               <router-link to="/dashboardAdmin" class="btn btn-sm btn-outline-light">
-                <i class="bi bi-arrow-left me-2"></i>Retour à l'Accueil
+                <i class="bi bi-arrow-left me-2"></i>Retour à l'acceuil
               </router-link>
             </div>
             <div class="text-center">
@@ -17,7 +17,6 @@
               </h1>
               <p class="custom-subtitle">Analysez les performances et suivez l'activité de location</p>
             </div>
-                <!-- Menu trois points -->
             <div class="position-relative">
               <n-dropdown
                 trigger="click"
@@ -36,195 +35,376 @@
       </div>
     </div>
 
-    <!-- Messages d'état -->
-    <n-alert v-if="apiError" type="warning" class="mb-4">
-      <template #icon>
-        <n-icon>⚠️</n-icon>
-      </template>
-      Certaines données ne sont pas disponibles. Vérifiez la connexion au serveur.
-    </n-alert>
-
-    <!-- Filtres de période -->
-    <n-card class="mb-4 custom-card">
-      <template #header>
-        <n-space justify="space-between" align="center">
-          <n-text strong>Période d'analyse</n-text>
-          <n-space>
-            <n-button size="small" @click="exportToPDF" :loading="exporting" class="custom-btn-outline">
-              📥 Exporter PDF
-            </n-button>
-            <n-button size="small" type="primary" @click="fetchData" :loading="loading" class="custom-btn-primary">
-              🔄 Actualiser
-            </n-button>
-          </n-space>
-        </n-space>
-      </template>
-      <n-space>
-        <n-date-picker
-          v-model:value="dateRange"
-          type="daterange"
-          clearable
-          placeholder="Sélectionnez une période"
-        />
-        <n-select
-          v-model:value="selectedPeriod"
-          :options="periodOptions"
-          style="width: 200px"
-          placeholder="Période rapide"
-        />
-      </n-space>
-    </n-card>
-
-    <!-- Cartes KPIs -->
-    <n-grid :cols="3" :x-gap="16" :y-gap="16" class="mb-4">
-      <n-gi v-for="(kpi, key) in kpis" :key="key">
-        <n-card class="kpi-card custom-card" :class="`kpi-${key}`">
-          <n-space align="center">
-            <div class="kpi-icon">
-              {{ getKpiIcon(key) }}
-            </div>
-            <n-space vertical size="small" class="flex-grow-1">
-              <n-text depth="3" class="kpi-title">
-                {{ getKpiTitle(key) }}
-              </n-text>
-              <n-text strong class="kpi-value">
-                {{ formatKpiValue(key, kpi) }}
-              </n-text>
-            </n-space>
-          </n-space>
-        </n-card>
-      </n-gi>
-    </n-grid>
-
-    <!-- Graphiques et statistiques avec scroll -->
-    <div class="scrollable-content">
-      <n-grid :cols="2" :x-gap="16" :y-gap="16">
-        <!-- Statut des réservations -->
+    <!-- Contenu scrollable 
+    <div class="scrollable-main-content">
+      <!-- NOUVEAU: KPIs Rapides 
+      <n-grid :cols="4" :x-gap="16" :y-gap="16" class="mb-4">
         <n-gi>
-          <n-card class="custom-card">
-            <template #header>
-              <n-space align="center">
-                <n-icon size="20">📅</n-icon>
-                <n-text strong>Répartition des Réservations</n-text>
-              </n-space>
-            </template>
-            
-            <n-empty v-if="!reservationData || reservationData.length === 0" description="Aucune donnée disponible">
-              <template #icon>
-                <n-icon>📊</n-icon>
+          <n-card class="kpi-card custom-card" @click="filterByType('all')">
+            <n-statistic label="Total Réservations" :value="reportStats.totalReservations">
+              <template #prefix>
+                <i class="bi bi-calendar-check"></i>
               </template>
-            </n-empty>
-            
-            <n-space vertical v-else>
-              <n-progress
-                v-for="item in reservationData"
-                :key="item.etatRes"
-                type="line"
-                :percentage="calculatePercentage(item.count)"
-                :color="getStatusColor(item.etatRes)"
-                :height="24"
-                :border-radius="4"
-                :fill-color="getStatusBgColor(item.etatRes)"
-              >
-                <template #default>
-                  <n-space justify="space-between" class="w-100">
-                    <n-text>{{ item.etatRes }}</n-text>
-                    <n-text strong>{{ item.count }}</n-text>
-                  </n-space>
-                </template>
-              </n-progress>
-            </n-space>
-            
-            <template #footer>
-              <n-text depth="3" class="small">
-                Basé sur {{ totalReservations }} réservations enregistrées
-              </n-text>
-            </template>
+            </n-statistic>
           </n-card>
         </n-gi>
-
-        <!-- Top matériels -->
         <n-gi>
-          <n-card class="custom-card">
-            <template #header>
-              <n-space align="center">
-                <n-icon size="20">🏆</n-icon>
-                <n-text strong>Top Matériels les Plus Demandés</n-text>
-              </n-space>
-            </template>
-            
-            <n-empty v-if="!topMateriel || topMateriel.length === 0" description="Aucune donnée de location">
-              <template #icon>
-                <n-icon>📦</n-icon>
+          <n-card class="kpi-card custom-card" @click="filterByStatus('Confirmée')">
+            <n-statistic label="Confirmées" :value="reportStats.confirmed" class="text-success">
+              <template #prefix>
+                <i class="bi bi-check-circle"></i>
               </template>
-            </n-empty>
-            
-            <div class="scrollable-list" v-else>
-              <n-list>
-                <n-list-item v-for="(mat, index) in topMateriel" :key="mat.codeMat">
-                  <template #prefix>
-                    <n-badge :value="index + 1" type="primary" class="custom-tag" />
-                  </template>
-                  
-                  <n-thing :title="mat.designationMat || 'Matériel Inconnu'">
-                    <template #description>
-                      <n-space vertical size="small">
-                        <n-text depth="3">
-                          Code: {{ mat.codeMat }}
-                        </n-text>
-                        <n-space align="center">
-                          <n-tag size="small" type="info" class="custom-tag">
-                            {{ mat.categorieMat || 'Non catégorisé' }}
-                          </n-tag>
-                        </n-space>
-                      </n-space>
-                    </template>
-                  </n-thing>
-                  
-                  <template #suffix>
-                    <n-statistic
-                      :value="mat.totalLocations || mat.count || 0"
-                      label="locations"
-                      size="small"
-                    />
-                  </template>
-                </n-list-item>
-              </n-list>
-            </div>
-            
-            <template #footer>
-              <n-text depth="3" class="small">
-                Basé sur l'historique des locations
-              </n-text>
-            </template>
+            </n-statistic>
+          </n-card>
+        </n-gi>
+        <n-gi>
+          <n-card class="kpi-card custom-card" @click="filterByStatus('En attente')">
+            <n-statistic label="En Attente" :value="reportStats.pending" class="text-warning">
+              <template #prefix>
+                <i class="bi bi-clock"></i>
+              </template>
+            </n-statistic>
+          </n-card>
+        </n-gi>
+        <n-gi>
+          <n-card class="kpi-card custom-card" @click="showTrendChart">
+            <n-statistic label="Tendance" :value="`${reportStats.trend}%`" 
+              :class="reportStats.trend >= 0 ? 'text-success' : 'text-error'">
+              <template #prefix>
+                <i :class="reportStats.trend >= 0 ? 'bi bi-graph-up-arrow' : 'bi bi-graph-down-arrow'"></i>
+              </template>
+            </n-statistic>
           </n-card>
         </n-gi>
       </n-grid>
 
-      <!-- Statistiques supplémentaires -->
+      <!-- Messages d'état 
+      <n-alert v-if="apiError" type="warning" class="mb-4">
+        <template #icon>
+          <i class="bi bi-exclamation-triangle"></i>
+        </template>
+        Certaines données ne sont pas disponibles. Vérifiez la connexion au serveur.
+      </n-alert>
+
+      <!-- NOUVEAU: Filtres avancés 
+      <n-card class="mb-4 custom-card">
+        <template #header>
+          <n-space justify="space-between" align="center">
+            <n-text strong>Options d'analyse</n-text>
+            <n-space>
+              <n-button 
+                size="small" 
+                @click="exportToPDF" 
+                :loading="exporting" 
+                class="custom-btn-outline"
+              >
+                <template #icon>
+                  <i class="bi bi-file-earmark-pdf"></i>
+                </template>
+                Exporter PDF
+              </n-button>
+              <n-button 
+                size="small" 
+                type="primary" 
+                @click="fetchData" 
+                :loading="loading" 
+                class="custom-btn-primary"
+              >
+                <template #icon>
+                  <i class="bi bi-arrow-clockwise"></i>
+                </template>
+                Actualiser
+              </n-button>
+            </n-space>
+          </n-space>
+        </template>
+        
+        <n-space>
+          <!-- Période 
+          <n-date-picker
+            v-model:value="dateRange"
+            type="daterange"
+            clearable
+            placeholder="Période personnalisée"
+            style="width: 220px"
+          />
+          
+          <!-- Période rapide 
+          <n-select
+            v-model:value="selectedPeriod"
+            :options="periodOptions"
+            style="width: 180px"
+            placeholder="Période rapide"
+          />
+          
+          <!-- Grouper par 
+          <n-select
+            v-model:value="groupBy"
+            :options="groupByOptions"
+            style="width: 150px"
+            placeholder="Grouper par"
+            clearable
+          />
+          
+          <!-- Type ressource 
+          <n-select
+            v-model:value="resourceFilter"
+            :options="resourceOptions"
+            placeholder="Filtrer ressource"
+            style="width: 180px"
+            clearable
+            filterable
+          />
+          
+          <!-- Réinitialiser 
+          <n-button 
+            text 
+            @click="resetFilters"
+            :disabled="!hasActiveFilters"
+          >
+            Réinitialiser
+          </n-button>
+        </n-space>
+      </n-card>
+
+      <!-- Cartes KPIs améliorées 
+      <n-grid :cols="3" :x-gap="16" :y-gap="16" class="mb-4">
+        <n-gi v-for="(kpi, key) in kpis" :key="key">
+          <n-card class="kpi-card custom-card" :class="`kpi-${key}`" @click="handleKpiClick(key)">
+            <n-space align="center">
+              <div class="kpi-icon">
+                {{ getKpiIcon(key) }}
+              </div>
+              <n-space vertical size="small" class="flex-grow-1">
+                <n-text depth="3" class="kpi-title">
+                  {{ getKpiTitle(key) }}
+                </n-text>
+                <n-text strong class="kpi-value">
+                  {{ formatKpiValue(key, kpi) }}
+                </n-text>
+                <n-text v-if="getKpiTrend(key)" depth="3" class="kpi-trend" 
+                  :class="getKpiTrend(key) >= 0 ? 'text-success' : 'text-error'">
+                  {{ getKpiTrend(key) >= 0 ? '↗' : '↘' }} {{ Math.abs(getKpiTrend(key)) }}%
+                </n-text>
+              </n-space>
+            </n-space>
+          </n-card>
+        </n-gi>
+      </n-grid>
+
+      <!-- Graphiques et statistiques -->
+      <!-- NOUVEAU: Onglets principaux 
+      <n-card class="custom-card mb-4">
+        <n-tabs
+          v-model:value="activeTab"
+          type="line"
+          justify-content="space-evenly"
+        >
+          <!-- Onglet Réservations 
+          <n-tab-pane name="reservations" tab="Réservations">
+            <template #tab>
+              <n-badge :value="totalReservations" type="info">
+                📅 Réservations
+              </n-badge>
+            </template>
+            
+            <div class="row">
+              <div class="col-lg-6">
+                <!-- Graphique circulaire 
+                <div class="chart-container">
+                  <canvas ref="reservationChart"></canvas>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <!-- Statistiques détaillées 
+                <n-space vertical>
+                  <n-progress
+                    v-for="item in reservationData"
+                    :key="item.etatRes"
+                    type="line"
+                    :percentage="calculatePercentage(item.count)"
+                    :color="getStatusColor(item.etatRes)"
+                    :height="24"
+                    :border-radius="4"
+                    :fill-color="getStatusBgColor(item.etatRes)"
+                  >
+                    <template #default>
+                      <n-space justify="space-between" class="w-100">
+                        <n-text>{{ item.etatRes }}</n-text>
+                        <n-text strong>{{ item.count }}</n-text>
+                      </n-space>
+                    </template>
+                  </n-progress>
+                </n-space>
+                
+                <!-- Résumé 
+                <n-card size="small" class="mt-3">
+                  <n-space vertical>
+                    <n-text strong>Résumé:</n-text>
+                    <n-space justify="space-between">
+                      <n-text>Taux de confirmation:</n-text>
+                      <n-text strong class="text-success">
+                        {{ calculateConfirmationRate() }}%
+                      </n-text>
+                    </n-space>
+                    <n-space justify="space-between">
+                      <n-text>Moyenne par jour:</n-text>
+                      <n-text strong>
+                        {{ calculateDailyAverage() }}
+                      </n-text>
+                    </n-space>
+                  </n-space>
+                </n-card>
+              </div>
+            </div>
+          </n-tab-pane>
+          
+          <!-- NOUVEAU: Onglet Performance 
+          <n-tab-pane name="performance" tab="Performance">
+            <template #tab>
+              <n-badge :value="performanceScore" type="success">
+                🏆 Performance
+              </n-badge>
+            </template>
+            
+            <n-grid :cols="2" :x-gap="16" :y-gap="16">
+              <n-gi>
+                <n-card class="custom-card">
+                  <template #header>
+                    <n-space align="center">
+                      <n-icon size="20">📈</n-icon>
+                      <n-text strong>Performance du Mois</n-text>
+                    </n-space>
+                  </template>
+                  <n-space vertical>
+                    <n-statistic label="Nouvelles réservations" :value="monthlyStats.newReservations || 0" />
+                    <n-statistic label="Revenu mensuel" :value="formatCurrency(monthlyStats.monthlyRevenue || 0)">
+                      <template #suffix> MGA</template>
+                    </n-statistic>
+                    <n-statistic label="Taux de conversion" :value="monthlyStats.conversionRate || 0">
+                      <template #suffix>%</template>
+                    </n-statistic>
+                    <n-statistic label="Satisfaction client" :value="monthlyStats.satisfaction || 0">
+                      <template #suffix>%</template>
+                    </n-statistic>
+                  </n-space>
+                </n-card>
+              </n-gi>
+              
+              <n-gi>
+                <n-card class="custom-card">
+                  <template #header>
+                    <n-space align="center">
+                      <n-icon size="20">🎯</n-icon>
+                      <n-text strong>Objectifs</n-text>
+                    </n-space>
+                  </template>
+                  <n-space vertical>
+                    <n-progress
+                      v-for="goal in performanceGoals"
+                      :key="goal.name"
+                      type="line"
+                      :percentage="goal.progress"
+                      :height="16"
+                      :border-radius="4"
+                    >
+                      <template #default>
+                        <n-space justify="space-between" class="w-100">
+                          <n-text class="small">{{ goal.name }}</n-text>
+                          <n-text strong class="small">{{ goal.progress }}%</n-text>
+                        </n-space>
+                      </template>
+                    </n-progress>
+                  </n-space>
+                </n-card>
+              </n-gi>
+            </n-grid>
+          </n-tab-pane>
+          
+          <!-- NOUVEAU: Onglet Top Matériels 
+          <n-tab-pane name="topMaterials" tab="Top Matériels">
+            <template #tab>
+              <n-badge :value="topMateriel.length" type="warning">
+                🏆 Top Matériels
+              </n-badge>
+            </template>
+            
+            <div class="row">
+              <div class="col-lg-6">
+                <n-list hoverable>
+                  <n-list-item v-for="(mat, index) in topMateriel" :key="mat.codeMat">
+                    <template #prefix>
+                      <n-badge :value="index + 1" type="primary" class="custom-tag" />
+                    </template>
+                    
+                    <n-thing :title="mat.designationMat || 'Matériel Inconnu'">
+                      <template #description>
+                        <n-space vertical size="small">
+                          <n-text depth="3">
+                            Code: {{ mat.codeMat }}
+                          </n-text>
+                          <n-space align="center">
+                            <n-tag size="small" type="info" class="custom-tag">
+                              {{ mat.categorieMat || 'Non catégorisé' }}
+                            </n-tag>
+                            <n-text depth="3" class="small">
+                              {{ mat.totalLocations || mat.count || 0 }} locations
+                            </n-text>
+                          </n-space>
+                        </n-space>
+                      </template>
+                    </n-thing>
+                    
+                    <template #suffix>
+                      <n-progress
+                        type="circle"
+                        :percentage="calculateMaterialUsage(mat)"
+                        :stroke-width="6"
+                        :width="60"
+                      />
+                    </template>
+                  </n-list-item>
+                </n-list>
+              </div>
+              
+              <div class="col-lg-6">
+                <!-- Graphique top matériels 
+                <div class="chart-container">
+                  <canvas ref="topMaterialsChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </n-tab-pane>
+        </n-tabs>
+      </n-card>
+
+      <!-- Statistiques supplémentaires 
       <n-grid :cols="2" :x-gap="16" :y-gap="16" class="mt-4">
-        <!-- Performance mensuelle -->
+        <!-- Performance mensuelle 
         <n-gi>
           <n-card class="custom-card">
             <template #header>
               <n-space align="center">
-                <n-icon size="20">📈</n-icon>
-                <n-text strong>Performance du Mois</n-text>
+                <n-icon size="20">📊</n-icon>
+                <n-text strong>Indicateurs Clés</n-text>
               </n-space>
             </template>
             <n-space vertical>
-              <n-statistic label="Nouvelles réservations" :value="monthlyStats.newReservations || 0" />
-              <n-statistic label="Revenu mensuel" :value="formatCurrency(monthlyStats.monthlyRevenue || 0)">
-                <template #suffix> MGA</template>
-              </n-statistic>
-              <n-statistic label="Taux de conversion" :value="monthlyStats.conversionRate || 0">
-                <template #suffix>%</template>
+              <n-statistic 
+                v-for="indicator in keyIndicators" 
+                :key="indicator.name"
+                :label="indicator.name" 
+                :value="indicator.value"
+                :class="indicator.trend >= 0 ? 'text-success' : 'text-error'"
+              >
+                <template #suffix v-if="indicator.suffix">{{ indicator.suffix }}</template>
+                <template #prefix v-if="indicator.prefix">{{ indicator.prefix }}</template>
               </n-statistic>
             </n-space>
           </n-card>
         </n-gi>
 
-        <!-- Types de location -->
+        <!-- Types de location 
         <n-gi>
           <n-card class="custom-card">
             <template #header>
@@ -234,12 +414,26 @@
               </n-space>
             </template>
             <n-space vertical>
-              <n-space v-for="type in locationTypes" :key="type.type" justify="space-between" class="w-100">
-                <n-tag :type="getLocationTypeColor(type.type)" class="custom-tag">
-                  {{ getTypeLabel(type.type) }}
-                </n-tag>
-                <n-text strong>{{ type.count }}</n-text>
-              </n-space>
+              <div v-for="type in locationTypes" :key="type.type" class="type-item">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="d-flex align-items-center">
+                    <div class="type-icon me-2" :class="getLocationTypeColor(type.type)">
+                      <i :class="getTypeIcon(type.type)"></i>
+                    </div>
+                    <n-text>{{ getTypeLabel(type.type) }}</n-text>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <n-text strong>{{ type.count }}</n-text>
+                    <n-progress
+                      type="line"
+                      :percentage="calculateTypePercentage(type.count)"
+                      :height="6"
+                      :width="100"
+                      :show-indicator="false"
+                    />
+                  </div>
+                </div>
+              </div>
               <n-space v-if="!locationTypes || locationTypes.length === 0" justify="center" class="py-3">
                 <n-text depth="3">Aucune donnée disponible</n-text>
               </n-space>
@@ -253,6 +447,8 @@
 
 <script setup>
 import { ref, onMounted, computed, h } from 'vue';
+import { useRouter } from 'vue-router';
+import { Chart, registerables } from 'chart.js';
 import {
   NH2,
   NText,
@@ -272,76 +468,70 @@ import {
   NDatePicker,
   NSelect,
   NIcon,
-  NAlert
+  NAlert,
+  NTabs,
+  NTabPane,
+  NDropdown
 } from 'naive-ui';
 import jsPDF from 'jspdf';
-import { useRouter } from 'vue-router';
 import RapportService from '../services/RapportService';
 
+Chart.register(...registerables);
+
+const router = useRouter();
+
+// NOUVEAUX États
+const activeTab = ref('reservations');
 const loading = ref(false);
 const exporting = ref(false);
 const apiError = ref(false);
 const dateRange = ref(null);
 const selectedPeriod = ref('month');
+const groupBy = ref(null);
+const resourceFilter = ref(null);
 
-
-
-const router = useRouter();
-
-// Options du menu de navigation
+// NOUVELLES Options
 const navigationOptions = [
-
   {
-    label: 'Location & Reservation',
-    key: 'calendrier',
-    icon: () => h('i', { class: 'bi bi-calendar-day me-2' })
+    label: 'Dashboard',
+    key: 'dashboard',
+    icon: () => h('i', { class: 'bi bi-speedometer2 me-2' })
   },
   {
-    type: 'divider'
+    label: 'Utilisateurs',
+    key: 'users',
+    icon: () => h('i', { class: 'bi bi-person-gear me-2' })
   },
   {
-    label: 'Inventaire & Patrimoine',
-    key: 'inventaire',
-    icon: () => h('i', { class: 'bi bi-tools me-2' })
-  },
-  {
-    label: 'Matériel de Bureau',
-    key: 'bureau',
-    icon: () => h('i', { class: 'bi bi-laptop me-2' })
-  },
-  
-  {
-    type: 'divider'
-  },
-    {
-    label: 'Fiches Clients',
-    key: 'client',
+    label: 'Gestion Clients',
+    key: 'clients',
     icon: () => h('i', { class: 'bi bi-people me-2' })
   },
   {
-    label: 'Gestion Financière',
-    key: 'finance',
-    icon: () => h('i', { class: 'bi-exclamation-octagon-fill' })
+    label: 'Location & Reservation',
+    key: 'location',
+    icon: () => h('i', { class: 'bi bi-calendar-day me-2' })
   },
-  
-  
   {
-    label: 'Tableau de Bord',
-    key: 'dashboard',
-    icon: () => h('i', { class: 'bi bi-house me-2' })
+    label: 'Finance',
+    key: 'finance',
+    icon: () => h('i', { class: 'bi bi-cash-coin me-2' })
+  },
+  {
+    label: 'Inventaire',
+    key: 'inventaire',
+    icon: () => h('i', { class: 'bi bi-tools me-2' })
   }
 ];
 
-// Gestion de la sélection dans le menu
 const handleNavigationSelect = (key) => {
   const routeMap = {
     'dashboard': '/dashboardAdmin',
+    'users': '/userManagement',
+    'clients': '/clientManagementAdmin',
+    'location': '/location',
     'finance': '/finance',
-    //'rapport': '/rapport',
-    'calendrier': '/location',
-    'inventaire': '/patrimoine-admin',
-    'bureau': '/materielBureauView',
-    'client': '/clientManagementAdmin'
+    'inventaire': '/patrimoine-admin'
   };
   
   if (routeMap[key]) {
@@ -349,7 +539,62 @@ const handleNavigationSelect = (key) => {
   }
 };
 
-// KPIs simplifiés sans taux d'occupation
+const periodOptions = [
+  { label: 'Aujourd\'hui', value: 'today' },
+  { label: 'Cette semaine', value: 'week' },
+  { label: 'Ce mois', value: 'month' },
+  { label: 'Ce trimestre', value: 'quarter' },
+  { label: 'Cette année', value: 'year' }
+];
+
+const groupByOptions = [
+  { label: 'Par jour', value: 'day' },
+  { label: 'Par semaine', value: 'week' },
+  { label: 'Par mois', value: 'month' },
+  { label: 'Par type', value: 'type' },
+  { label: 'Par statut', value: 'status' }
+];
+
+const resourceOptions = [
+  { label: 'Salles', value: 'Salle' },
+  { label: 'Matériels', value: 'Materiel' },
+  { label: 'Mixte', value: 'Mixte' }
+];
+
+// NOUVELLES Computed properties
+const hasActiveFilters = computed(() => {
+  return dateRange.value || selectedPeriod.value !== 'month' || groupBy.value || resourceFilter.value;
+});
+
+const reportStats = computed(() => {
+  return {
+    totalReservations: totalReservations.value,
+    confirmed: reservationData.value.find(r => r.etatRes === 'Confirmée')?.count || 0,
+    pending: reservationData.value.find(r => r.etatRes === 'En attente')?.count || 0,
+    trend: calculateTrend()
+  };
+});
+
+const performanceScore = computed(() => {
+  return Math.round((monthlyStats.value.conversionRate || 0) * 0.4 + 
+                    (calculateConfirmationRate() || 0) * 0.3 + 
+                    (monthlyStats.value.satisfaction || 0) * 0.3);
+});
+
+const performanceGoals = computed(() => [
+  { name: 'Taux de conversion', target: 80, current: monthlyStats.value.conversionRate || 0, progress: Math.min(100, ((monthlyStats.value.conversionRate || 0) / 80) * 100) },
+  { name: 'Revenu mensuel', target: 10000000, current: monthlyStats.value.monthlyRevenue || 0, progress: Math.min(100, ((monthlyStats.value.monthlyRevenue || 0) / 10000000) * 100) },
+  { name: 'Satisfaction client', target: 90, current: monthlyStats.value.satisfaction || 0, progress: Math.min(100, ((monthlyStats.value.satisfaction || 0) / 90) * 100) }
+]);
+
+const keyIndicators = computed(() => [
+  { name: 'CA moyen par location', value: formatCurrency(calculateAverageRevenue()), trend: 5, suffix: 'MGA' },
+  { name: 'Durée moyenne', value: calculateAverageDuration(), trend: 3, suffix: 'jours' },
+  { name: 'Taux d\'occupation', value: calculateOccupancyRate(), trend: 2, suffix: '%' },
+  { name: 'Taux de récidive', value: calculateRepeatRate(), trend: 8, suffix: '%' }
+]);
+
+// Données existantes
 const kpis = ref({
   totalClients: 0,
   locationsMois: 0,
@@ -362,30 +607,282 @@ const locationTypes = ref([]);
 const monthlyStats = ref({
   newReservations: 0,
   monthlyRevenue: 0,
-  conversionRate: 0
+  conversionRate: 0,
+  satisfaction: 85
 });
 
-const periodOptions = [
-  { label: 'Aujourd\'hui', value: 'today' },
-  { label: 'Cette semaine', value: 'week' },
-  { label: 'Ce mois', value: 'month' },
-  { label: 'Ce trimestre', value: 'quarter' },
-  { label: 'Cette année', value: 'year' }
-];
+// Références chart
+const reservationChart = ref(null);
+const topMaterialsChart = ref(null);
 
-// --- Computed properties ---
 const totalReservations = computed(() => {
   if (!reservationData.value || !Array.isArray(reservationData.value)) return 0;
   return reservationData.value.reduce((sum, item) => sum + (item.count || 0), 0);
 });
 
-// --- Chargement des données ---
+// NOUVELLES Fonctions utilitaires
+const calculateTrend = () => {
+  // Calcul simple de tendance
+  const confirmed = reservationData.value.find(r => r.etatRes === 'Confirmée')?.count || 0;
+  const total = totalReservations.value;
+  if (total === 0) return 0;
+  return Math.round((confirmed / total) * 100 - 50); // Tendance basée sur taux de confirmation
+};
+
+const calculateConfirmationRate = () => {
+  const confirmed = reservationData.value.find(r => r.etatRes === 'Confirmée')?.count || 0;
+  const total = totalReservations.value;
+  if (total === 0) return 0;
+  return Math.round((confirmed / total) * 100);
+};
+
+const calculateDailyAverage = () => {
+  const total = totalReservations.value;
+  return Math.round(total / 30); // Approximation sur 30 jours
+};
+
+const calculateMaterialUsage = (material) => {
+  const maxLocations = Math.max(...topMateriel.value.map(m => m.totalLocations || m.count || 0));
+  if (maxLocations === 0) return 0;
+  return Math.round(((material.totalLocations || material.count || 0) / maxLocations) * 100);
+};
+
+const calculateAverageRevenue = () => {
+  const revenue = kpis.value.revenuTotal || 0;
+  const locations = kpis.value.locationsMois || 1;
+  return Math.round(revenue / locations);
+};
+
+const calculateAverageDuration = () => {
+  // Simuler calcul durée moyenne
+  return 3.5;
+};
+
+const calculateOccupancyRate = () => {
+  // Simuler taux d'occupation
+  return Math.round((Math.random() * 30) + 60);
+};
+
+const calculateRepeatRate = () => {
+  // Simuler taux de récidive
+  return Math.round((Math.random() * 20) + 10);
+};
+
+const calculateTypePercentage = (count) => {
+  const total = locationTypes.value.reduce((sum, type) => sum + type.count, 0);
+  if (total === 0) return 0;
+  return Math.round((count / total) * 100);
+};
+
+const getTypeIcon = (type) => {
+  const icons = {
+    'Salle': 'bi-building',
+    'Materiel': 'bi-pc-display',
+    'Mixte': 'bi-layers'
+  };
+  return icons[type] || 'bi-question-circle';
+};
+
+// Fonctions existantes améliorées
+const formatCurrency = (value) => {
+  if (typeof value === 'string') value = parseFloat(value);
+  if (isNaN(value)) return '0';
+  return value.toLocaleString('fr-MG');
+};
+
+const calculatePercentage = (count) => {
+  if (totalReservations.value === 0) return 0;
+  return Math.round((count / totalReservations.value) * 100);
+};
+
+const getKpiTitle = (key) => {
+  const titles = {
+    totalClients: 'Clients Actifs',
+    locationsMois: 'Locations (Mois)',
+    revenuTotal: 'Revenu Total'
+  };
+  return titles[key] || key;
+};
+
+const getKpiIcon = (key) => {
+  const icons = {
+    totalClients: '👥',
+    locationsMois: '📅',
+    revenuTotal: '💰'
+  };
+  return icons[key] || '❓';
+};
+
+const formatKpiValue = (key, value) => {
+  if (key === 'revenuTotal') {
+    return formatCurrency(value);
+  }
+  return value.toString();
+};
+
+const getKpiTrend = (key) => {
+  // Simuler des tendances
+  const trends = {
+    totalClients: 12,
+    locationsMois: 8,
+    revenuTotal: 15
+  };
+  return trends[key] || 0;
+};
+
+const getStatusColor = (statut) => {
+  const colors = {
+    'Confirmée': '#5cb85c',
+    'En attente': '#f0ad4e',
+    'Annulée': '#d9534f',
+    'Terminée': '#067186'
+  };
+  return colors[statut] || '#5811EE';
+};
+
+const getStatusBgColor = (statut) => {
+  const colors = {
+    'Confirmée': 'rgba(92, 184, 92, 0.1)',
+    'En attente': 'rgba(240, 173, 78, 0.1)',
+    'Annulée': 'rgba(217, 83, 79, 0.1)',
+    'Terminée': 'rgba(6, 113, 134, 0.1)'
+  };
+  return colors[statut] || 'rgba(88, 17, 238, 0.1)';
+};
+
+const getLocationTypeColor = (type) => {
+  const colors = {
+    'Salle': 'primary',
+    'Materiel': 'success',
+    'Mixte': 'warning'
+  };
+  return colors[type] || 'default';
+};
+
+const getTypeLabel = (type) => {
+  const labels = {
+    'Salle': 'Salle',
+    'Materiel': 'Matériel',
+    'Mixte': 'Mixte'
+  };
+  return labels[type] || type;
+};
+
+// NOUVELLES Fonctions d'action
+const handleKpiClick = (key) => {
+  switch (key) {
+    case 'totalClients':
+      router.push('/clientManagementAdmin');
+      break;
+    case 'locationsMois':
+      router.push('/location');
+      break;
+    case 'revenuTotal':
+      router.push('/finance');
+      break;
+  }
+};
+
+const filterByType = (type) => {
+  resourceFilter.value = type === 'all' ? null : type;
+};
+
+const filterByStatus = (status) => {
+  // Filtrer les réservations par statut
+  // Implémenter selon vos besoins
+};
+
+const showTrendChart = () => {
+  activeTab.value = 'performance';
+};
+
+const resetFilters = () => {
+  dateRange.value = null;
+  selectedPeriod.value = 'month';
+  groupBy.value = null;
+  resourceFilter.value = null;
+};
+
+const exportToPDF = async () => {
+  exporting.value = true;
+  try {
+    const doc = new jsPDF();
+    
+    // En-tête
+    doc.setFontSize(20);
+    doc.setTextColor(4, 5, 143);
+    doc.text('RAPPORT D\'ACTIVITÉ - CEDII', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Période: ${getPeriodLabel()}`, 105, 30, { align: 'center' });
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 105, 37, { align: 'center' });
+    
+    // KPIs
+    doc.setFontSize(16);
+    doc.setTextColor(4, 5, 143);
+    doc.text('INDICATEURS CLÉS', 20, 50);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    
+    let y = 60;
+    Object.entries(kpis.value).forEach(([key, value]) => {
+      doc.text(`${getKpiTitle(key)}: ${formatKpiValue(key, value)}`, 25, y);
+      y += 8;
+    });
+    
+    // Réservations
+    if (reservationData.value && reservationData.value.length > 0) {
+      y += 10;
+      doc.setFontSize(16);
+      doc.setTextColor(4, 5, 143);
+      doc.text('RÉPARTITION DES RÉSERVATIONS', 20, y);
+      
+      y += 10;
+      doc.setFontSize(10);
+      
+      reservationData.value.forEach(item => {
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+        }
+        
+        const percentage = calculatePercentage(item.count);
+        doc.text(`${item.etatRes}: ${item.count} (${percentage}%)`, 25, y);
+        y += 8;
+      });
+    }
+    
+    // Nom du fichier
+    const date = new Date().toISOString().split('T')[0];
+    doc.save(`rapport-cedii-${date}.pdf`);
+    
+  } catch (error) {
+    console.error('Erreur génération PDF:', error);
+    alert('Erreur lors de la génération du rapport');
+  } finally {
+    exporting.value = false;
+  }
+};
+
+const getPeriodLabel = () => {
+  const labels = {
+    'today': 'Aujourd\'hui',
+    'week': 'Cette semaine',
+    'month': 'Ce mois',
+    'quarter': 'Ce trimestre',
+    'year': 'Cette année'
+  };
+  return labels[selectedPeriod.value] || 'Période personnalisée';
+};
+
+// Fonctions existantes
 const fetchData = async () => {
   loading.value = true;
   apiError.value = false;
   
   try {
-    // Charger uniquement les API qui existent
     const promises = [
       RapportService.getKPIs().catch(handleApiError),
       RapportService.getReservationsReport().catch(handleApiError),
@@ -396,7 +893,6 @@ const fetchData = async () => {
 
     const [kpiRes, reportRes, topMatRes, monthlyRes, typesRes] = await Promise.all(promises);
 
-    // Mettre à jour les données seulement si la réponse est valide
     if (kpiRes?.data) {
       kpis.value = {
         totalClients: kpiRes.data.totalClients || 0,
@@ -435,203 +931,1052 @@ const fetchData = async () => {
   }
 };
 
-// --- Fonction de gestion d'erreur d'API ---
 const handleApiError = (error) => {
   console.warn('API non disponible:', error.config?.url);
   return null;
 };
 
-// --- Export des rapports en PDF ---
-const exportToPDF = async () => {
-  exporting.value = true;
-  try {
-    const doc = new jsPDF();
-    let yPosition = 20;
-
-    // En-tête du document
-    doc.setFontSize(20);
-    doc.setTextColor(4, 5, 143);
-    doc.text('RAPPORT D\'ACTIVITÉ - CEDII', 105, yPosition, { align: 'center' });
-    
-    yPosition += 10;
-    doc.setFontSize(12);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 105, yPosition, { align: 'center' });
-    
-    yPosition += 15;
-
-    // Section KPIs
-    doc.setFontSize(16);
-    doc.setTextColor(4, 5, 143);
-    doc.text('INDICATEURS CLÉS DE PERFORMANCE', 20, yPosition);
-    
-    yPosition += 10;
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    
-    const kpiLabels = {
-      totalClients: 'Clients Actifs',
-      locationsMois: 'Locations ce Mois', 
-      revenuTotal: 'Revenu Total'
-    };
-
-    Object.entries(kpis.value).forEach(([key, value]) => {
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      
-      doc.text(`${kpiLabels[key]}:`, 25, yPosition);
-      doc.text(formatKpiValueForPDF(key, value), 80, yPosition);
-      yPosition += 8;
-    });
-
-    yPosition += 10;
-
-    // Section Réservations
-    if (reservationData.value && reservationData.value.length > 0) {
-      if (yPosition > 220) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      
-      doc.setFontSize(16);
-      doc.setTextColor(4, 5, 143);
-      doc.text('RÉPARTITION DES RÉSERVATIONS', 20, yPosition);
-      
-      yPosition += 10;
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-
-      reservationData.value.forEach(item => {
-        if (yPosition > 250) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        
-        const percentage = calculatePercentage(item.count);
-        doc.text(`${item.etatRes}:`, 25, yPosition);
-        doc.text(`${item.count} (${percentage}%)`, 80, yPosition);
-        yPosition += 8;
-      });
-
-      yPosition += 5;
-      doc.text(`Total: ${totalReservations.value} réservations`, 25, yPosition);
-      yPosition += 10;
-    }
-
-    // Section Top Matériels
-    if (topMateriel.value && topMateriel.value.length > 0) {
-      if (yPosition > 220) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      
-      doc.setFontSize(16);
-      doc.setTextColor(4, 5, 143);
-      doc.text('TOP MATÉRIELS LES PLUS DEMANDÉS', 20, yPosition);
-      
-      yPosition += 10;
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-
-      topMateriel.value.forEach((mat, index) => {
-        if (yPosition > 250) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        
-        doc.text(`${index + 1}. ${mat.designationMat || 'Matériel Inconnu'}`, 25, yPosition);
-        yPosition += 6;
-        doc.text(`   Code: ${mat.codeMat} | Catégorie: ${mat.categorieMat || 'N/A'}`, 25, yPosition);
-        yPosition += 6;
-        doc.text(`   Locations: ${mat.totalLocations || mat.count || 0}`, 25, yPosition);
-        yPosition += 8;
-      });
-      
-      yPosition += 5;
-    }
-
-    // Section Performance Mensuelle
-    if (yPosition > 200) {
-      doc.addPage();
-      yPosition = 20;
-    }
-    
-    doc.setFontSize(16);
-    doc.setTextColor(4, 5, 143);
-    doc.text('PERFORMANCE DU MOIS', 20, yPosition);
-    
-    yPosition += 10;
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    
-    doc.text(`Nouvelles réservations: ${monthlyStats.value.newReservations || 0}`, 25, yPosition);
-    yPosition += 8;
-    doc.text(`Revenu mensuel: ${formatCurrency(monthlyStats.value.monthlyRevenue || 0)} MGA`, 25, yPosition);
-    yPosition += 8;
-    doc.text(`Taux de conversion: ${monthlyStats.value.conversionRate || 0}%`, 25, yPosition);
-    yPosition += 15;
-
-    // Section Types de Location
-    if (locationTypes.value && locationTypes.value.length > 0) {
-      if (yPosition > 220) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      
-      doc.setFontSize(16);
-      doc.setTextColor(4, 5, 143);
-      doc.text('RÉPARTITION PAR TYPE DE LOCATION', 20, yPosition);
-      
-      yPosition += 10;
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-
-      locationTypes.value.forEach(type => {
-        if (yPosition > 250) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        
-        doc.text(`${getTypeLabel(type.type)}: ${type.count}`, 25, yPosition);
-        yPosition += 8;
-      });
-    }
-
-    // Pied de page
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150, 150, 150);
-      doc.text(`Page ${i} sur ${pageCount} - CEDII Patrimoine Plus`, 105, 290, { align: 'center' });
-    }
-
-    const date = new Date().toISOString().split('T')[0];
-    doc.save(`rapport-cedii-${date}.pdf`);
-    
-  } catch (error) {
-    console.error('Erreur lors de la génération du PDF:', error);
-    alert('Erreur lors de la génération du rapport PDF');
-  } finally {
-    exporting.value = false;
-  }
-};
-
-// --- Fonction utilitaire pour formater les valeurs dans le PDF ---
-const formatKpiValueForPDF = (key, value) => {
-  if (key === 'revenuTotal') {
-    return `${formatCurrency(value)} MGA`;
-  }
-  return value.toString();
-};
-
 onMounted(() => {
   fetchData();
 });
+</script>
 
-// --- Fonctions utilitaires ---
+<style scoped>
+.reports-management-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header unifié */
+.custom-header {
+  background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
+  color: white;
+  border-left: 4px solid #007bff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.custom-title {
+  color: white;
+  font-weight: 700;
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.custom-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  font-size: 1rem;
+}
+
+.btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+}
+
+.btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: white;
+  color: white;
+}
+
+/* Zone de défilement principale */
+.scrollable-main-content {
+  flex: 1;
+  overflow-y: auto;
+  max-height: calc(100vh - 180px); /* Ajustez selon la hauteur de votre header */
+  padding-right: 8px;
+  margin-right: -8px; /* Compensation du padding pour éviter le décalage */
+}
+
+.scrollable-main-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollable-main-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.scrollable-main-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.scrollable-main-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Cards */
+.custom-card {
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e9ecef;
+}
+
+.kpi-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: #007bff;
+}
+
+/* Boutons */
+.custom-btn-primary {
+  background: #007bff !important;
+  border-color: #007bff !important;
+}
+
+.custom-btn-primary:hover {
+  background: #0056b3 !important;
+  border-color: #0056b3 !important;
+}
+
+.custom-btn-outline {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #6c757d;
+  background: transparent;
+  transition: all 0.3s ease;
+}
+
+.custom-btn-outline:hover {
+  background-color: #6c757d;
+  color: white;
+  border-color: #6c757d;
+}
+
+.custom-tag {
+  font-weight: 600;
+}
+
+/* KPI styles */
+.kpi-icon {
+  font-size: 2rem;
+  padding: 12px;
+  background: rgba(88, 17, 238, 0.1);
+  border-radius: 8px;
+  margin-right: 12px;
+}
+
+.kpi-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.kpi-value {
+  font-size: 1.5rem;
+  color: #04058F;
+}
+
+.kpi-trend {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Chart containers */
+.chart-container {
+  height: 300px;
+  position: relative;
+}
+
+/* Type items */
+.type-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.type-item:last-child {
+  border-bottom: none;
+}
+
+.type-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.type-icon.primary {
+  background: rgba(0, 123, 255, 0.1);
+  color: #007bff;
+}
+
+.type-icon.success {
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+}
+
+.type-icon.warning {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+}
+
+.type-icon.default {
+  background: rgba(108, 117, 125, 0.1);
+  color: #6c757d;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.text-error {
+  color: #dc3545 !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .reports-management-container {
+    padding: 12px;
+  }
+  
+  .scrollable-main-content {
+    max-height: calc(100vh - 160px);
+    margin-right: -4px;
+  }
+  
+  .kpi-icon {
+    font-size: 1.5rem;
+    padding: 8px;
+  }
+  
+  .kpi-value {
+    font-size: 1.25rem;
+  }
+  
+  .custom-header .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .custom-title {
+    font-size: 1.4rem;
+  }
+  
+  .custom-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .chart-container {
+    height: 250px;
+  }
+}
+
+.small {
+  font-size: 0.875em;
+}
+
+.py-3 {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+</style>-->
+
+<template>
+  <div class="full-height-container">
+    <!-- Structure principale avec sidebar et contenu -->
+    <n-layout has-sider class="h-100">
+      <!-- Sidebar Naive UI -->
+      <n-layout-sider
+        bordered
+        collapse-mode="width"
+        :collapsed-width="64"
+        :width="240"
+        :native-scrollbar="false"
+        show-trigger="bar"
+        class="custom-sidebar"
+      >
+        <div class="sidebar-content d-flex flex-column h-100 p-3">
+          <!-- Logo et Titre -->
+          <div class="logo-title-wrapper d-flex align-items-center justify-content-center mb-5">
+            <img src="/src/logoCEDII.jpeg" alt="Logo CEDII" class="sidebar-logo me-2">
+            <h4 class="sidebar-title mb-0 fs-6">CEDII Patrimoine Plus</h4>
+          </div>
+          
+          <!-- Menu Navigation -->
+          <n-menu
+            :options="menuOptions"
+            :value="activeMenuKey"
+            @update:value="handleMenuSelect"
+            class="flex-grow-1 custom-menu"
+          />
+          
+          <!-- Bouton Déconnexion -->
+          <div class="mt-auto pt-3 border-top border-white">
+            <n-button 
+              @click="logout" 
+              type="error"
+              size="small"
+              class="w-100"
+              ghost
+            >
+              <template #icon>
+                <n-icon>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-right" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                    <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                  </svg>
+                </n-icon>
+              </template>
+              Déconnexion
+            </n-button>
+          </div>
+        </div>
+      </n-layout-sider>
+
+      <!-- Contenu Principal -->
+      <n-layout class="main-content">
+        <!-- Header avec navigation et actions -->
+       <!-- Dans la partie header du template -->
+ <n-layout-header bordered class="custom-header d-flex justify-content-between align-items-center p-3">
+  <!-- Partie gauche -->
+  <div class="d-flex align-items-center">
+    <n-button 
+      @click="$router.go(-1)" 
+      type="default" 
+      size="small"
+      ghost
+    >
+      <template #icon>
+        <i class="bi bi-arrow-left"></i>
+      </template>
+      Retour
+    </n-button>
+  </div>
+  
+  <div class="text-center">
+              <h1 class="custom-title mb-1">
+                <i class="bi bi-graph-up me-2"></i>
+                Tableau de Bord & Rapports d'Activité
+              </h1>
+              <p class="custom-subtitle">Analysez les performances et suivez l'activité de location</p>
+            </div>
+  <!-- Partie droite -->
+  <div class="d-flex align-items-center gap-3">
+    <n-button 
+      @click="refreshPage" 
+      type="info" 
+      size="small"
+      :loading="isLoading"
+      ghost
+    >
+      <template #icon>
+        <i class="bi bi-arrow-clockwise"></i>
+      </template>
+      Actualiser
+    </n-button>
+    
+    <n-tag type="info" size="small" class="custom-tag">
+      Rôle: {{ userLogin }}
+    </n-tag>
+  </div>
+</n-layout-header>
+
+<!-- Contenu de la page -->
+        <n-layout-content class="p-4 bg-light">
+          <div class="reports-container">
+            <!-- KPIs Rapides -->
+            <n-grid :cols="4" :x-gap="16" :y-gap="16" class="mb-4">
+              <n-gi>
+                <n-card class="kpi-card custom-card" @click="filterByType('all')">
+                  <n-statistic label="Total Réservations" :value="reportStats.totalReservations">
+                    <template #prefix>
+                      <i class="bi bi-calendar-check"></i>
+                    </template>
+                  </n-statistic>
+                </n-card>
+              </n-gi>
+              <n-gi>
+                <n-card class="kpi-card custom-card" @click="filterByStatus('Confirmée')">
+                  <n-statistic label="Confirmées" :value="reportStats.confirmed" class="text-success">
+                    <template #prefix>
+                      <i class="bi bi-check-circle"></i>
+                    </template>
+                  </n-statistic>
+                </n-card>
+              </n-gi>
+              <n-gi>
+                <n-card class="kpi-card custom-card" @click="filterByStatus('En attente')">
+                  <n-statistic label="En Attente" :value="reportStats.pending" class="text-warning">
+                    <template #prefix>
+                      <i class="bi bi-clock"></i>
+                    </template>
+                  </n-statistic>
+                </n-card>
+              </n-gi>
+              <n-gi>
+                <n-card class="kpi-card custom-card" @click="showTrendChart">
+                  <n-statistic label="Tendance" :value="`${reportStats.trend}%`" 
+                    :class="reportStats.trend >= 0 ? 'text-success' : 'text-error'">
+                    <template #prefix>
+                      <i :class="reportStats.trend >= 0 ? 'bi bi-graph-up-arrow' : 'bi bi-graph-down-arrow'"></i>
+                    </template>
+                  </n-statistic>
+                </n-card>
+              </n-gi>
+            </n-grid>
+
+            <!-- Messages d'état -->
+            <n-alert v-if="apiError" type="warning" class="mb-4">
+              <template #icon>
+                <i class="bi bi-exclamation-triangle"></i>
+              </template>
+              Certaines données ne sont pas disponibles. Vérifiez la connexion au serveur.
+            </n-alert>
+
+            <!-- Filtres avancés -->
+            <n-card class="mb-4 custom-card">
+              <template #header>
+                <n-space justify="space-between" align="center">
+                  <n-text strong>Options d'analyse</n-text>
+                  <n-space>
+                    <n-button 
+                      size="small" 
+                      @click="exportToPDF" 
+                      :loading="exporting" 
+                      class="custom-btn-outline"
+                    >
+                      <template #icon>
+                        <i class="bi bi-file-earmark-pdf"></i>
+                      </template>
+                      Exporter PDF
+                    </n-button>
+                    <n-button 
+                      size="small" 
+                      type="primary" 
+                      @click="fetchData" 
+                      :loading="loading" 
+                      class="custom-btn-primary"
+                    >
+                      <template #icon>
+                        <i class="bi bi-arrow-clockwise"></i>
+                      </template>
+                      Actualiser
+                    </n-button>
+                  </n-space>
+                </n-space>
+              </template>
+              
+              <n-space>
+                <!-- Période -->
+                <n-date-picker
+                  v-model:value="dateRange"
+                  type="daterange"
+                  clearable
+                  placeholder="Période personnalisée"
+                  style="width: 220px"
+                />
+                
+                <!-- Période rapide -->
+                <n-select
+                  v-model:value="selectedPeriod"
+                  :options="periodOptions"
+                  style="width: 180px"
+                  placeholder="Période rapide"
+                />
+                
+                <!-- Grouper par -->
+                <n-select
+                  v-model:value="groupBy"
+                  :options="groupByOptions"
+                  style="width: 150px"
+                  placeholder="Grouper par"
+                  clearable
+                />
+                
+                <!-- Type ressource -->
+                <n-select
+                  v-model:value="resourceFilter"
+                  :options="resourceOptions"
+                  placeholder="Filtrer ressource"
+                  style="width: 180px"
+                  clearable
+                  filterable
+                />
+                
+                <!-- Réinitialiser -->
+                <n-button 
+                  text 
+                  @click="resetFilters"
+                  :disabled="!hasActiveFilters"
+                >
+                  Réinitialiser
+                </n-button>
+              </n-space>
+            </n-card>
+
+            <!-- Cartes KPIs améliorées -->
+            <n-grid :cols="3" :x-gap="16" :y-gap="16" class="mb-4">
+              <n-gi v-for="(kpi, key) in kpis" :key="key">
+                <n-card class="kpi-card custom-card" :class="`kpi-${key}`" @click="handleKpiClick(key)">
+                  <n-space align="center">
+                    <div class="kpi-icon">
+                      {{ getKpiIcon(key) }}
+                    </div>
+                    <n-space vertical size="small" class="flex-grow-1">
+                      <n-text depth="3" class="kpi-title">
+                        {{ getKpiTitle(key) }}
+                      </n-text>
+                      <n-text strong class="kpi-value">
+                        {{ formatKpiValue(key, kpi) }}
+                      </n-text>
+                      <n-text v-if="getKpiTrend(key)" depth="3" class="kpi-trend" 
+                        :class="getKpiTrend(key) >= 0 ? 'text-success' : 'text-error'">
+                        {{ getKpiTrend(key) >= 0 ? '↗' : '↘' }} {{ Math.abs(getKpiTrend(key)) }}%
+                      </n-text>
+                    </n-space>
+                  </n-space>
+                </n-card>
+              </n-gi>
+            </n-grid>
+
+            <!-- Graphiques et statistiques -->
+            <!-- Onglets principaux -->
+            <n-card class="custom-card mb-4">
+              <n-tabs
+                v-model:value="activeTab"
+                type="line"
+                justify-content="space-evenly"
+              >
+                <!-- Onglet Réservations -->
+                <n-tab-pane name="reservations" tab="Réservations">
+                  <template #tab>
+                    <n-badge :value="totalReservations" type="info">
+                      📅 Réservations
+                    </n-badge>
+                  </template>
+                  
+                  <div class="row">
+                    <div class="col-lg-6">
+                      <!-- Graphique circulaire -->
+                      <div class="chart-container">
+                        <canvas ref="reservationChart"></canvas>
+                      </div>
+                    </div>
+                    <div class="col-lg-6">
+                      <!-- Statistiques détaillées -->
+                      <n-space vertical>
+                        <n-progress
+                          v-for="item in reservationData"
+                          :key="item.etatRes"
+                          type="line"
+                          :percentage="calculatePercentage(item.count)"
+                          :color="getStatusColor(item.etatRes)"
+                          :height="24"
+                          :border-radius="4"
+                          :fill-color="getStatusBgColor(item.etatRes)"
+                        >
+                          <template #default>
+                            <n-space justify="space-between" class="w-100">
+                              <n-text>{{ item.etatRes }}</n-text>
+                              <n-text strong>{{ item.count }}</n-text>
+                            </n-space>
+                          </template>
+                        </n-progress>
+                      </n-space>
+                      
+                      <!-- Résumé -->
+                      <n-card size="small" class="mt-3">
+                        <n-space vertical>
+                          <n-text strong>Résumé:</n-text>
+                          <n-space justify="space-between">
+                            <n-text>Taux de confirmation:</n-text>
+                            <n-text strong class="text-success">
+                              {{ calculateConfirmationRate() }}%
+                            </n-text>
+                          </n-space>
+                          <n-space justify="space-between">
+                            <n-text>Moyenne par jour:</n-text>
+                            <n-text strong>
+                              {{ calculateDailyAverage() }}
+                            </n-text>
+                          </n-space>
+                        </n-space>
+                      </n-card>
+                    </div>
+                  </div>
+                </n-tab-pane>
+                
+                <!-- Onglet Performance -->
+                <n-tab-pane name="performance" tab="Performance">
+                  <template #tab>
+                    <n-badge :value="performanceScore" type="success">
+                      🏆 Performance
+                    </n-badge>
+                  </template>
+                  
+                  <n-grid :cols="2" :x-gap="16" :y-gap="16">
+                    <n-gi>
+                      <n-card class="custom-card">
+                        <template #header>
+                          <n-space align="center">
+                            <n-icon size="20">📈</n-icon>
+                            <n-text strong>Performance du Mois</n-text>
+                          </n-space>
+                        </template>
+                        <n-space vertical>
+                          <n-statistic label="Nouvelles réservations" :value="monthlyStats.newReservations || 0" />
+                          <n-statistic label="Revenu mensuel" :value="formatCurrency(monthlyStats.monthlyRevenue || 0)">
+                            <template #suffix> MGA</template>
+                          </n-statistic>
+                          <n-statistic label="Taux de conversion" :value="monthlyStats.conversionRate || 0">
+                            <template #suffix>%</template>
+                          </n-statistic>
+                          <n-statistic label="Satisfaction client" :value="monthlyStats.satisfaction || 0">
+                            <template #suffix>%</template>
+                          </n-statistic>
+                        </n-space>
+                      </n-card>
+                    </n-gi>
+                    
+                    <n-gi>
+                      <n-card class="custom-card">
+                        <template #header>
+                          <n-space align="center">
+                            <n-icon size="20">🎯</n-icon>
+                            <n-text strong>Objectifs</n-text>
+                          </n-space>
+                        </template>
+                        <n-space vertical>
+                          <n-progress
+                            v-for="goal in performanceGoals"
+                            :key="goal.name"
+                            type="line"
+                            :percentage="goal.progress"
+                            :height="16"
+                            :border-radius="4"
+                          >
+                            <template #default>
+                              <n-space justify="space-between" class="w-100">
+                                <n-text class="small">{{ goal.name }}</n-text>
+                                <n-text strong class="small">{{ goal.progress }}%</n-text>
+                              </n-space>
+                            </template>
+                          </n-progress>
+                        </n-space>
+                      </n-card>
+                    </n-gi>
+                  </n-grid>
+                </n-tab-pane>
+                
+                <!-- Onglet Top Matériels -->
+                <n-tab-pane name="topMaterials" tab="Top Matériels">
+                  <template #tab>
+                    <n-badge :value="topMateriel.length" type="warning">
+                      🏆 Top Matériels
+                    </n-badge>
+                  </template>
+                  
+                  <div class="row">
+                    <div class="col-lg-6">
+                      <n-list hoverable>
+                        <n-list-item v-for="(mat, index) in topMateriel" :key="mat.codeMat">
+                          <template #prefix>
+                            <n-badge :value="index + 1" type="primary" class="custom-tag" />
+                          </template>
+                          
+                          <n-thing :title="mat.designationMat || 'Matériel Inconnu'">
+                            <template #description>
+                              <n-space vertical size="small">
+                                <n-text depth="3">
+                                  Code: {{ mat.codeMat }}
+                                </n-text>
+                                <n-space align="center">
+                                  <n-tag size="small" type="info" class="custom-tag">
+                                    {{ mat.categorieMat || 'Non catégorisé' }}
+                                  </n-tag>
+                                  <n-text depth="3" class="small">
+                                    {{ mat.totalLocations || mat.count || 0 }} locations
+                                  </n-text>
+                                </n-space>
+                              </n-space>
+                            </template>
+                          </n-thing>
+                          
+                          <template #suffix>
+                            <n-progress
+                              type="circle"
+                              :percentage="calculateMaterialUsage(mat)"
+                              :stroke-width="6"
+                              :width="60"
+                            />
+                          </template>
+                        </n-list-item>
+                      </n-list>
+                    </div>
+                    
+                    <div class="col-lg-6">
+                      <!-- Graphique top matériels -->
+                      <div class="chart-container">
+                        <canvas ref="topMaterialsChart"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                </n-tab-pane>
+              </n-tabs>
+            </n-card>
+
+            <!-- Statistiques supplémentaires -->
+            <n-grid :cols="2" :x-gap="16" :y-gap="16" class="mt-4">
+              <!-- Performance mensuelle -->
+              <n-gi>
+                <n-card class="custom-card">
+                  <template #header>
+                    <n-space align="center">
+                      <n-icon size="20">📊</n-icon>
+                      <n-text strong>Indicateurs Clés</n-text>
+                    </n-space>
+                  </template>
+                  <n-space vertical>
+                    <n-statistic 
+                      v-for="indicator in keyIndicators" 
+                      :key="indicator.name"
+                      :label="indicator.name" 
+                      :value="indicator.value"
+                      :class="indicator.trend >= 0 ? 'text-success' : 'text-error'"
+                    >
+                      <template #suffix v-if="indicator.suffix">{{ indicator.suffix }}</template>
+                      <template #prefix v-if="indicator.prefix">{{ indicator.prefix }}</template>
+                    </n-statistic>
+                  </n-space>
+                </n-card>
+              </n-gi>
+
+              <!-- Types de location -->
+              <n-gi>
+                <n-card class="custom-card">
+                  <template #header>
+                    <n-space align="center">
+                      <n-icon size="20">📋</n-icon>
+                      <n-text strong>Répartition par Type</n-text>
+                    </n-space>
+                  </template>
+                  <n-space vertical>
+                    <div v-for="type in locationTypes" :key="type.type" class="type-item">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                          <div class="type-icon me-2" :class="getLocationTypeColor(type.type)">
+                            <i :class="getTypeIcon(type.type)"></i>
+                          </div>
+                          <n-text>{{ getTypeLabel(type.type) }}</n-text>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                          <n-text strong>{{ type.count }}</n-text>
+                          <n-progress
+                            type="line"
+                            :percentage="calculateTypePercentage(type.count)"
+                            :height="6"
+                            :width="100"
+                            :show-indicator="false"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <n-space v-if="!locationTypes || locationTypes.length === 0" justify="center" class="py-3">
+                      <n-text depth="3">Aucune donnée disponible</n-text>
+                    </n-space>
+                  </n-space>
+                </n-card>
+              </n-gi>
+            </n-grid>
+          </div>
+        </n-layout-content>
+      </n-layout>
+    </n-layout>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed, h } from 'vue';
+import { useRouter } from 'vue-router';
+import { Chart, registerables } from 'chart.js';
+import {
+  NLayout, 
+  NLayoutSider, 
+  NLayoutContent, 
+  NLayoutHeader, 
+  NMenu, 
+  NButton, 
+  NIcon, 
+  NTag,
+  NText,
+  NSpace,
+  NCard,
+  NGrid,
+  NGi,
+  NStatistic,
+  NAlert,
+  NProgress,
+  NList,
+  NListItem,
+  NThing,
+  NBadge,
+  NDatePicker,
+  NSelect,
+  NTabs,
+  NTabPane
+} from 'naive-ui';
+import jsPDF from 'jspdf';
+import RapportService from '../services/RapportService';
+import AuthService from '../services/AuthService';
+
+Chart.register(...registerables);
+
+const router = useRouter();
+
+// États utilisateur
+const userRole = ref('');
+const userLogin = ref('');
+const activeMenuKey = ref('rapports'); // Activer l'item "rapports" dans le menu
+
+// Options du menu
+const menuOptions = [
+  {
+    label: () => h('span', { class: 'text-white' }, 'Accueil'),
+    key: 'accueil',
+    icon: renderIcon('bi-house-door-fill')
+  },
+ 
+  {
+    label: () => h('span', { class: 'text-white' }, 'Gestion des Clients'),
+    key: 'clients',
+    icon: renderIcon('bi-people-fill')
+  },
+  {
+    label: () => h('span', { class: 'text-white' }, 'Inventaire & Patrimoine'),
+    key: 'inventaire',
+    icon: renderIcon('bi-tools')
+  },
+  {
+    label: () => h('span', { class: 'text-white' }, 'Matériel de Bureau'),
+    key: 'bureau',
+    icon: renderIcon('bi-briefcase-fill')
+  },
+  {
+    label: () => h('span', { class: 'text-white' }, 'Locations & Réservations'),
+    key: 'locations',
+    icon: renderIcon('bi-calendar-check')
+  },
+  {
+    label: () => h('span', { class: 'text-white' }, 'Gestion Financière'),
+    key: 'finance',
+    icon: renderIcon('bi-bank')
+  },
+  {
+    label: () => h('span', { class: 'text-white' }, 'Suivi & Rapports'),
+    key: 'rapports',
+    icon: renderIcon('bi-graph-up')
+  },
+ 
+];
+
+// Fonction pour rendre les icônes
+function renderIcon(iconClass) {
+  return () => h(NIcon, null, {
+    default: () => h('i', { class: iconClass + ' text-white' })
+  });
+}
+
+// Gestion de la sélection du menu
+const handleMenuSelect = (key) => {
+  const routeMap = {
+    'accueil': 'AdminDashboard',
+    'utilisateurs': 'UserManagement',
+    'clients': 'ClientManagement1',
+    'inventaire': 'InventairePatrimoineAD',
+    'locations': 'Location',
+    'finance': 'Finance',
+    'bureau': 'Bureau1',
+    'rapports': 'Rapport',
+    'logs': 'SystemLogs'
+  };
+  
+  if (routeMap[key]) {
+    router.push({ name: routeMap[key] });
+  }
+};
+
+// Navigation
+const goToDashboard = () => {
+  router.push({ name: 'AdminDashboard' });
+};
+
+const logout = () => {
+  const isConfirmed = window.confirm("Êtes-vous sûr de vouloir vous déconnecter ?");
+  if (isConfirmed) {
+    AuthService.logout();
+    router.push('/');
+  }
+};
+
+// NOUVEAUX États
+const activeTab = ref('reservations');
+const loading = ref(false);
+const exporting = ref(false);
+const apiError = ref(false);
+const dateRange = ref(null);
+const selectedPeriod = ref('month');
+const groupBy = ref(null);
+const resourceFilter = ref(null);
+
+// NOUVELLES Options
+const periodOptions = [
+  { label: 'Aujourd\'hui', value: 'today' },
+  { label: 'Cette semaine', value: 'week' },
+  { label: 'Ce mois', value: 'month' },
+  { label: 'Ce trimestre', value: 'quarter' },
+  { label: 'Cette année', value: 'year' }
+];
+
+const groupByOptions = [
+  { label: 'Par jour', value: 'day' },
+  { label: 'Par semaine', value: 'week' },
+  { label: 'Par mois', value: 'month' },
+  { label: 'Par type', value: 'type' },
+  { label: 'Par statut', value: 'status' }
+];
+
+const resourceOptions = [
+  { label: 'Salles', value: 'Salle' },
+  { label: 'Matériels', value: 'Materiel' },
+  { label: 'Mixte', value: 'Mixte' }
+];
+
+// NOUVELLES Computed properties
+const hasActiveFilters = computed(() => {
+  return dateRange.value || selectedPeriod.value !== 'month' || groupBy.value || resourceFilter.value;
+});
+
+const reportStats = computed(() => {
+  return {
+    totalReservations: totalReservations.value,
+    confirmed: reservationData.value.find(r => r.etatRes === 'Confirmée')?.count || 0,
+    pending: reservationData.value.find(r => r.etatRes === 'En attente')?.count || 0,
+    trend: calculateTrend()
+  };
+});
+
+const performanceScore = computed(() => {
+  return Math.round((monthlyStats.value.conversionRate || 0) * 0.4 + 
+                    (calculateConfirmationRate() || 0) * 0.3 + 
+                    (monthlyStats.value.satisfaction || 0) * 0.3);
+});
+
+const performanceGoals = computed(() => [
+  { name: 'Taux de conversion', target: 80, current: monthlyStats.value.conversionRate || 0, progress: Math.min(100, ((monthlyStats.value.conversionRate || 0) / 80) * 100) },
+  { name: 'Revenu mensuel', target: 10000000, current: monthlyStats.value.monthlyRevenue || 0, progress: Math.min(100, ((monthlyStats.value.monthlyRevenue || 0) / 10000000) * 100) },
+  { name: 'Satisfaction client', target: 90, current: monthlyStats.value.satisfaction || 0, progress: Math.min(100, ((monthlyStats.value.satisfaction || 0) / 90) * 100) }
+]);
+
+const keyIndicators = computed(() => [
+  { name: 'CA moyen par location', value: formatCurrency(calculateAverageRevenue()), trend: 5, suffix: 'MGA' },
+  { name: 'Durée moyenne', value: calculateAverageDuration(), trend: 3, suffix: 'jours' },
+  { name: 'Taux d\'occupation', value: calculateOccupancyRate(), trend: 2, suffix: '%' },
+  { name: 'Taux de récidive', value: calculateRepeatRate(), trend: 8, suffix: '%' }
+]);
+
+// Données existantes
+const kpis = ref({
+  totalClients: 0,
+  locationsMois: 0,
+  revenuTotal: 0
+});
+
+const reservationData = ref([]);
+const topMateriel = ref([]);
+const locationTypes = ref([]);
+const monthlyStats = ref({
+  newReservations: 0,
+  monthlyRevenue: 0,
+  conversionRate: 0,
+  satisfaction: 85
+});
+
+// Références chart
+const reservationChart = ref(null);
+const topMaterialsChart = ref(null);
+
+const totalReservations = computed(() => {
+  if (!reservationData.value || !Array.isArray(reservationData.value)) return 0;
+  return reservationData.value.reduce((sum, item) => sum + (item.count || 0), 0);
+});
+
+// NOUVELLES Fonctions utilitaires
+const calculateTrend = () => {
+  // Calcul simple de tendance
+  const confirmed = reservationData.value.find(r => r.etatRes === 'Confirmée')?.count || 0;
+  const total = totalReservations.value;
+  if (total === 0) return 0;
+  return Math.round((confirmed / total) * 100 - 50); // Tendance basée sur taux de confirmation
+};
+
+const calculateConfirmationRate = () => {
+  const confirmed = reservationData.value.find(r => r.etatRes === 'Confirmée')?.count || 0;
+  const total = totalReservations.value;
+  if (total === 0) return 0;
+  return Math.round((confirmed / total) * 100);
+};
+
+const calculateDailyAverage = () => {
+  const total = totalReservations.value;
+  return Math.round(total / 30); // Approximation sur 30 jours
+};
+
+const calculateMaterialUsage = (material) => {
+  const maxLocations = Math.max(...topMateriel.value.map(m => m.totalLocations || m.count || 0));
+  if (maxLocations === 0) return 0;
+  return Math.round(((material.totalLocations || material.count || 0) / maxLocations) * 100);
+};
+
+const calculateAverageRevenue = () => {
+  const revenue = kpis.value.revenuTotal || 0;
+  const locations = kpis.value.locationsMois || 1;
+  return Math.round(revenue / locations);
+};
+
+const calculateAverageDuration = () => {
+  // Simuler calcul durée moyenne
+  return 3.5;
+};
+
+const calculateOccupancyRate = () => {
+  // Simuler taux d'occupation
+  return Math.round((Math.random() * 30) + 60);
+};
+
+const calculateRepeatRate = () => {
+  // Simuler taux de récidive
+  return Math.round((Math.random() * 20) + 10);
+};
+
+const calculateTypePercentage = (count) => {
+  const total = locationTypes.value.reduce((sum, type) => sum + type.count, 0);
+  if (total === 0) return 0;
+  return Math.round((count / total) * 100);
+};
+
+const getTypeIcon = (type) => {
+  const icons = {
+    'Salle': 'bi-building',
+    'Materiel': 'bi-pc-display',
+    'Mixte': 'bi-layers'
+  };
+  return icons[type] || 'bi-question-circle';
+};
+
+// Fonctions existantes améliorées
 const formatCurrency = (value) => {
   if (typeof value === 'string') value = parseFloat(value);
   if (isNaN(value)) return '0';
@@ -668,6 +2013,16 @@ const formatKpiValue = (key, value) => {
   return value.toString();
 };
 
+const getKpiTrend = (key) => {
+  // Simuler des tendances
+  const trends = {
+    totalClients: 12,
+    locationsMois: 8,
+    revenuTotal: 15
+  };
+  return trends[key] || 0;
+};
+
 const getStatusColor = (statut) => {
   const colors = {
     'Confirmée': '#5cb85c',
@@ -690,7 +2045,7 @@ const getStatusBgColor = (statut) => {
 
 const getLocationTypeColor = (type) => {
   const colors = {
-    'Salle': 'info',
+    'Salle': 'primary',
     'Materiel': 'success',
     'Mixte': 'warning'
   };
@@ -705,56 +2060,270 @@ const getTypeLabel = (type) => {
   };
   return labels[type] || type;
 };
+
+// NOUVELLES Fonctions d'action
+const handleKpiClick = (key) => {
+  switch (key) {
+    case 'totalClients':
+      router.push({ name: 'ClientManagement1' });
+      break;
+    case 'locationsMois':
+      router.push({ name: 'Location' });
+      break;
+    case 'revenuTotal':
+      router.push({ name: 'Finance' });
+      break;
+  }
+};
+
+const filterByType = (type) => {
+  resourceFilter.value = type === 'all' ? null : type;
+};
+
+const filterByStatus = (status) => {
+  // Filtrer les réservations par statut
+  // Implémenter selon vos besoins
+};
+
+const showTrendChart = () => {
+  activeTab.value = 'performance';
+};
+
+const resetFilters = () => {
+  dateRange.value = null;
+  selectedPeriod.value = 'month';
+  groupBy.value = null;
+  resourceFilter.value = null;
+};
+
+const exportToPDF = async () => {
+  exporting.value = true;
+  try {
+    const doc = new jsPDF();
+    
+    // En-tête
+    doc.setFontSize(20);
+    doc.setTextColor(4, 5, 143);
+    doc.text('RAPPORT D\'ACTIVITÉ - CEDII', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Période: ${getPeriodLabel()}`, 105, 30, { align: 'center' });
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 105, 37, { align: 'center' });
+    
+    // KPIs
+    doc.setFontSize(16);
+    doc.setTextColor(4, 5, 143);
+    doc.text('INDICATEURS CLÉS', 20, 50);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    
+    let y = 60;
+    Object.entries(kpis.value).forEach(([key, value]) => {
+      doc.text(`${getKpiTitle(key)}: ${formatKpiValue(key, value)}`, 25, y);
+      y += 8;
+    });
+    
+    // Réservations
+    if (reservationData.value && reservationData.value.length > 0) {
+      y += 10;
+      doc.setFontSize(16);
+      doc.setTextColor(4, 5, 143);
+      doc.text('RÉPARTITION DES RÉSERVATIONS', 20, y);
+      
+      y += 10;
+      doc.setFontSize(10);
+      
+      reservationData.value.forEach(item => {
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+        }
+        
+        const percentage = calculatePercentage(item.count);
+        doc.text(`${item.etatRes}: ${item.count} (${percentage}%)`, 25, y);
+        y += 8;
+      });
+    }
+    
+    // Nom du fichier
+    const date = new Date().toISOString().split('T')[0];
+    doc.save(`rapport-cedii-${date}.pdf`);
+    
+  } catch (error) {
+    console.error('Erreur génération PDF:', error);
+    alert('Erreur lors de la génération du rapport');
+  } finally {
+    exporting.value = false;
+  }
+};
+
+const getPeriodLabel = () => {
+  const labels = {
+    'today': 'Aujourd\'hui',
+    'week': 'Cette semaine',
+    'month': 'Ce mois',
+    'quarter': 'Ce trimestre',
+    'year': 'Cette année'
+  };
+  return labels[selectedPeriod.value] || 'Période personnalisée';
+};
+
+// Fonctions existantes
+const fetchData = async () => {
+  loading.value = true;
+  apiError.value = false;
+  
+  try {
+    const promises = [
+      RapportService.getKPIs().catch(handleApiError),
+      RapportService.getReservationsReport().catch(handleApiError),
+      RapportService.getTopRentedMateriel().catch(handleApiError),
+      RapportService.getMonthlyStats().catch(handleApiError),
+      RapportService.getLocationTypes().catch(handleApiError)
+    ];
+
+    const [kpiRes, reportRes, topMatRes, monthlyRes, typesRes] = await Promise.all(promises);
+
+    if (kpiRes?.data) {
+      kpis.value = {
+        totalClients: kpiRes.data.totalClients || 0,
+        locationsMois: kpiRes.data.locationsMois || 0,
+        revenuTotal: kpiRes.data.revenuTotal || 0
+      };
+    }
+    
+    if (reportRes?.data && Array.isArray(reportRes.data)) {
+      reservationData.value = reportRes.data;
+    } else {
+      reservationData.value = [];
+    }
+    
+    if (topMatRes?.data && Array.isArray(topMatRes.data)) {
+      topMateriel.value = topMatRes.data;
+    } else {
+      topMateriel.value = [];
+    }
+    
+    if (monthlyRes?.data) {
+      monthlyStats.value = monthlyRes.data;
+    }
+    
+    if (typesRes?.data && Array.isArray(typesRes.data)) {
+      locationTypes.value = typesRes.data;
+    } else {
+      locationTypes.value = [];
+    }
+
+  } catch (error) {
+    console.error("Erreur de chargement des rapports:", error);
+    apiError.value = true;
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleApiError = (error) => {
+  console.warn('API non disponible:', error.config?.url);
+  return null;
+};
+
+// Cycle de vie
+onMounted(() => {
+  // Initialiser l'utilisateur
+  const user = AuthService.getCurrentUser();
+  if (user && user.roleUti) {
+    userRole.value = user.roleUti.toUpperCase();
+    userLogin.value = user.loginUti || '';
+  }
+  
+  fetchData();
+});
 </script>
 
 <style scoped>
-.reports-management-container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 20px;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+.full-height-container {
+  height: 100vh;
 }
 
-/* Header amélioré comme dans la gestion des clients */
-.custom-header {
-  background: linear-gradient(135deg, #04058f 0%, #02061e 100%);
-  color: white;
+/* Sidebar en bleu nuit */
+.custom-sidebar {
+  background: linear-gradient(135deg, #04058f 0%, #02061e 100%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-content {
+  background: transparent;
+}
+
+.sidebar-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  object-fit: cover;
+}
+
+.sidebar-title {
+  color: white !important;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Styles pour le menu */
+:deep(.custom-menu) {
+  background-color: transparent !important;
+}
+
+:deep(.custom-menu .n-menu-item .n-menu-item-content) {
+  color: white !important;
+  transition: all 0.3s ease;
+}
+
+:deep(.custom-menu .n-menu-item .n-menu-item-content:hover) {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:deep(.custom-menu .n-menu-item .n-menu-item-content.n-menu-item-content--selected) {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%) !important;
+  color: white !important;
+  font-weight: 600;
   border-left: 4px solid #007bff;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+/* Header amélioré */
+.custom-header {
+  background: linear-gradient(135deg, #04058f 0%, #02061e 100%) !important;
+  color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .custom-title {
   color: white;
   font-weight: 700;
   margin: 0;
-  font-size: 1.8rem;
+  font-size: 1.5rem;
 }
 
-.custom-subtitle {
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0;
-  font-size: 1rem;
+/* Contenu principal */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
-.btn-outline-light {
-  border-color: rgba(255, 255, 255, 0.5);
-  color: white;
+.bg-light {
+  background-color: #f8f9fa !important;
+  flex: 1;
+  overflow-y: auto;
 }
 
-.btn-outline-light:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-color: white;
-  color: white;
-}
-
-/* Cards */
-.custom-card {
-  border: none;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid #e9ecef;
+.reports-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Boutons cohérents */
@@ -785,49 +2354,7 @@ const getTypeLabel = (type) => {
   font-weight: 600;
 }
 
-/* Reste des styles existants */
-.scrollable-content {
-  max-height: calc(100vh - 300px);
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
-.scrollable-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.scrollable-content::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-.scrollable-content::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-.scrollable-content::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-.scrollable-list {
-  max-height: 300px;
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
-.kpi-card {
-  border-left: 4px solid #5811EE;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  min-height: 100px;
-}
-
-.kpi-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(88, 17, 238, 0.15);
-}
-
+/* KPI styles */
 .kpi-icon {
   font-size: 2rem;
   padding: 12px;
@@ -846,38 +2373,106 @@ const getTypeLabel = (type) => {
   color: #04058F;
 }
 
-.kpi-totalClients {
-  border-left-color: #067186;
+.kpi-trend {
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
-.kpi-totalClients .kpi-icon {
-  background: rgba(6, 113, 134, 0.1);
+/* Cards */
+.custom-card {
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e9ecef;
 }
 
-.kpi-locationsMois {
-  border-left-color: #04058F;
+.kpi-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.kpi-locationsMois .kpi-icon {
-  background: rgba(4, 5, 143, 0.1);
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: #007bff;
 }
 
-.kpi-revenuTotal {
-  border-left-color: #5811EE;
+/* Chart containers */
+.chart-container {
+  height: 300px;
+  position: relative;
 }
 
-.kpi-revenuTotal .kpi-icon {
-  background: rgba(88, 17, 238, 0.1);
+/* Type items */
+.type-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
+.type-item:last-child {
+  border-bottom: none;
+}
+
+.type-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.type-icon.primary {
+  background: rgba(0, 123, 255, 0.1);
+  color: #007bff;
+}
+
+.type-icon.success {
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+}
+
+.type-icon.warning {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+}
+
+.type-icon.default {
+  background: rgba(108, 117, 125, 0.1);
+  color: #6c757d;
+}
+
+/* Scrollbars personnalisées */
+.bg-light::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.bg-light::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.bg-light::-webkit-scrollbar-thumb {
+  background: #007bff;
+  border-radius: 4px;
+}
+
+.bg-light::-webkit-scrollbar-thumb:hover {
+  background: #0056b3;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-  .reports-management-container {
-    padding: 10px;
+  .custom-header .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
   }
   
-  .scrollable-content {
-    max-height: none;
-    overflow-y: visible;
+  .custom-title {
+    font-size: 1.4rem;
   }
   
   .kpi-icon {
@@ -889,18 +2484,8 @@ const getTypeLabel = (type) => {
     font-size: 1.25rem;
   }
   
-  .custom-header .d-flex {
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
-  }
-  
-  .custom-title {
-    font-size: 1.4rem;
-  }
-  
-  .custom-subtitle {
-    font-size: 0.9rem;
+  .chart-container {
+    height: 250px;
   }
 }
 

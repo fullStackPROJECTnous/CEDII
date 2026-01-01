@@ -3,29 +3,14 @@
     <!-- Header avec navigation -->
     <div class="header-section mb-4">
       <div class="d-flex justify-content-between align-items-center">
-        <n-button 
-          type="primary" 
-          ghost 
-          @click="currentView === 'calendar' ? returnToList() : $router.back()"
-          class="back-button"
-          size="small"
-        >
-          <template #icon>
-            <n-icon>
-              <i class="bi bi-arrow-left"></i>
-            </n-icon>
-          </template>
-          {{ currentView === 'calendar' ? 'Retour à la liste' : 'Retour' }}
-        </n-button>
+       
 
-        <div class="header-title text-center flex-grow-1">
+        <div class="header-title  flex-grow-1">
           <h1 class="page-title cedii-text-primary mb-2">
             <i class="bi bi-door-open-fill me-2"></i> 
             Gestion des Salles
           </h1>
-          <p class="page-subtitle text-muted mb-0">
-            {{ currentView === 'calendar' ? 'Calendrier des réservations' : 'Inventaire et gestion des salles' }}
-          </p>
+          
         </div>
       </div>
     </div>

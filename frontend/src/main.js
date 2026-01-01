@@ -1,9 +1,14 @@
 import { createApp } from 'vue'
+// Tailwind CSS
+import './index.css'
+
+
 import './style.css'
 import './assets/main.css'
 import { createPinia } from 'pinia'; 
 import App from './App.vue'
 import router from './router/router.js';
+
 
 //import '/style.css'
 import { create } from 'naive-ui'
@@ -65,4 +70,5 @@ app.use(Toast, {
 });
 
 app.mount('#app');
+
 

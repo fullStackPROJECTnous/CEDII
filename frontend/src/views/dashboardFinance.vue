@@ -153,7 +153,7 @@
                                                 <i class="bi bi-exclamation-octagon text-white"></i>
                                             </div>
                                             <div>
-                                                <h6 class="mb-1 text-white">Pénalités & Litiges</h6>
+                                                <h6 class="mb-1 text-white">Pénalités </h6>
                                                 <small class="text-white-50">{{ litigeCount }} à traiter</small>
                                             </div>
                                         </div>
@@ -327,7 +327,7 @@ const menuOptions = [
         label: () => h('div', {
             class: 'd-flex justify-content-between align-items-center w-100'
         }, [
-            h('span', { class: 'text-white' }, 'Pénalités & Litiges'),
+            h('span', { class: 'text-white' }, 'Pénalités'),
             litigeCount.value > 0 ? h(NBadge, {
                 value: litigeCount.value,
                 type: 'error',
@@ -393,7 +393,7 @@ const fetchFinanceData = async () => {
     }
 };
 
-const loadCashflowData = async () => {
+/*const loadCashflowData = async () => {
     loadingCashflow.value = true;
     try {
         const response = await FinanceService.getCashflowSynthese();
@@ -407,7 +407,7 @@ const loadCashflowData = async () => {
     } finally {
         loadingCashflow.value = false;
     }
-};
+};*/
 
 const renderCashflowChart = () => {
     if (chartInstance.value) {

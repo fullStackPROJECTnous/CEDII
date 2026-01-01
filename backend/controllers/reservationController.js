@@ -2,6 +2,7 @@ const { Reservation, Client, Materiel, Salle, Utilisateur, Notification, Catalog
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const MadagascarTime = require('../utils/madagascarTime');
+const sequelize = require('sequelize');
 
 
 // 🆕 MAPPING MANUEL idCatalogue → Ressources
@@ -1065,3 +1066,112 @@ function formatDate(date) {
 
 // 🆕 AJOUTEZ CETTE LIGNE POUR VÉRIFIER LES EXPORTS
 console.log('✅ Reservation Controller exports:', Object.keys(exports));
+exports.getReservationStats = async (req, res) => {
+    try {
+        console.log('📊 Récupération des statistiques des réservations...');
+        
+        // 1. Utilisez le bon import de sequelize
+        // Assurez-vous que sequelize est importé correctement
+        // const { sequelize } = require('../models');
+        
+        // Alternative : si vous ne pouvez pas importer sequelize, utilisez une approche simple
+        const now = new Date();
+        
+        // 2. Compter les réservations par type (approche simple sans sequelize.fn)
+        const reservationsByType = await Reservation.findAll({
+            where: {
+                etatRes: {
+                    [Op.ne]: 'Annulée' // Exclure les annulations
+                }
+            },
+            raw: true
+        });
+        
+        // 3. Calcul manuel des compteurs
+        let materielCount = 0;
+        let salleCount = 0;
+        let mixteCount = 0;
+        
+        reservationsByType.forEach(reservation => {
+            const type = reservation.typeRes?.toLowerCase();
+            if (type === 'materiel' || type === 'matériel') {
+                materielCount++;
+            } else if (type === 'salle') {
+                salleCount++;
+            } else if (type === 'mixte') {
+                mixteCount++;
+            }
+        });
+        
+        // 4. Réservations du mois en cours (approche simplifiée)
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        
+        const monthlyReservations = await Reservation.findAll({
+            where: {
+                etatRes: { [Op.in]: ['Confirmée', 'Terminée'] },
+                dateCre: {
+                    [Op.between]: [startOfMonth, endOfMonth]
+                }
+            },
+            raw: true
+        });
+        
+        const monthlyTotal = monthlyReservations.length;
+        const monthlyRevenue = monthlyReservations.reduce((sum, res) => sum + (parseFloat(res.tarifTot) || 0), 0);
+        
+        // 5. Réservations en attente
+        const pendingReservations = await Reservation.findAll({
+            where: { etatRes: 'En attente' },
+            raw: true
+        });
+        
+        // 6. Formater la réponse dans le format attendu par le frontend
+        const response = {
+            success: true,
+            message: 'Statistiques des réservations récupérées avec succès',
+            materiel: materielCount,
+            salle: salleCount,
+            mixte: mixteCount,
+            materielCount: materielCount, // Alias pour compatibilité
+            salleCount: salleCount,
+            mixteCount: mixteCount,
+            totalCount: materielCount + salleCount + mixteCount,
+            pending: {
+                total: pendingReservations.length,
+                urgent: pendingReservations.filter(r => {
+                    const debRes = new Date(r.debRes);
+                    const diffHours = (debRes - now) / (1000 * 60 * 60);
+                    return diffHours <= 24; // Urgent si moins de 24h
+                }).length,
+                normal: pendingReservations.filter(r => {
+                    const debRes = new Date(r.debRes);
+                    const diffHours = (debRes - now) / (1000 * 60 * 60);
+                    return diffHours > 24; // Normal si plus de 24h
+                }).length
+            },
+            monthly: {
+                reservations: monthlyTotal,
+                revenue: monthlyRevenue
+            }
+        };
+        
+        console.log('📈 Statistiques calculées:', {
+            materiel: response.materiel,
+            salle: response.salle,
+            mixte: response.mixte,
+            total: response.totalCount,
+            pending: response.pending.total
+        });
+        
+        res.json(response);
+        
+    } catch (error) {
+        console.error('❌ Erreur récupération statistiques:', error);
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la récupération des statistiques",
+            error: error.message
+        });
+    }
+};

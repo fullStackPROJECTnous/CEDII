@@ -40,6 +40,34 @@ class FinanceService {
     return axios.post(`${API_URL}/validate-payment/${paymentId}`);
   }
 
+  async validatePaymentWithDetails(validationData) {
+    try {
+      console.log('📤 Envoi validation paiement avec détails:', validationData);
+      
+      const response = await axios.post(
+        `${API_URL}/payments/${validationData.paymentId}/validate-with-details`,
+        {
+          paymentMethod: validationData.paymentMethod,
+          referenceId: validationData.referenceId,
+          senderName: validationData.senderName,
+          notes: validationData.notes
+        },
+       /* {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }*/
+      );
+      
+      console.log('✅ Réponse validation paiement:', response.data);
+      return response;
+    } catch (error) {
+      console.error('❌ Erreur validation paiement avec détails:', error);
+      throw error;
+    }
+  }
+
     getCashflowSynthese() {
     return axios.get(`${API_URL}/cashflow-synthese`);
   }

@@ -9,6 +9,8 @@ const authJwt = require('../middleware/authJwt');
 router.get('/', locationController.getAllLocations);
 router.get('/reception/dashboard', locationController.getReceptionDashboardData);
 router.get('/reservations/pending', locationController.getPendingReservations);
+//router.get('/history', locationController.getLocationHistory);
+// locationRoutes.js - AJOUTEZ cette route
 router.get('/history', locationController.getLocationHistory);
 
 // Routes pour les catalogues
@@ -27,8 +29,20 @@ router.post('/reservations/:idRes/validate', locationController.validateReservat
 // Route pour mettre à jour le statut de réservation
 router.put('/reservations/:idRes/status', locationController.updateReservationStatus);
 
+router.get('/with-payments', locationController.getLocationsWithPayments);
+
 // Routes pour les événements
 router.get('/events/confirmed', locationController.getConfirmedEvents);
+
+// Routes pour les statistiques et KPIs
+router.get('/stats/locations', locationController.getLocationStats);
+router.get('/locations/terminated/week', locationController.getTerminatedLocationsWeek);
+// Ajoutez cette ligne après la route existante /terminated
+router.get('/terminated/revenue', locationController.getTerminatedLocationsWithRevenue);
+
+
+router.get('/locations/active/today', locationController.getActiveLocationsToday);
+//location terminé
 router.get('/terminated', locationController.getTerminatedLocations);
 
 // CORRECTION CRITIQUE : Route pour état des lieux - DOIT utiliser un chemin spécifique
