@@ -40,6 +40,13 @@
   --radius-2xl: 1.5rem;
 }
 
+:root {
+  --cedii-blue-bg: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  --cedii-blue-light: #e6f0ff;
+  --cedii-blue-medium: #4a90e2;
+  --cedii-blue-dark: #1c3d6a;
+}
+
 /* Reset et styles de base */
 *,
 *::before,

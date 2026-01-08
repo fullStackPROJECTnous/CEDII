@@ -127,62 +127,70 @@
                         </div>
 
                         <!-- Colonne Statistiques (droite) -->
-                        <div class="col-lg-8">
-                            <n-card title="Statistiques des Réservations" class="shadow-sm h-100 custom-card">
-                                <template #header-extra>
-                                    <n-button 
-                                        text 
-                                        @click="refreshStats" 
-                                        :loading="loadingStats" 
-                                        size="small"
-                                        class="custom-btn-primary"
-                                    >
-                                        <template #icon>
-                                            <i class="bi bi-arrow-clockwise"></i>
-                                        </template>
-                                    </n-button>
-                                </template>
-                                
-                                <div class="chart-container d-flex flex-column justify-content-center align-items-center" style="height: 300px;">
-                                    <div v-if="loadingStats" class="text-center text-muted">
-                                        <n-spin size="medium" />
-                                        <p class="mt-2 mb-0 small">Chargement...</p>
-                                    </div>
-                                    <div v-else-if="!hasStats" class="text-center text-muted">
-                                        <n-empty description="Aucune donnée" size="small">
-                                            <template #icon>
-                                                <i class="bi bi-bar-chart" style="font-size: 2rem; color: #55555E;"></i>
-                                            </template>
-                                        </n-empty>
-                                    </div>
-                                    <div v-else class="w-100 h-100 d-flex flex-column">
-                                        <div class="text-center mb-3">
-                                            <h6 class="mb-1 fw-bold">Répartition des Réservations</h6>
-                                            <small class="text-muted">Total: {{ totalReservations }} réservations</small>
-                                        </div>
-                                        <div class="flex-grow-1 position-relative">
-                                            <canvas ref="statsChartCanvas" class="w-100 h-100"></canvas>
-                                        </div>
-                                        <div class="mt-3">
-                                            <div class="row text-center small">
-                                                <div class="col-4">
-                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(94, 94, 94, 0.8); border-radius: 2px;"></span>
-                                                    Matériel: {{ reservationStats.materiel }}
-                                                </div>
-                                                <div class="col-4">
-                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(91, 17, 238, 0.8); border-radius: 2px;"></span>
-                                                    Salle: {{ reservationStats.salle }}
-                                                </div>
-                                                <div class="col-4">
-                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(6, 113, 134, 0.8); border-radius: 2px;"></span>
-                                                    Mixte: {{ reservationStats.mixte }}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </n-card>
+                     <!-- Dans le template, section de la carte "Statistiques des Réservations" -->
+<div class="col-lg-8">
+    <n-card title="Statistiques des Réservations" class="shadow-sm h-100 custom-card">
+        <template #header-extra>
+            <n-button 
+                text 
+                @click="refreshStats" 
+                :loading="loadingStats" 
+                size="small"
+                class="custom-btn-primary"
+            >
+                <template #icon>
+                    <i class="bi bi-arrow-clockwise"></i>
+                </template>
+            </n-button>
+        </template>
+        
+        <div class="chart-container d-flex flex-column" style="height: 300px;">
+            <div v-if="loadingStats" class="text-center text-muted h-100 d-flex flex-column justify-content-center">
+                <n-spin size="medium" />
+                <p class="mt-2 mb-0 small">Chargement...</p>
+            </div>
+            <div v-else-if="!hasStats" class="text-center text-muted h-100 d-flex flex-column justify-content-center">
+                <n-empty description="Aucune donnée" size="small">
+                    <template #icon>
+                        <i class="bi bi-bar-chart" style="font-size: 2rem; color: #55555E;"></i>
+                    </template>
+                </n-empty>
+            </div>
+            <div v-else class="h-100 d-flex flex-column">
+                <div class="text-center mb-2">
+                    <h6 class="mb-1 fw-bold">Répartition des Réservations</h6>
+                    <small class="text-muted">Total: {{ totalReservations }} réservations</small>
+                </div>
+                
+                <!-- WRAPPER POUR CONTENIR LE GRAPHIQUE -->
+                <div class="chart-wrapper flex-grow-1 position-relative" style="overflow: hidden;">
+                    <canvas 
+                        ref="statsChartCanvas" 
+                        class="chart-canvas"
+                        style="max-width: 100%; max-height: 100%;"
+                    ></canvas>
+                </div>
+                
+                <div class="legend-container mt-2 pt-2 border-top">
+                    <div class="row text-center small">
+                        <div class="col-4">
+                            <span class="legend-dot" style="background-color: rgba(94, 94, 94, 0.8);"></span>
+                            Matériel: {{ reservationStats.materiel }}
                         </div>
+                        <div class="col-4">
+                            <span class="legend-dot" style="background-color: rgba(91, 17, 238, 0.8);"></span>
+                            Salle: {{ reservationStats.salle }}
+                        </div>
+                        <div class="col-4">
+                            <span class="legend-dot" style="background-color: rgba(6, 113, 134, 0.8);"></span>
+                            Mixte: {{ reservationStats.mixte }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </n-card>
+</div>
                     </div>
                 </n-layout-content>
             </n-layout>
@@ -354,6 +362,7 @@ const refreshStats = () => {
     fetchReservationStats();
 };
 
+/* Ajustez les options du graphique dans la fonction renderChart */
 const renderChart = () => {
     if (chartInstance.value) {
         chartInstance.value.destroy();
@@ -392,9 +401,9 @@ const renderChart = () => {
                 'rgba(91, 17, 238, 0.8)',     // Violet - Salle  
                 'rgba(6, 113, 134, 0.8)'      // Bleu CEDII - Mixte
             ],
-            borderWidth: 2,
+            borderWidth: 1,  // Réduisez la bordure
             borderColor: '#fff',
-            hoverOffset: 15
+            hoverOffset: 8   // Réduisez l'offset
         }]
     };
 
@@ -404,18 +413,10 @@ const renderChart = () => {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '60%',
+            cutout: '55%',  // Réduisez légèrement le trou au centre
             plugins: {
                 legend: {
-                    position: 'bottom',
-                    labels: {
-                        font: {
-                            size: 11
-                        },
-                        color: '#333',
-                        usePointStyle: true,
-                        padding: 10
-                    }
+                    display: false,  // Cachez la légende intégrée, utilisez la nôtre
                 },
                 tooltip: {
                     callbacks: {
@@ -426,6 +427,14 @@ const renderChart = () => {
                             return `${label.split(' (')[0]}: ${value} (${percentage}%)`;
                         }
                     }
+                }
+            },
+            layout: {
+                padding: {
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: 0
                 }
             }
         }
@@ -733,4 +742,53 @@ function logout() {
 .bg-light {
     background-color: #f8f9fa !important;
 }
+
+/* Styles pour le conteneur du graphique */
+.chart-container {
+    min-height: 300px;
+    max-height: 300px;
+}
+
+.chart-wrapper {
+    width: 100%;
+    height: 180px; /* Hauteur fixe pour le graphique */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    padding: 8px;
+}
+
+.chart-canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.legend-container {
+    flex-shrink: 0;
+}
+
+/* Assurez-vous que la carte ne déborde pas */
+.custom-card {
+    overflow: hidden;
+}
+
+.custom-card :deep(.n-card-content) {
+    overflow: hidden;
+}
+
 </style>
