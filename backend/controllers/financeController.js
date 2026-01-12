@@ -3967,13 +3967,7 @@ async function generateInvoicePDF(invoiceData) {
         doc.text(detail.value, marginLeft + 70, y);
       });
       
-      // Message final
-      const finalY = detailsY + 70;
-      doc.setFontSize(11);
-      doc.setTextColor(100, 100, 100);
-      doc.setFont('helvetica', 'italic');
-      doc.text('Ce document fait foi de paiement pour votre location.', centerX, finalY, { align: 'center' });
-      doc.text('Conservez-le pour vos archives.', centerX, finalY + 6, { align: 'center' });
+    
       
     } else {
       // ===== CONTENU POUR FACTURE (PAS ENCORE PAYÉE) =====
@@ -4093,9 +4087,9 @@ async function generateInvoicePDF(invoiceData) {
     doc.setFont('helvetica', 'bold');
     
     if (invoiceData.statutPaie === 'Effectué') {
-      doc.text('INFORMATIONS IMPORTANTES', marginLeft, conditionsY);
+      
     } else {
-      doc.text('CONDITIONS DE PAIEMENT', marginLeft, conditionsY);
+      doc.text('', marginLeft, conditionsY);
     }
     
     doc.setFontSize(8);
@@ -4104,22 +4098,21 @@ async function generateInvoicePDF(invoiceData) {
     
     let conditions;
     if (invoiceData.statutPaie === 'Effectué') {
-      conditions = [
-        '• Ce document fait foi de paiement',
-        '• Conservez-le pour vos archives',
-        '• Pour toute question, contactez notre service client',
-        
-      ];
+      
     } else {
-      conditions = [
-        '• Paiement à réception de la facture',
-        '• Pénalité de retard: 1% par heure ou jour de retard',
-      ];
+      
     }
     
-    conditions.forEach((condition, index) => {
+   // CORRECTION : Vérifier si conditions existe et est un tableau
+if (conditions && Array.isArray(conditions)) {
+  conditions.forEach((condition, index) => {
+    if (condition && typeof condition === 'string') {
       doc.text(condition, marginLeft, conditionsY + 8 + (index * 4));
-    });
+    }
+  });
+} else {
+  console.warn('⚠️ conditions n\'est pas un tableau ou est undefined:', conditions);
+}
     
     // ===== PIED DE PAGE PROFESSIONNEL =====
     const footerY = 270;
