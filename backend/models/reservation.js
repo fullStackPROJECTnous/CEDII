@@ -82,7 +82,7 @@ module.exports = (sequelize, DataTypes) => {
         }
     }, { 
         tableName: 'reservation', 
-        timestamps: false, // 🚨 CORRECTION IMPORTANTE
+        timestamps: false, 
         hooks: {
             beforeValidate: (reservation) => {
                 // S'assurer que les champs sont cohérents avec le type

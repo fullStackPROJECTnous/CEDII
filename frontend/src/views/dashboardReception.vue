@@ -46,6 +46,9 @@
 
             <!-- Contenu Principal -->
             <n-layout class="main-content">
+
+                       <n-layout-header bordered class="custom-header fixed-header d-flex align-items-center p-3">
+    
                 <!-- Header -->
                 <n-layout-header bordered class="custom-header d-flex justify-content-between align-items-center p-4">
                     <h1 class="custom-title mb-0">Tableau de Bord Réception <i class="bi bi-house-door ms-2"></i></h1>
@@ -53,6 +56,8 @@
                         Rôle: {{ userRole }}
                     </n-tag>
                 </n-layout-header>
+                      <!-- ... votre header existant ... -->
+        </n-layout-header>
 
                 <!-- Contenu -->
                 <n-layout-content class="p-4 bg-light">
@@ -790,5 +795,90 @@ function logout() {
 .custom-card :deep(.n-card-content) {
     overflow: hidden;
 }
+
+/* Styles existants... */
+
+/* Layout principal */
+.main-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main-content-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Header fixé */
+.fixed-header {
+  position: sticky !important;
+  top: 0;
+  z-index: 1000;
+  flex-shrink: 0; /* Empêche le header de rétrécir */
+}
+
+/* Contenu avec scroll */
+.content-with-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-top: 0; /* Pas de marge car header est sticky */
+  padding-top: 16px; /* Espace entre le header et le contenu */
+}
+
+/* Ajustement du conteneur de réservation */
+.reservation-page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px 20px 20px; /* Pas de padding-top car déjà géré */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ajustement du conteneur de scroll existant */
+.content-scroll-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  padding-top: 0;
+}
+
+/* Ajustement responsive */
+@media (max-width: 768px) {
+  .content-with-scroll {
+    padding: 12px;
+    padding-top: 8px;
+  }
+  
+  .fixed-header {
+    padding: 12px !important;
+  }
+  
+  .reservation-page-container {
+    padding: 0 12px 12px 12px;
+  }
+}
+
+@media (max-width: 576px) {
+  .content-with-scroll {
+    padding: 8px;
+    padding-top: 8px;
+  }
+  
+  .fixed-header {
+    padding: 8px !important;
+  }
+  
+  .reservation-page-container {
+    padding: 0 8px 8px 8px;
+  }
+}
+
 
 </style>

@@ -312,7 +312,7 @@ exports.getClientProfileByUtiId = async (req, res) => {
     }
 };
 
-
+/*
 exports.getRevenueByClientType = async (req, res) => {
     try {
         // VERSION AVEC VRAIES DONNÉES
@@ -406,7 +406,105 @@ exports.getRevenueByClientType = async (req, res) => {
             message: 'Erreur lors de la récupération des données de revenus'
         });
     }
+};*/
+
+// clientController.js - Version FINALE corrigée
+exports.getRevenueByClientType = async (req, res) => {
+    try {
+        console.log('🔍 API getRevenueByClientType - Version FINALE');
+        
+        // REQUÊTE SQL CORRECTE - D'après votre structure de base
+        // Table location a idRes, PAS idCli !
+        const revenueByClientType = await db.sequelize.query(`
+            SELECT 
+                c.typeCli as typeClient,
+                COALESCE(SUM(p.montantPaie), 0) as totalRevenue,
+                COUNT(p.idPaie) as transactionCount
+            FROM client c
+            LEFT JOIN reservation r ON r.idCli = c.idCli
+            LEFT JOIN location l ON l.idRes = r.idRes
+            LEFT JOIN paiement p ON p.idLo = l.idLo AND p.statutPaie = 'Effectué'
+            WHERE c.typeCli IS NOT NULL
+            GROUP BY c.typeCli
+            ORDER BY totalRevenue DESC
+        `, {
+            type: db.sequelize.QueryTypes.SELECT
+        });
+        
+        console.log('📊 Résultat requête SQL:', revenueByClientType);
+        
+        // Formater les données
+        let formattedData = [];
+        let totalRevenue = 0;
+        
+        if (revenueByClientType && revenueByClientType.length > 0) {
+            totalRevenue = revenueByClientType.reduce((sum, item) => 
+                sum + parseFloat(item.totalRevenue), 0
+            );
+            
+            formattedData = revenueByClientType.map(item => ({
+                typeClient: item.typeClient,
+                totalRevenue: parseFloat(item.totalRevenue),
+                transactionCount: parseInt(item.transactionCount),
+                percentage: totalRevenue > 0 ? 
+                    Math.round((parseFloat(item.totalRevenue) / totalRevenue) * 100) : 0
+            }));
+            
+            console.log(`💰 Total revenus: ${totalRevenue}`);
+        } else {
+            console.log('ℹ️ Aucun revenu trouvé dans la base');
+            
+            // Si pas de revenus, montrer quand même les types de clients existants
+            const clientTypes = await db.sequelize.query(`
+                SELECT DISTINCT typeCli as typeClient 
+                FROM client 
+                WHERE typeCli IS NOT NULL
+                ORDER BY typeCli
+            `, {
+                type: db.sequelize.QueryTypes.SELECT
+            });
+            
+            formattedData = clientTypes.map(type => ({
+                typeClient: type.typeClient,
+                totalRevenue: 0,
+                transactionCount: 0,
+                percentage: 0
+            }));
+        }
+        
+        console.log('✅ Données finales:', formattedData);
+        
+        // Retourner les VRAIES données
+        res.json({
+            success: true,
+            data: formattedData,
+            totalRevenue: totalRevenue,
+            period: 'month',
+            timestamp: new Date(),
+            message: totalRevenue > 0 ? 'Données réelles de la base' : 'Aucun revenu enregistré',
+            hasRealData: true,
+            isDemo: false
+        });
+        
+    } catch (error) {
+        console.error('❌ ERREUR dans getRevenueByClientType:', error);
+        console.error('Message:', error.message);
+        console.error('SQL:', error.sql);
+        
+        // En cas d'erreur, NE PAS utiliser useDemoData
+        // Retourner une réponse avec succès=false pour que le frontend le gère
+        res.status(500).json({
+            success: false,
+            message: 'Erreur lors de la récupération des données',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
 };
+
+
+
+
+
 
 // 🚨 CORRECTION: FONCTIONS GETMYPROFILE ET GETCLIENTRESERVATIONS DÉPLACÉES ICI
 

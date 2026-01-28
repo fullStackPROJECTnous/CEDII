@@ -9,94 +9,7 @@
 
     <div v-if="selectedLocation" class="retour-materiel-content">
       <!-- Informations de la location -->
-      <n-card title="Détails de la location" size="small" class="mb-3">
-        <div class="row">
-          <div class="col-md-6">
-            <strong>Client:</strong> {{ selectedLocation.client }}<br>
-            <strong>Type:</strong> {{ selectedLocation.typeLo }}<br>
-            <strong>Début:</strong> {{ formatDate(selectedLocation.debLo) }}<br>
-          </div>
-          <div class="col-md-6">
-            <strong>Référence:</strong> #{{ selectedLocation.idLo }}<br>
-            <strong>Fin prévue:</strong> {{ formatDate(selectedLocation.finLo) }}<br>
-            <strong>Retard:</strong> 
-            <n-tag :type="joursRetard > 0 ? 'error' : 'success'" size="small">
-              {{ joursRetard }} jour(s)
-            </n-tag>
-          </div>
-        </div>
-      </n-card>
-
-      <!-- Liste du matériel à retourner -->
-      <n-card title="État des lieux - Retour" size="small">
-        <n-form ref="formRef" :model="formData" :rules="rules">
-          <n-table :bordered="true" :single-line="false" class="mb-3">
-            <thead>
-              <tr>
-                <th>Matériel</th>
-                <th width="100">Quantité</th>
-                <th width="120">État</th>
-                <th width="150">Dommages</th>
-                <th width="120">Coût réparation</th>
-                <th width="100">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(item, index) in formData.materiels" :key="index">
-                <td>
-                  <strong>{{ item.designation }}</strong>
-                  <br>
-                  <small class="text-muted">Code: {{ item.codeMat }}</small>
-                </td>
-                <td>
-                  <n-input-number 
-                    v-model:value="item.quantiteRetournee"
-                    :min="0"
-                    :max="item.quantiteInitiale"
-                    :disabled="loading"
-                  />
-                </td>
-                <td>
-                  <n-select
-                    v-model:value="item.etat"
-                    :options="etatOptions"
-                    placeholder="État"
-                    :disabled="loading"
-                  />
-                </td>
-                <td>
-                  <n-input
-                    v-model:value="item.dommageDescription"
-                    type="textarea"
-                    placeholder="Description des dommages..."
-                    :rows="2"
-                    :disabled="loading || item.etat !== 'Endommagé'"
-                  />
-                </td>
-                <td>
-                  <n-input-number
-                    v-model:value="item.coutReparation"
-                    :min="0"
-                    :disabled="loading || item.etat !== 'Endommagé'"
-                    placeholder="0"
-                  >
-                    <template #suffix>Ar</template>
-                  </n-input-number>
-                </td>
-                <td>
-                  <n-button
-                    type="error"
-                    size="small"
-                    @click="removeMateriel(index)"
-                    :disabled="loading || formData.materiels.length <= 1"
-                  >
-                    <i class="bi bi-trash"></i>
-                  </n-button>
-                </td>
-              </tr>
-            </tbody>
-          </n-table>
-        </n-form>
+     
 >
 
         <!-- Observations générales -->
@@ -109,29 +22,14 @@
             :disabled="loading"
           />
         </n-form-item>
-      </n-card>
-
-      <!-- Résumé et pénalités -->
-      <n-card v-if="hasDommages" title="Résumé des dommages et pénalités" size="small" class="mt-3">
-        <div class="row">
-          <div class="col-md-6">
-            <strong>Matériels endommagés:</strong> {{ materielsEndommagesCount }}<br>
-            <strong>Coût total réparation:</strong> {{ formatPrix(coutTotalReparation) }}<br>
-          </div>
-          <div class="col-md-6">
-            <strong>Pénalité de retard:</strong> {{ formatPrix(penaliteRetard) }}<br>
-            <strong class="text-primary">Montant total dû:</strong> {{ formatPrix(montantTotalDu) }}<br>
-          </div>
-        </div>
-      </n-card>
     </div>
+
+  
 
     <template #action>
       <div class="d-flex justify-content-between w-100">
         <div>
-          <n-button @click="genererContratRetour" type="info" :loading="loading">
-            <i class="bi bi-file-pdf me-2"></i>Générer PDF
-          </n-button>
+          
         </div>
         <div class="d-flex gap-2">
           <n-button @click="showModal = false" :disabled="loading">

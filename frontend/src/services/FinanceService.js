@@ -151,6 +151,12 @@ sendPaymentReminderByIdInUrl(paymentId) {
       responseType: 'blob'
     });
   }
+
+  // Dans FinanceService.js, ajoutez cette méthode :
+
+getPerformanceStats() {
+  return axios.get(`${API_URL}/performance-stats`);
+}
 }
 
 export default new FinanceService();

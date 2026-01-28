@@ -1,3 +1,5 @@
+
+
 <template>
     <div class="dashboard-wrapper"> 
         <n-layout has-sider class="h-100">
@@ -46,6 +48,8 @@
 
             <!-- Contenu Principal -->
             <n-layout class="main-content">
+                     <n-layout-header bordered class="custom-header fixed-header d-flex align-items-center p-3">
+       
                 <!-- Header -->
                 <n-layout-header bordered class="custom-header d-flex justify-content-between align-items-center p-4">
                     <h1 class="custom-title mb-0">Espace Financier <i class="bi bi-cash-coin ms-2"></i></h1>
@@ -53,21 +57,13 @@
                         Rôle: {{ userRole }}
                     </n-tag>
                 </n-layout-header>
+                   <!-- ... votre header existant ... -->
+        </n-layout-header>
 
                 <!-- Contenu -->
                 <n-layout-content class="p-4 bg-light">
                     <!-- Alerte Litiges -->
-                    <n-alert 
-                        v-if="litigeCount > 0"
-                        type="error"
-                        title="ATTENTION"
-                        class="mb-4 shadow-sm"
-                    >
-                        <template #icon>
-                            <i class="bi bi-exclamation-triangle-fill"></i>
-                        </template>
-                        <strong>{{ litigeCount }}</strong> dossiers de pénalités ou dégradations requièrent votre action. Traitez-les pour déclencher les calculs de jours de retard.
-                    </n-alert>
+                   
 
                     <!-- Cartes de statistiques principales -->
                     <div class="row mb-4">
@@ -174,14 +170,14 @@
                             </n-card>
                         </div>
 
-                        <!-- Colonne Synthèse Cashflow (droite) -->
+                        <!-- Colonne Statistiques de Performance (droite) -->
                         <div class="col-lg-6">
-                            <n-card title="Synthèse Cashflow" class="shadow-sm h-100">
+                            <n-card title="Statistiques de Performance" class="shadow-sm h-100">
                                 <template #header-extra>
                                     <n-button 
                                         text 
-                                        @click="loadCashflowData" 
-                                        :loading="loadingCashflow" 
+                                        @click="loadPerformanceStats" 
+                                        :loading="loadingPerformance" 
                                         size="small"
                                         class="custom-btn-primary"
                                     >
@@ -191,38 +187,48 @@
                                     </n-button>
                                 </template>
                                 
-                                <div class="cashflow-container-expanded">
-                                    <div v-if="loadingCashflow" class="text-center text-muted">
+                                <div class="performance-container">
+                                    <div v-if="loadingPerformance" class="text-center text-muted">
                                         <n-spin size="medium" />
-                                        <p class="mt-2 mb-0 small">Calcul des indicateurs...</p>
+                                        <p class="mt-2 mb-0 small">Chargement des statistiques...</p>
                                     </div>
-                                    <div v-else-if="!hasCashflowData" class="text-center text-muted">
-                                        <n-empty description="Données non disponibles" size="small">
+                                    <div v-else-if="!hasPerformanceData" class="text-center text-muted">
+                                        <n-empty description="Aucune donnée disponible" size="small">
                                             <template #icon>
-                                                <i class="bi bi-bar-chart" style="font-size: 2rem; color: #55555E;"></i>
+                                                <i class="bi bi-graph-up" style="font-size: 2rem; color: #55555E;"></i>
                                             </template>
                                         </n-empty>
                                     </div>
-                                    <div v-else class="w-100 h-100 d-flex flex-column">
-                                        <div class="text-center mb-3">
-                                            <h6 class="mb-1 fw-bold">État Financier</h6>
-                                            <small class="text-muted">Solde: {{ formatCurrency(cashflowData.kpis.soldeNet) }}</small>
-                                        </div>
-                                        <div class="cashflow-chart-expanded">
-                                            <canvas ref="cashflowChartCanvas" class="w-100 h-100"></canvas>
-                                        </div>
-                                        <div class="mt-3">
-                                            <div class="row text-center small">
-                                                <div class="col-6">
-                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(24, 160, 88, 0.8); border-radius: 2px;"></span>
-                                                    Revenus: {{ formatCurrency(cashflowData.kpis.totalRevenus) }}
-                                                </div>
-                                                <div class="col-6">
-                                                    <span class="d-inline-block me-1" style="width: 10px; height: 10px; background-color: rgba(208, 48, 80, 0.8); border-radius: 2px;"></span>
-                                                    Dépenses: {{ formatCurrency(cashflowData.kpis.totalDepenses) }}
+                                    <div v-else class="performance-stats-grid">
+                                        <!-- Indicateur 1 : Taux de paiement à temps -->
+                                        <div class="performance-stat-item">
+                                            <div class="stat-icon text-primary">
+                                                <i class="bi bi-clock-history"></i>
+                                            </div>
+                                            <div class="stat-content">
+                                                <h6 class="stat-title mb-1">Paiements à temps</h6>
+                                                <div class="stat-value fw-bold">{{ performanceData.onTimePaymentRate }}%</div>
+                                                <div class="stat-trend" :class="performanceData.onTimeTrend >= 0 ? 'text-success' : 'text-danger'">
+                                                    <i :class="performanceData.onTimeTrend >= 0 ? 'bi bi-arrow-up' : 'bi bi-arrow-down'"></i> 
+                                                    {{ Math.abs(performanceData.onTimeTrend) }}%
                                                 </div>
                                             </div>
                                         </div>
+                                        
+                                        <!-- Indicateur 2 : Factures traitées -->
+                                        <div class="performance-stat-item">
+                                            <div class="stat-icon text-warning">
+                                                <i class="bi bi-file-earmark-check"></i>
+                                            </div>
+                                            <div class="stat-content">
+                                                <h6 class="stat-title mb-1">Factures traitées</h6>
+                                                <div class="stat-value fw-bold">{{ performanceData.invoicesProcessed }}</div>
+                                                <div class="stat-info small">ce mois</div>
+                                            </div>
+                                        </div>
+                                        
+                                        
+                                    
                                     </div>
                                 </div>
                             </n-card>
@@ -235,7 +241,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick, h } from 'vue';
+import { ref, onMounted, computed, h } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { 
     NLayout, 
@@ -255,7 +261,6 @@ import {
 
 import AuthService from '../services/AuthService'; 
 import FinanceService from '../services/FinanceService'; 
-import Chart from 'chart.js/auto';
 
 const router = useRouter();
 const route = useRoute();
@@ -273,17 +278,17 @@ const kpis = ref({
 const pendingPaymentsCount = ref(0);
 const invoicesToSend = ref([]);
 const pendingPenalties = ref([]);
-const loadingCashflow = ref(false);
-const cashflowChartCanvas = ref(null);
-const chartInstance = ref(null);
+const loadingPerformance = ref(false);
 
-const cashflowData = ref({
-    kpis: {
-        totalRevenus: 0,
-        totalDepenses: 0,
-        soldeNet: 0,
-        tauxEpargne: '0%'
-    }
+// Données de performance
+const performanceData = ref({
+    onTimePaymentRate: 0,
+    onTimeTrend: 0,
+    invoicesProcessed: 0,
+    disputeResolutionRate: 0,
+    disputesResolved: 0,
+    efficiencyScore: 0,
+    efficiencyTrend: 0
 });
 
 // Options du menu avec texte blanc
@@ -370,7 +375,10 @@ const handleMenuSelect = (key) => {
 // Propriétés calculées
 const invoicesToProcess = computed(() => invoicesToSend.value.length);
 const litigeCount = computed(() => pendingPenalties.value.length);
-const hasCashflowData = computed(() => cashflowData.value.kpis && cashflowData.value.kpis.totalRevenus > 0);
+const hasPerformanceData = computed(() => 
+    performanceData.value.onTimePaymentRate > 0 || 
+    performanceData.value.invoicesProcessed > 0
+);
 
 // Fonctions de données
 const fetchFinanceData = async () => {
@@ -393,67 +401,48 @@ const fetchFinanceData = async () => {
     }
 };
 
-/*const loadCashflowData = async () => {
-    loadingCashflow.value = true;
+// Fonction pour charger les statistiques de performance
+const loadPerformanceStats = async () => {
+    loadingPerformance.value = true;
     try {
-        const response = await FinanceService.getCashflowSynthese();
-        if (response.data && response.data.kpis) {
-            cashflowData.value = response.data;
-            await nextTick();
-            renderCashflowChart();
+        const response = await FinanceService.getPerformanceStats();
+        if (response.data) {
+            performanceData.value = {
+                onTimePaymentRate: response.data.onTimePaymentRate || 0,
+                onTimeTrend: response.data.onTimeTrend || 0,
+                invoicesProcessed: response.data.invoicesProcessed || 0,
+                disputeResolutionRate: response.data.disputeResolutionRate || 0,
+                disputesResolved: response.data.disputesResolved || 0,
+                efficiencyScore: response.data.efficiencyScore || 0,
+                efficiencyTrend: response.data.efficiencyTrend || 0
+            };
+        } else {
+            // Données mockées en attendant l'API
+            performanceData.value = {
+                onTimePaymentRate: 85,
+                onTimeTrend: 3.5,
+                invoicesProcessed: 42,
+                disputeResolutionRate: 92,
+                disputesResolved: 23,
+                efficiencyScore: 8.5,
+                efficiencyTrend: 1.2
+            };
         }
     } catch (error) {
-        console.error('Erreur API cashflow:', error);
+        console.error('Erreur chargement statistiques:', error);
+        // Données mockées en cas d'erreur
+        performanceData.value = {
+            onTimePaymentRate: 85,
+            onTimeTrend: 3.5,
+            invoicesProcessed: 42,
+            disputeResolutionRate: 92,
+            disputesResolved: 23,
+            efficiencyScore: 8.5,
+            efficiencyTrend: 1.2
+        };
     } finally {
-        loadingCashflow.value = false;
+        loadingPerformance.value = false;
     }
-};*/
-
-const renderCashflowChart = () => {
-    if (chartInstance.value) {
-        chartInstance.value.destroy();
-    }
-    
-    if (!cashflowChartCanvas.value || !hasCashflowData.value) {
-        return;
-    }
-
-    const data = {
-        labels: ['Revenus', 'Dépenses'],
-        datasets: [{
-            data: [cashflowData.value.kpis.totalRevenus, cashflowData.value.kpis.totalDepenses],
-            backgroundColor: [
-                'rgba(24, 160, 88, 0.8)',
-                'rgba(208, 48, 80, 0.8)'
-            ],
-            borderWidth: 2,
-            borderColor: '#fff',
-            hoverOffset: 15
-        }]
-    };
-
-    chartInstance.value = new Chart(cashflowChartCanvas.value, {
-        type: 'doughnut',
-        data: data,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '60%',
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        font: {
-                            size: 11
-                        },
-                        color: '#333',
-                        usePointStyle: true,
-                        padding: 10
-                    }
-                }
-            }
-        }
-    });
 };
 
 const logout = () => {
@@ -487,9 +476,9 @@ onMounted(() => {
         
         activeMenuKey.value = routeToKeyMap[route.name] || 'dashboard';
         
-        // Charger les données cashflow après un délai
+        // Charger les statistiques de performance après un délai
         setTimeout(() => {
-            loadCashflowData();
+            loadPerformanceStats();
         }, 1000);
     } else {
         router.push('/'); 
@@ -648,8 +637,8 @@ onMounted(() => {
     text-decoration: none;
 }
 
-/* SYNTHÈSE CASHFLOW AGRANDIE */
-.cashflow-container-expanded {
+/* CONTAINER STATISTIQUES DE PERFORMANCE */
+.performance-container {
     height: 300px;
     min-height: 300px;
     display: flex;
@@ -658,11 +647,70 @@ onMounted(() => {
     align-items: center;
 }
 
-.cashflow-chart-expanded {
-    flex-grow: 1;
-    min-height: 180px;
-    position: relative;
+.performance-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
     width: 100%;
+    padding: 0.5rem;
+}
+
+.performance-stat-item {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.performance-stat-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-color: #007bff;
+}
+
+.stat-icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+}
+
+.stat-content {
+    text-align: center;
+}
+
+.stat-title {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    color: #212529;
+    margin-bottom: 0.25rem;
+}
+
+.stat-trend {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.stat-trend.text-success {
+    color: #28a745;
+}
+
+.stat-trend.text-danger {
+    color: #dc3545;
+}
+
+.stat-info {
+    color: #6c757d;
+    margin-top: 0.25rem;
 }
 
 /* Responsive */
@@ -680,9 +728,26 @@ onMounted(() => {
         gap: 0.5rem;
     }
     
-    .cashflow-container-expanded {
+    .performance-container {
         height: 250px;
         min-height: 250px;
+    }
+    
+    .performance-stats-grid {
+        gap: 0.75rem;
+        padding: 0.25rem;
+    }
+    
+    .performance-stat-item {
+        padding: 0.75rem;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
     }
 }
 
@@ -692,8 +757,20 @@ onMounted(() => {
         gap: 0.75rem;
     }
     
-    .cashflow-container-expanded {
+    .performance-container {
         height: 320px;
+    }
+    
+    .performance-stats-grid {
+        gap: 1.25rem;
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .performance-stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
     }
 }
 
@@ -727,4 +804,88 @@ onMounted(() => {
 .bg-light {
     background-color: #f8f9fa !important;
 }
+
+
+/* Layout principal */
+.main-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main-content-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Header fixé */
+.fixed-header {
+  position: sticky !important;
+  top: 0;
+  z-index: 1000;
+  flex-shrink: 0; /* Empêche le header de rétrécir */
+}
+
+/* Contenu avec scroll */
+.content-with-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-top: 0; /* Pas de marge car header est sticky */
+  padding-top: 16px; /* Espace entre le header et le contenu */
+}
+
+/* Ajustement du conteneur de réservation */
+.reservation-page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px 20px 20px; /* Pas de padding-top car déjà géré */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ajustement du conteneur de scroll existant */
+.content-scroll-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  padding-top: 0;
+}
+
+/* Ajustement responsive */
+@media (max-width: 768px) {
+  .content-with-scroll {
+    padding: 12px;
+    padding-top: 8px;
+  }
+  
+  .fixed-header {
+    padding: 12px !important;
+  }
+  
+  .reservation-page-container {
+    padding: 0 12px 12px 12px;
+  }
+}
+
+@media (max-width: 576px) {
+  .content-with-scroll {
+    padding: 8px;
+    padding-top: 8px;
+  }
+  
+  .fixed-header {
+    padding: 8px !important;
+  }
+  
+  .reservation-page-container {
+    padding: 0 8px 8px 8px;
+  }
+}
+
 </style>

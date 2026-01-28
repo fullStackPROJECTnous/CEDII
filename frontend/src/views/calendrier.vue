@@ -1,4 +1,5 @@
 
+
 <template>
   <div class="full-height-container">
     <!-- Structure principale avec sidebar et contenu -->
@@ -201,7 +202,7 @@
               </div>
 
               <!-- Vue d'ensemble des Locations et Réservations -->
-              <n-card class="shadow-lg custom-card" title="Vue d'ensemble des Locations">
+              <n-card class="shadow-lg custom-card" title="Locations">
                 <template #header-extra>
                   <div class="d-flex gap-2 align-items-center flex-wrap">
                     <!-- Barre de recherche par nom -->
@@ -1440,12 +1441,12 @@ const kpiModalIcon = computed(() => {
 
 // Configuration des colonnes pour le tableau principal
 const columns = [
-  {
+ /* {
     title: 'ID',
     key: 'id',
     width: 80,
     render: (row) => h('span', { class: 'text-muted' }, `#${row.id}`)
-  },
+  },*/
   {
     title: 'Client',
     key: 'client',
@@ -1463,7 +1464,20 @@ const columns = [
       class: 'custom-tag'
     }, { default: () => row.type })
   },
- 
+  // AJOUT DE LA COLONNE DÉSIGNATION/NOM
+  {
+    title: 'Désignation',
+    key: 'designation',
+    width: 180,
+    ellipsis: true,
+    render: (row) => {
+      const designation = row.designation;
+      return h('div', { 
+        class: 'designation-cell',
+        title: designation 
+      }, designation);
+    }
+  },
   {
     title: 'Début',
     key: 'dateDebut',
@@ -1565,12 +1579,12 @@ const columns = [
 
 // Configuration des colonnes pour le tableau KPI
 const kpiColumns = [
-  {
+ /* {
     title: 'ID',
     key: 'id',
     width: 70,
     render: (row) => h('span', { class: 'text-muted' }, `#${row.id}`)
-  },
+  },*/
   {
     title: 'Client',
     key: 'client',
@@ -1588,13 +1602,15 @@ const kpiColumns = [
       class: 'custom-tag'
     }, { default: () => row.type })
   },
+  // CORRECTION DE LA COLONNE DÉSIGNATION POUR LES KPI
   {
     title: 'Désignation/Nom',
     key: 'designation',
-    width: 160,
+    width: 180,
     ellipsis: true,
     render: (row) => {
-      const designation = getDesignation(row._original || row.location || row);
+      // Utiliser directement la désignation depuis les données transformées
+      const designation = row.designation || getDesignation(row._original || row.location || row);
       return h('div', { 
         class: 'designation-cell',
         title: designation 
@@ -1644,12 +1660,12 @@ const kpiColumns = [
 
 // NOUVELLES COLONNES POUR LES BOUTONS
 const todayConfirmedAndInProgressColumns = [
-  {
+  /*{
     title: 'ID',
     key: 'id',
     width: 70,
     render: (row) => h('span', { class: 'text-muted' }, `#${row.id}`)
-  },
+  },*/
   {
     title: 'Client',
     key: 'client',
@@ -1668,10 +1684,10 @@ const todayConfirmedAndInProgressColumns = [
   {
     title: 'Désignation/Nom',
     key: 'designation',
-    width: 150,
+    width: 180,
     ellipsis: true,
     render: (row) => {
-      const designation = getDesignation(row._original || row);
+      const designation = row.designation;
       return h('div', { 
         class: 'designation-cell',
         title: designation 
@@ -1718,12 +1734,12 @@ const todayConfirmedAndInProgressColumns = [
 ];
 
 const equipmentReturnsColumns = [
-  {
+ /* {
     title: 'ID',
     key: 'id',
     width: 70,
     render: (row) => h('span', { class: 'text-muted' }, `#${row.id}`)
-  },
+  },*/
   {
     title: 'Client',
     key: 'client',
@@ -1742,10 +1758,10 @@ const equipmentReturnsColumns = [
   {
     title: 'Désignation/Nom',
     key: 'designation',
-    width: 150,
+    width: 180,
     ellipsis: true,
     render: (row) => {
-      const designation = getDesignation(row._original || row);
+      const designation = row.designation;
       return h('div', { 
         class: 'designation-cell',
         title: designation 
@@ -1791,12 +1807,12 @@ const equipmentReturnsColumns = [
 ];
 
 const confirmedNext7DaysColumns = [
-  {
+  /*{
     title: 'ID',
     key: 'id',
     width: 70,
     render: (row) => h('span', { class: 'text-muted' }, `#${row.id}`)
-  },
+  },*/
   {
     title: 'Client',
     key: 'client',
@@ -1815,10 +1831,10 @@ const confirmedNext7DaysColumns = [
   {
     title: 'Désignation/Nom',
     key: 'designation',
-    width: 150,
+    width: 180,
     ellipsis: true,
     render: (row) => {
-      const designation = getDesignation(row._original || row);
+      const designation = row.designation;
       return h('div', { 
         class: 'designation-cell',
         title: designation 
@@ -1857,55 +1873,58 @@ const confirmedNext7DaysColumns = [
   }
 ];
 
-// Fonction pour obtenir la désignation/nom
+
 const getDesignation = (event) => {
+  if (!event) return 'Non spécifié';
+  
   try {
-    // Pour le matériel
-    if (event.typeLo === 'Materiel' || event.typeLo === 'Mixte') {
-      // Vérifiez les différents chemins possibles
-      const materielInfo = event.reservation?.materiel || 
-                          event.materiel || 
-                          event.Reservation?.Materiel || 
-                          event.Reservation?.materiel ||
-                          event.materielDetails;
-      
-      if (materielInfo?.designationMat) {
-        return materielInfo.designationMat;
+    // Cas 1: Événements avec réservation imbriquée
+    if (event.reservation) {
+      // Pour le matériel
+      if (event.typeLo === 'Materiel' || event.typeLo === 'Mixte') {
+        const materiel = event.reservation.materiel || event.reservation.Materiel;
+        if (materiel?.designationMat) {
+          return materiel.designationMat;
+        }
       }
       
-      // Vérifiez aussi le codeMat
-      const codeMat = event.reservation?.codeMat || 
-                     event.codeMat || 
-                     event.Reservation?.codeMat;
-      
-      if (codeMat) {
-        return `Matériel: ${codeMat}`;
+      // Pour la salle
+      if (event.typeLo === 'Salle' || event.typeLo === 'Mixte') {
+        const salle = event.reservation.salle || event.reservation.Salle;
+        if (salle?.nomSalle) {
+          return `Salle: ${salle.nomSalle}`;
+        }
       }
     }
     
-    // Pour la salle
-    if (event.typeLo === 'Salle' || event.typeLo === 'Mixte') {
-      const salleInfo = event.reservation?.salle || 
-                       event.salle || 
-                       event.Reservation?.Salle || 
-                       event.Reservation?.salle ||
-                       event.salleDetails;
-      
-      if (salleInfo?.nomSalle) {
-        return `Salle: ${salleInfo.nomSalle}`;
-      }
-      
-      // Vérifiez aussi l'idSalle
-      const idSalle = event.reservation?.idSalle || 
-                     event.idSalle || 
-                     event.Reservation?.idSalle;
-      
-      if (idSalle) {
-        return `Salle #${idSalle}`;
-      }
+    // Cas 2: Événements avec détails directs (pour les événements terminés)
+    if (event.materielDetails?.designationMat) {
+      return event.materielDetails.designationMat;
     }
     
-    // Par défaut
+    if (event.salleDetails?.nomSalle) {
+      return ` ${event.salleDetails.nomSalle}`;
+    }
+    
+    // Cas 3: Vérifier les champs directs
+    if (event.designationMat) {
+      return event.designationMat;
+    }
+    
+    if (event.nomSalle) {
+      return ` ${event.nomSalle}`;
+    }
+    
+    // Cas 4: Recherche dans les champs de code/id
+    if (event.codeMat) {
+      return `${event.codeMat}`;
+    }
+    
+    if (event.idSalle) {
+      return `Salle #${event.idSalle}`;
+    }
+    
+    // Par défaut selon le type
     if (event.typeLo === 'Materiel') {
       return 'Matériel non spécifié';
     } else if (event.typeLo === 'Salle') {
@@ -1917,10 +1936,12 @@ const getDesignation = (event) => {
     return 'Non spécifié';
     
   } catch (error) {
-    console.error('Erreur getDesignation:', error);
+    console.error('Erreur getDesignation:', error, event);
     return 'Erreur de chargement';
   }
 };
+
+
 
 const fetchAllEvents = async () => {
   loadingEvents.value = true;
@@ -1943,13 +1964,26 @@ const fetchAllEvents = async () => {
     const salles = sallesResponse.data || sallesResponse;
     
     if (events && Array.isArray(events)) {
-      // Enrichir les événements
+      // Enrichir les événements AVEC PLUS DE DÉTAILS
       const enrichedEvents = events.map(event => {
         const enrichedEvent = { ...event };
         
+        // IMPORTANT: Pour les événements terminés, essayer de récupérer les détails depuis différentes sources
+        if (event.etatLo === 'Terminée') {
+          // Essayer de trouver les détails dans la réponse initiale
+          if (event.Reservation) {
+            if (event.Reservation.Materiel) {
+              enrichedEvent.materielDetails = event.Reservation.Materiel;
+            }
+            if (event.Reservation.Salle) {
+              enrichedEvent.salleDetails = event.Reservation.Salle;
+            }
+          }
+        }
+        
         // Ajouter les détails du matériel
-        if (event.codeMat || event.reservation?.codeMat) {
-          const codeMat = event.codeMat || event.reservation.codeMat;
+        if (event.codeMat || event.reservation?.codeMat || event.Reservation?.codeMat) {
+          const codeMat = event.codeMat || event.reservation?.codeMat || event.Reservation?.codeMat;
           const materiel = Array.isArray(materiels) 
             ? materiels.find(m => m.codeMat === codeMat)
             : materiels.data?.find(m => m.codeMat === codeMat);
@@ -1960,8 +1994,8 @@ const fetchAllEvents = async () => {
         }
         
         // Ajouter les détails de la salle
-        if (event.idSalle || event.reservation?.idSalle) {
-          const idSalle = event.idSalle || event.reservation.idSalle;
+        if (event.idSalle || event.reservation?.idSalle || event.Reservation?.idSalle) {
+          const idSalle = event.idSalle || event.reservation?.idSalle || event.Reservation?.idSalle;
           const salle = Array.isArray(salles) 
             ? salles.find(s => s.idSalle == idSalle)
             : salles.data?.find(s => s.idSalle == idSalle);
@@ -1976,6 +2010,7 @@ const fetchAllEvents = async () => {
       
       allEvents.value = enrichedEvents;
       console.log(`✅ ${allEvents.value.length} événements enrichis chargés`);
+      console.log('Événements terminés:', allEvents.value.filter(e => e.etatLo === 'Terminée'));
       
     } else {
       console.error('❌ Format de données invalide:', eventsResponse);
@@ -1991,6 +2026,7 @@ const fetchAllEvents = async () => {
     loadingTable.value = false;
   }
 };
+
 
 const loadDemoData = () => {
   console.log('⚠️  Utilisation de données de démo');
@@ -2075,6 +2111,21 @@ const loadDemoData = () => {
       salleDetails: {
         nomSalle: 'Salle polyvalente'
       }
+    },
+    {
+      idLo: 4,
+      typeLo: 'Materiel',
+      etatLo: 'Terminée',
+      debLo: new Date(Date.now() - 2*86400000).toISOString(),
+      finLo: new Date(Date.now() - 86400000).toISOString(),
+      tarifTot: 120000,
+      client: {
+        nomCli: 'Leroy',
+        prenomCli: 'Claire'
+      },
+      materielDetails: {
+        designationMat: 'Équipement audiovisuel'
+      }
     }
   ];
   
@@ -2082,6 +2133,9 @@ const loadDemoData = () => {
   
   console.log('✅ Données de démo chargées:', demoEvents.length, 'événements');
 };
+
+
+
 
 // Fonctions KPI
 const showKpiDetails = async (kpiType) => {
@@ -2113,6 +2167,7 @@ const showKpiDetails = async (kpiType) => {
     kpiEvents.value.sort((a, b) => new Date(b.debLo) - new Date(a.debLo));
     
     console.log(`📍 ${kpiType}: ${kpiEvents.value.length} événements trouvés`);
+    console.log('Détails des événements terminés:', kpiEvents.value);
     
   } catch (error) {
     console.error('Erreur lors du chargement des événements KPI:', error);

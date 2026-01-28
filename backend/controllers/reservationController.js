@@ -1,4 +1,4 @@
-const { Reservation, Client, Materiel, Salle, Utilisateur, Notification, Catalogue } = require('../models');
+const { Reservation, Client, Materiel, Salle, Utilisateur, Notification } = require('../models');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const MadagascarTime = require('../utils/madagascarTime');
@@ -70,7 +70,7 @@ const creerNotificationsReservation = async (reservation, client) => {
     }
 };
 
-// 🆕 MÉTHODE POUR LES CLIENTS PUBLICS - VERSION CORRIGÉE
+// 🆕 MÉTHODE POUR LES CLIENTS PUBLICS
 exports.createPublicReservation = async (req, res) => {
     try {
         const {
@@ -156,7 +156,7 @@ exports.createPublicReservation = async (req, res) => {
             });
         }
 
-        // 🎯 VÉRIFICATION DES CONFLITS - VERSION CORRIGÉE
+        // 🎯 VÉRIFICATION DES CONFLITS -
         console.log('🔍 Vérification des conflits...');
         
         const whereClause = {
@@ -327,80 +327,74 @@ exports.createPublicReservation = async (req, res) => {
         });
     }
 };
-
-// 🆕 MÉTHODE POUR RÉCUPÉRER LES DEMANDES EN ATTENTE
 exports.getPendingReservations = async (req, res) => {
     try {
-        console.log('🌍 SERVEUR - Heure Madagascar:', MadagascarTime.now().toLocaleString('fr-FR'));
+        console.log('🔍 Utilisation de requête SQL brute...');
         
-        const reservations = await Reservation.findAll({
-            where: { 
-                etatRes: 'En attente'
+        const query = `
+            SELECT 
+                r.*,
+                c.nomCli,
+                c.prenomCli,
+                s.nomSalle,
+                s.numeroSalle,
+                s.capaciteSalle,
+                m.designationMat,
+                m.qteTotDispo,
+                CASE 
+                    WHEN r.typeRes = 'Salle' AND s.nomSalle IS NOT NULL THEN 
+                        CONCAT(s.nomSalle, ' (', s.numeroSalle, ')')
+                    WHEN r.typeRes = 'Materiel' AND m.designationMat IS NOT NULL THEN 
+                        m.designationMat
+                    ELSE 'Non spécifié'
+                END as nomRessource
+            FROM reservation r
+            LEFT JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN salle s ON r.idSalle = s.idSalle
+            LEFT JOIN materiel m ON r.codeMat = m.codeMat
+            WHERE r.etatRes = 'En attente'
+            ORDER BY r.dateCre DESC
+        `;
+        
+        const [results] = await sequelize.query(query, {
+            type: sequelize.QueryTypes.SELECT
+        });
+        
+        // Formater les résultats
+        const formatted = results.map(row => ({
+            idRes: row.idRes,
+            typeRes: row.typeRes,
+            client: {
+                nomCli: row.nomCli,
+                prenomCli: row.prenomCli
             },
-            include: [
-                {
-                    model: Client,
-                    as: 'client',
-                    attributes: ['idCli', 'nomCli', 'prenomCli', 'emailCli', 'telephoneCli', 'typeCli']
-                }
-            ],
-            order: [['dateCre', 'DESC']]
-        });
-
-        console.log(`📊 ${reservations.length} réservation(s) en attente`);
-
-        // 🎯 FORMATER LES DONNÉES
-        const reservationsFormatted = reservations.map(res => {
-            const reservation = res.toJSON();
-            
-            return {
-                ...reservation,
-                // 🎯 HEURES EXACTES MADAGASCAR
-                dateCreFormatted: MadagascarTime.format(reservation.dateCre, true),
-                debResFormatted: MadagascarTime.format(reservation.debRes, false),
-                timeAgo: MadagascarTime.timeAgo(reservation.dateCre),
-                timeUntil: MadagascarTime.timeUntil(reservation.debRes)
-            };
-        });
-
-        // 🎯 LOG DÉTAILLÉ POUR DÉBOGAGE
-        console.log('\n🔍 DÉBOGAGE COMPLET:');
-        if (reservationsFormatted.length > 0) {
-            const sample = reservationsFormatted[0];
-            console.log('📋 Exemple de réservation:');
-            console.log('   ID:', sample.idRes);
-            console.log('   Client:', sample.client?.nomCli, sample.client?.prenomCli);
-            console.log('   dateCre brute:', sample.dateCre);
-            console.log('   dateCre formatée:', sample.dateCreFormatted);
-            console.log('   debRes brute:', sample.debRes);
-            console.log('   debRes formatée:', sample.debResFormatted);
-            console.log('   Calculs:', sample.timeAgo, '/', sample.timeUntil);
-            
-            // Test moment.js
-            const testDate = new Date(sample.dateCre);
-            console.log('   Test Date:', testDate);
-            console.log('   Test getHours():', testDate.getHours());
-            console.log('   Test toLocaleString:', testDate.toLocaleString('fr-FR', { timeZone: 'Africa/Nairobi' }));
-        }
-
+            salle: row.nomSalle ? {
+                nomSalle: row.nomSalle,
+                numeroSalle: row.numeroSalle,
+                capaciteSalle: row.capaciteSalle
+            } : null,
+            materiel: row.designationMat ? {
+                designationMat: row.designationMat,
+                qteTotDispo: row.qteTotDispo
+            } : null,
+            nomRessource: row.nomRessource
+        }));
+        
         res.json({
             success: true,
-            count: reservationsFormatted.length,
-            pendingCount: reservationsFormatted.length,
-            serverTime: MadagascarTime.now().toISOString(),
-            reservations: reservationsFormatted
+            data: formatted,
+            count: formatted.length
         });
-
+        
     } catch (error) {
-        console.error('❌ Erreur récupération réservations:', error);
+        console.error('❌ Erreur requête SQL:', error);
         res.status(500).json({
             success: false,
-            message: "Erreur lors de la récupération des demandes",
+            message: "Erreur serveur",
             error: error.message
         });
     }
 };
-
 // 🆕 MÉTHODE POUR METTRE À JOUR LE STATUT DE NOTIFICATION
 exports.marquerNotificationLue = async (req, res) => {
     try {
@@ -1064,11 +1058,10 @@ function formatDate(date) {
     });
 }
 
-// 🆕 AJOUTEZ CETTE LIGNE POUR VÉRIFIER LES EXPORTS
-console.log('✅ Reservation Controller exports:', Object.keys(exports));
+
 exports.getReservationStats = async (req, res) => {
     try {
-        console.log('📊 Récupération des statistiques des réservations...');
+        // console.log('📊 Récupération des statistiques des réservations...');
         
         // 1. Utilisez le bon import de sequelize
         // Assurez-vous que sequelize est importé correctement
@@ -1156,13 +1149,13 @@ exports.getReservationStats = async (req, res) => {
             }
         };
         
-        console.log('📈 Statistiques calculées:', {
-            materiel: response.materiel,
-            salle: response.salle,
-            mixte: response.mixte,
-            total: response.totalCount,
-            pending: response.pending.total
-        });
+        // console.log('📈 Statistiques calculées:', {
+        //     materiel: response.materiel,
+        //     salle: response.salle,
+        //     mixte: response.mixte,
+        //     total: response.totalCount,
+        //     pending: response.pending.total
+        // });
         
         res.json(response);
         

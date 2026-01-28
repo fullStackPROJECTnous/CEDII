@@ -92,5 +92,8 @@ router.post('/create-invoice/:idLo', financeController.createInvoiceFromLocation
 router.get('/paid-invoices/:locationId/download', financeController.downloadPaidInvoice);
 // Dans financeRoutes.js - AJOUTEZ cette ligne si elle n'existe pas
 
+// Dans financeRoutes.js, ajoutez cette ligne :
+router.get('/performance-stats', financeController.getPerformanceStats);
+
 
 module.exports = router;

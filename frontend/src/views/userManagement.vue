@@ -1,3 +1,5 @@
+
+
 <template>
   <div class="admin-container full-page-scroll">
     <!-- Header unifié -->
@@ -45,33 +47,6 @@
           </n-statistic>
         </n-card>
       </n-gi>
-      <n-gi>
-        <n-card class="custom-card">
-          <n-statistic label="Administrateurs" :value="userStats.admins" class="text-danger">
-            <template #prefix>
-              <i class="bi bi-shield-check"></i>
-            </template>
-          </n-statistic>
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card class="custom-card">
-          <n-statistic label="Connectés (24h)" :value="userStats.active24h" class="text-success">
-            <template #prefix>
-              <i class="bi bi-person-check"></i>
-            </template>
-          </n-statistic>
-        </n-card>
-      </n-gi>
-      <n-gi>
-        <n-card class="custom-card">
-          <n-statistic label="Inactifs" :value="userStats.inactive" class="text-warning">
-            <template #prefix>
-              <i class="bi bi-person-x"></i>
-            </template>
-          </n-statistic>
-        </n-card>
-      </n-gi>
     </n-grid>
 
     <!-- Contenu principal amélioré -->
@@ -102,17 +77,6 @@
                 <i class="bi bi-person-plus"></i>
               </template>
               Nouvel Utilisateur
-            </n-button>
-            <n-button 
-              type="info"
-              @click="exportUsers"
-              :loading="exporting"
-              class="custom-btn-outline"
-            >
-              <template #icon>
-                <i class="bi bi-download"></i>
-              </template>
-              Exporter
             </n-button>
           </n-space>
         </n-space>
@@ -176,17 +140,16 @@
           <table class="table table-striped table-hover custom-table">
             <thead>
               <tr>
-                <th>ID</th>
+                <!-- Colonnes ID et Statut supprimées -->
                 <th>Login</th>
                 <th>Rôle</th>
                 <th v-if="showLastActivity">Dernière Activité</th>
-                <th>Statut</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="user in paginatedUsers" :key="user.idUti" :class="getUserRowClass(user)">
-                <td>{{ user.idUti }}</td> 
+                <!-- Supprimé: <td>{{ user.idUti }}</td> -->
                 <td>
                   <div class="d-flex align-items-center">
                     <div :class="`user-avatar ${getRoleColor(user.roleUti)}`">
@@ -203,22 +166,15 @@
                     {{ formatRole(user.roleUti) }}
                   </span>
                 </td>
-           
                 <td v-if="showLastActivity">
                   <span v-if="user.lastActivityLoading" class="text-muted">
                     <i class="bi bi-arrow-repeat spinner-border spinner-border-sm"></i>
                   </span>
                   <span v-else>
                     {{ user.lastActivity || 'Aucune activité' }}
-                    <br>
-                    <small class="text-muted">{{ user.lastLogin ? formatTimeAgo(user.lastLogin) : 'Jamais connecté' }}</small>
                   </span>
                 </td>
-                <td>
-                  <span :class="['badge', user.lastLogin && isRecentlyActive(user.lastLogin) ? 'bg-success' : 'bg-secondary']">
-                    {{ user.lastLogin && isRecentlyActive(user.lastLogin) ? 'Actif' : 'Inactif' }}
-                  </span>
-                </td>
+                <!-- Supprimé: Colonne Statut -->
                 <td>
                   <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-info" @click="openHistoryModal(user)" title="Historique">
@@ -273,6 +229,8 @@
       @user-saved="handleUserSaved"
     />
 
+    
+
     <div v-if="isHistoryModalVisible" class="modal-backdrop-custom">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
@@ -312,10 +270,7 @@
             <n-button type="default" @click="isHistoryModalVisible = false">
               Fermer
             </n-button>
-            <n-button type="primary" @click="exportUserHistory(historyUser)">
-              <i class="bi bi-download me-2"></i>
-              Exporter historique
-            </n-button>
+           
           </div>
         </div>
       </div>
@@ -511,6 +466,8 @@ const getRoleColor = (role) => {
   return colors[role?.toUpperCase()] || 'default';
 };
 
+
+
 const getUserRowClass = (user) => {
   if (user.roleUti === 'ADMIN') return 'admin-user';
   if (!user.lastLogin || !isRecentlyActive(user.lastLogin)) return 'inactive-user';
@@ -518,7 +475,7 @@ const getUserRowClass = (user) => {
 };
 
 const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
+  if (!dateString) return '';
   return new Date(dateString).toLocaleDateString('fr-FR', {
     day: '2-digit',
     month: '2-digit',
@@ -526,9 +483,11 @@ const formatDate = (dateString) => {
   });
 };
 
+
 const formatRole = (role) => {
-  return role ? role.charAt(0).toUpperCase() + role.slice(1) : 'N/A';
+  return role ? role.charAt(0).toUpperCase() + role.slice(1) : '';
 };
+
 
 const getRoleClass = (role) => {
   switch (role?.toLowerCase()) {
@@ -540,11 +499,13 @@ const getRoleClass = (role) => {
   }
 };
 
+
 // Fonctions de filtrage
 const toggleRoleFilter = (role) => {
   activeRoleFilter.value = activeRoleFilter.value === role ? '' : role;
   currentPage.value = 1;
 };
+
 
 const clearRoleFilter = () => {
   activeRoleFilter.value = '';

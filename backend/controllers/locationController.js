@@ -96,6 +96,7 @@ exports.getAllLocations = async (req, res) => {
     }
 };
 
+/*
 exports.getPendingReservations = async (req, res) => {
     try {
         console.log('📍 Début getPendingReservations');
@@ -138,6 +139,155 @@ exports.getPendingReservations = async (req, res) => {
             etatRes: reservation.etatRes,
             qteMat: reservation.qteMat,
             nbPerso: reservation.nbPerso,
+            Client: {
+                nomCli: reservation.nomCli,
+                prenomCli: reservation.prenomCli,
+                emailCli: reservation.emailCli,
+                telephoneCli: reservation.telephoneCli
+            }
+        }));
+
+        res.status(200).json(formattedReservations);
+
+    } catch (error) {
+        console.error("Erreur lors de la récupération des réservations en attente:", error);
+        res.status(500).json({ 
+            message: "Échec de la récupération des demandes en attente.", 
+            error: error.message
+        });
+    }
+};
+*/
+
+/*
+exports.getPendingReservations = async (req, res) => {
+    try {
+        console.log('📍 Début getPendingReservations');
+        
+        const sql = `
+            SELECT 
+                r.idRes,
+                r.idCli,
+                r.typeRes,
+                r.debRes,
+                r.finRes,
+                r.tarifTot,
+                r.etatRes,
+                r.qteMat,
+                r.nbPerso,
+                r.codeMat,
+                r.idSalle,
+                r.dateCre,  -- AJOUTÉ ICI
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                c.telephoneCli,
+                m.designationMat,
+                s.nomSalle
+            FROM reservation r
+            JOIN client c ON r.idCli = c.idCli
+            LEFT JOIN materiel m ON r.codeMat = m.codeMat
+            LEFT JOIN salle s ON r.idSalle = s.idSalle
+            WHERE r.etatRes = 'En attente'
+            ORDER BY r.dateCre DESC
+        `;
+        
+        const pendingRequests = await sequelize.query(sql, {
+            type: sequelize.QueryTypes.SELECT
+        });
+        
+        console.log('📍 Réservations en attente trouvées:', pendingRequests.length);
+
+        // Formater la réponse pour correspondre à ce que le frontend attend
+        const formattedReservations = pendingRequests.map(reservation => ({
+            idRes: reservation.idRes,
+            idCli: reservation.idCli,
+            typeRes: reservation.typeRes,
+            debRes: reservation.debRes,
+            finRes: reservation.finRes,
+            tarifTot: reservation.tarifTot,
+            etatRes: reservation.etatRes,
+            qteMat: reservation.qteMat,
+            nbPerso: reservation.nbPerso,
+            codeMat: reservation.codeMat,
+            idSalle: reservation.idSalle,
+            dateCre: reservation.dateCre,  // AJOUTÉ ICI
+            designationMat: reservation.designationMat,
+            nomSalle: reservation.nomSalle,
+            Client: {
+                nomCli: reservation.nomCli,
+                prenomCli: reservation.prenomCli,
+                emailCli: reservation.emailCli,
+                telephoneCli: reservation.telephoneCli
+            }
+        }));
+
+        res.status(200).json(formattedReservations);
+
+    } catch (error) {
+        console.error("Erreur lors de la récupération des réservations en attente:", error);
+        res.status(500).json({ 
+            message: "Échec de la récupération des demandes en attente.", 
+            error: error.message
+        });
+    }
+};
+*/
+
+exports.getPendingReservations = async (req, res) => {
+    try {
+        console.log('📍 Début getPendingReservations');
+        
+        const sql = `
+            SELECT 
+                r.idRes,
+                r.idCli,
+                r.typeRes,
+                r.debRes,
+                r.finRes,
+                r.tarifTot,
+                r.etatRes,
+                r.qteMat,
+                r.nbPerso,
+                r.codeMat,
+                r.idSalle,
+                r.dateCre,
+                c.nomCli,
+                c.prenomCli,
+                c.emailCli,
+                c.telephoneCli,
+                -- Récupération du nom de salle depuis la table salle
+                (SELECT nomSalle FROM salle WHERE idSalle = r.idSalle) as nomSalle,
+                -- Récupération de la désignation depuis la table materiel
+                (SELECT designationMat FROM materiel WHERE codeMat = r.codeMat) as designationMat
+            FROM reservation r
+            JOIN client c ON r.idCli = c.idCli
+            WHERE r.etatRes = 'En attente'
+            ORDER BY r.dateCre DESC
+        `;
+        
+        const pendingRequests = await sequelize.query(sql, {
+            type: sequelize.QueryTypes.SELECT
+        });
+        
+        console.log('📍 Réservations en attente trouvées:', pendingRequests.length);
+        
+        // Formater la réponse
+        const formattedReservations = pendingRequests.map(reservation => ({
+            idRes: reservation.idRes,
+            idCli: reservation.idCli,
+            typeRes: reservation.typeRes,
+            debRes: reservation.debRes,
+            finRes: reservation.finRes,
+            tarifTot: reservation.tarifTot,
+            etatRes: reservation.etatRes,
+            qteMat: reservation.qteMat,
+            nbPerso: reservation.nbPerso,
+            codeMat: reservation.codeMat,
+            idSalle: reservation.idSalle,
+            dateCre: reservation.dateCre,
+            designationMat: reservation.designationMat,
+            nomSalle: reservation.nomSalle,
             Client: {
                 nomCli: reservation.nomCli,
                 prenomCli: reservation.prenomCli,
@@ -573,7 +723,7 @@ exports.getLocationDetails = async (req, res) => {
     }
 };
 
-
+/*
 exports.createReservation = async (req, res) => {
     const { 
         idCli, 
@@ -639,7 +789,134 @@ exports.createReservation = async (req, res) => {
             error: error.message 
         });
     }
+};*/
+
+
+exports.createReservation = async (req, res) => {
+    // AJOUTEZ DES LOGS POUR VOIR CE QUI ARRIVE
+    console.log('📥 DONNÉES REÇUES DU FRONTEND:', req.body);
+    console.log('🔍 DÉTAILS:', {
+        typeRes: req.body.typeRes,
+        idCatalogue: req.body.idCatalogue,
+        codeMat: req.body.codeMat,    // ← CE QUE LE FRONTEND ENVOIE
+        idSalle: req.body.idSalle,    // ← CE QUE LE FRONTEND ENVOIE
+        idCli: req.body.idCli,
+        qteMat: req.body.qteMat,
+        nbPerso: req.body.nbPerso
+    });
+
+    // MODIFICATION CRITIQUE : Acceptez à la fois idCatalogue ET codeMat/idSalle
+    const { 
+        idCli, 
+        typeRes,
+        dateCre, 
+        qteMat, 
+        nbPerso, 
+        debRes, 
+        finRes, 
+        tarifTot,
+        etatRes,
+        // NOUVEAUX CHAMPS envoyés par le frontend corrigé
+        codeMat,    // ← reçu directement
+        idSalle,    // ← reçu directement
+        // Ancien champ pour compatibilité
+        idCatalogue 
+    } = req.body;
+
+    if (!idCli || !typeRes || !debRes || !finRes || !tarifTot) {
+        return res.status(400).send({ 
+            message: "Champs requis manquants: idCli, typeRes, debRes, finRes, tarifTot" 
+        });
+    }
+
+    // DÉTERMINATION DES VALEURS FINALES
+    let finalIdSalle = null;
+    let finalCodeMat = null;
+
+    // LOGIQUE AMÉLIORÉE : utiliser ce qui est fourni
+    if (typeRes === 'Salle') {
+        // Priorité 1: idSalle envoyé directement
+        // Priorité 2: idCatalogue (ancienne méthode)
+        finalIdSalle = idSalle || idCatalogue;
+        finalCodeMat = null;
+        
+        console.log('🏢 Salle - Valeurs déterminées:', {
+            idSalleReçu: idSalle,
+            idCatalogueReçu: idCatalogue,
+            finalIdSalle: finalIdSalle
+        });
+        
+    } else if (typeRes === 'Materiel') {
+        // Priorité 1: codeMat envoyé directement
+        // Priorité 2: idCatalogue (ancienne méthode)
+        finalCodeMat = codeMat || idCatalogue;
+        finalIdSalle = null;
+        
+        console.log('🛠️ Matériel - Valeurs déterminées:', {
+            codeMatReçu: codeMat,
+            idCatalogueReçu: idCatalogue,
+            finalCodeMat: finalCodeMat
+        });
+    }
+
+    // VALIDATION SUPPLEMENTAIRE
+    if (typeRes === 'Salle' && !finalIdSalle) {
+        return res.status(400).send({ 
+            message: "Pour une réservation de salle, idSalle est requis" 
+        });
+    }
+    
+    if (typeRes === 'Materiel' && !finalCodeMat) {
+        return res.status(400).send({ 
+            message: "Pour une réservation de matériel, codeMat est requis" 
+        });
+    }
+
+    try {
+        const nouvelleReservation = await Reservation.create({
+            idCli, 
+            idSalle: finalIdSalle,      // ← UTILISEZ LA VALEUR FINALE
+            codeMat: finalCodeMat,      // ← UTILISEZ LA VALEUR FINALE
+            dateCre: dateCre || new Date(),
+            qteMat: qteMat || 0, 
+            typeRes, 
+            nbPerso: nbPerso || 0, 
+            debRes, 
+            finRes, 
+            tarifTot,
+            etatRes: etatRes || 'En attente'
+        });
+        
+        console.log('✅ RÉSERVATION CRÉÉE AVEC SUCCÈS:', {
+            idRes: nouvelleReservation.idRes,
+            typeRes: nouvelleReservation.typeRes,
+            idSalle: nouvelleReservation.idSalle,
+            codeMat: nouvelleReservation.codeMat
+        });
+        
+        res.status(201).send({
+            message: "Demande de réservation créée avec succès.",
+            id: nouvelleReservation.idRes,
+            reservation: nouvelleReservation
+        });
+       
+    } catch (error) {
+        console.error("❌ ERREUR création réservation:", error);
+        
+        if (error.name === 'SequelizeValidationError') {
+            return res.status(400).json({ 
+                message: "Données invalides",
+                errors: error.errors ? error.errors.map(e => e.message) : [error.message]
+            });
+        }
+        
+        res.status(500).json({ 
+            message: "Erreur interne du serveur",
+            error: error.message 
+        });
+    }
 };
+
 
 exports.getReservationDetails = async (req, res) => {
     const { idRes } = req.params;
@@ -727,7 +1004,9 @@ exports.updateReservationStatus = async (req, res) => {
         });
     }
 };
-/*
+
+
+
 // 🔥 NOUVELLE MÉTHODE : Mettre à jour le statut d'une LOCATION
 exports.updateLocationStatus = async (req, res) => {
     const { idLo } = req.params;
@@ -783,90 +1062,8 @@ exports.updateLocationStatus = async (req, res) => {
         });
     }
 };
-*/
 
-exports.updateLocationStatus = async (req, res) => {
-    const { idLo } = req.params;
-    const { newStatus } = req.body;
 
-    console.log('📍 Backend - updateLocationStatus:');
-    console.log('📍 ID Location reçu:', idLo);
-    console.log('📍 Type ID:', typeof idLo);
-    console.log('📍 Nouveau statut:', newStatus);
-    console.log('📍 Body complet:', req.body);
-
-    // CORRECTION : Convertir l'ID en nombre si besoin
-    const locationId = parseInt(idLo, 10);
-    
-    if (isNaN(locationId)) {
-        return res.status(400).send({ 
-            message: "ID de location invalide" 
-        });
-    }
-
-    const statutsValides = ['Confirmée', 'En cours', 'Terminée', 'Annulée'];
-    
-    if (!newStatus) {
-        return res.status(400).send({ 
-            message: "Le champ 'newStatus' est requis dans le body." 
-        });
-    }
-
-    if (!statutsValides.includes(newStatus)) {
-        return res.status(400).send({ 
-            message: `Statut non valide. Statuts autorisés: ${statutsValides.join(', ')}` 
-        });
-    }
-
-    try {
-        // 🔥 CORRECTION : Vérifier d'abord si la location existe
-        const location = await Location.findByPk(locationId);
-        console.log('📍 Location trouvée dans DB:', location ? `Oui (ID: ${location.idLo})` : 'Non');
-        
-        if (!location) {
-            return res.status(404).send({ 
-                message: `Location #${locationId} non trouvée.`,
-                debug: {
-                    locationId: locationId,
-                    type: typeof locationId,
-                    table: 'Location'
-                }
-            });
-        }
-
-        const [numAffectedRows] = await Location.update(
-            { etatLo: newStatus }, 
-            {
-                where: { 
-                    idLo: locationId 
-                }
-            }
-        );
-
-        console.log('📍 Lignes affectées:', numAffectedRows);
-
-        if (numAffectedRows === 1) {
-            res.send({ 
-                success: true,
-                message: `Location #${locationId} mise à jour à '${newStatus}' avec succès.`,
-                locationId: locationId,
-                newStatus: newStatus
-            });
-        } else {
-            res.status(404).send({ 
-                success: false,
-                message: `Location #${locationId} non trouvée pour mise à jour.` 
-            });
-        }
-    } catch(error) {
-        console.error(`❌ Erreur lors de la mise à jour de la location #${locationId}:`, error);
-        res.status(500).send({ 
-            success: false,
-            message: "Erreur serveur lors de la mise à jour.", 
-            error: error.message 
-        });
-    }
-};
 
 exports.getReservationStatistics = async (req, res) => {
     try {

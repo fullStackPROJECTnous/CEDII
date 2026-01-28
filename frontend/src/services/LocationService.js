@@ -197,6 +197,8 @@ class LocationService {
     }
   }
 
+
+  
   async updateLocationStatus(locationId, payload) {
   try {
     console.log('📍 LocationService - updateLocationStatus:');
@@ -236,6 +238,9 @@ class LocationService {
     throw error; // Ou ne pas throw si vous voulez ignorer complètement
   }
 }
+
+
+
 
   getReceptionDashboardData() {
     return axiosInstance.get('/reception/dashboard');

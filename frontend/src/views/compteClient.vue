@@ -1,38 +1,102 @@
-<template>
+
+
+      <template>
   <div class="vh-100 d-flex flex-column">
     <ClientNavbar />
-    <main class="main-content flex-grow-1 overflow-auto bg-white">
-      <div class="container-fluid py-3">
-        <!-- En-tête de page -->
-        <n-card class="mb-3 border-0" content-style="padding: 0;">
-          <div class="d-flex justify-content-between align-items-center p-3">
-            <div>
-              <n-h1 class="mb-1 fs-4" style="color: #02061E;">Mon Compte Client</n-h1>
-              <n-text class="text-muted small">Gérez vos informations personnelles et vos réservations</n-text>
+    <main class="main-content flex-grow-1 overflow-auto bg-light">
+      <div class="container-fluid py-4">
+        <!-- EN-TÊTE AMÉLIORÉE -->
+        <div class="page-header mb-4">
+          <div class="header-container p-4 rounded-4 shadow-sm">
+            <!-- Première ligne : Titre principal et badge -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="header-icon-container">
+                  <i class="bi bi-person-badge-fill header-icon"></i>
+                </div>
+                <div>
+                  <h1 class="header-title mb-0">Mon Espace Client</h1>
+                  <p class="header-subtitle mb-0 text-muted">Tableau de bord personnel</p>
+                </div>
+              </div>
+              
+              <n-tag type="info" size="large" class="custom-tag">
+                <template #icon>
+                  <n-icon>
+                    <i class="bi bi-shield-check"></i>
+                  </n-icon>
+                </template>
+                Compte {{ clientInfo.status || 'Actif' }}
+              </n-tag>
             </div>
-            <n-tag type="info" size="medium">
-              <template #icon>
-                <n-icon>
-                  <i class="bi bi-person-circle"></i>
-                </n-icon>
-              </template>
-              Bienvenue, {{ clientName }} !
-            </n-tag>
+            
+            <!-- Deuxième ligne : Informations rapides -->
+            <div class="header-info-row">
+              <div class="row g-4">
+                <!-- Nom du client -->
+                <div class="col-md-4">
+                  <div class="info-card p-3 rounded-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <i class="bi bi-person-circle text-primary"></i>
+                      <span class="info-label">Nom complet</span>
+                    </div>
+                    <div class="info-value fw-bold text-dark">{{ clientName }}</div>
+                  </div>
+                </div>
+                
+                <!-- Type de client -->
+                <div class="col-md-4">
+                  <div class="info-card p-3 rounded-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <i class="bi bi-tag text-primary"></i>
+                      <span class="info-label">Type de client</span>
+                    </div>
+                    <div class="info-value">
+                      <n-tag :type="clientInfo.type === 'Particulier' ? 'info' : 'warning'" size="small" round>
+                        {{ clientInfo.type || 'Non spécifié' }}
+                      </n-tag>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Membre depuis 
+                <div class="col-md-4">
+                  <div class="info-card p-3 rounded-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <i class="bi bi-calendar-event text-primary"></i>
+                      <span class="info-label">Membre depuis</span>
+                    </div>
+                    <div class="info-value text-dark">{{ clientInfo.memberSince || 'Non spécifié' }}</div>
+                  </div>
+                </div>-->
+              </div>
+            </div>
+            
+            <!-- Troisième ligne : Actions rapides -->
+            <div class="header-actions mt-4 pt-3 border-top">
+              <div class="d-flex gap-3">
+                <n-button type="primary" ghost size="small" class="action-btn" @click="scrollToSection('coordonnees')">
+                  <template #icon>
+                    <i class="bi bi-pencil-square"></i>
+                  </template>
+                  Modifier mon profil
+                </n-button>
+               
+                <n-button type="success" ghost size="small" class="action-btn" @click="scrollToSection('historique')">
+                  <template #icon>
+                    <i class="bi bi-clock-history"></i>
+                  </template>
+                  Voir historique complet
+                </n-button>
+              </div>
+            </div>
           </div>
-        </n-card>
+        </div>
 
-        <!-- Bannière d'information -->
-        <n-alert title="Informations du compte" type="info" class="mb-3" :bordered="false" size="small">
-          <template #icon>
-            <i class="bi bi-info-circle-fill"></i>
-          </template>
-          Vous pouvez consulter vos informations et votre historique ci-dessous.
-        </n-alert>
-
-        <!-- Section principale -->
+        <!-- CONTENU PRINCIPAL -->
         <div class="row g-3">
           <!-- Colonne gauche - Coordonnées -->
-          <div class="col-lg-5">
+          <div class="col-lg-5" id="coordonnees">
             <n-card title="Mes Coordonnées" size="small" class="h-100 shadow-sm" :bordered="false">
               <template #header-extra>
                 <n-icon size="18" color="#5811EE">
@@ -132,16 +196,13 @@
                   </n-empty>
                 </div>
 
-                <div class="mt-auto pt-3">
-                  
-                </div>
               </div>
             </n-card>
           </div>
         </div>
 
         <!-- Historique des locations -->
-        <n-card title="Historique des Locations" class="mt-3 shadow-sm" :bordered="false" size="small">
+        <n-card title="Historique des Locations" class="mt-3 shadow-sm" :bordered="false" size="small" id="historique">
           <template #header-extra>
             <n-icon size="18" color="#02061E">
               <i class="bi bi-clock-history"></i>
@@ -192,25 +253,35 @@ import {
   NDescriptions, 
   NDescriptionsItem,
   NDataTable,
-  NH3
+  NH3,
+  useMessage
 } from 'naive-ui';
 import ClientNavbar from '../components/clientNavbar.vue'; 
 import ClientService from '../services/ClientService'; 
 
+const message = useMessage();
 const clientName = ref('Client'); 
-const clientInfo = ref({});
+const clientInfo = ref({
+  name: '',
+  email: '',
+  phone: '',
+  address: '',
+  type: '',
+  status: '',
+  memberSince: ''
+});
 const nextReservation = ref({});
 const pastReservations = ref([]);
 const isLoading = ref(true);
 
 // Configuration des colonnes du tableau
 const columns = [
-  {
+  /*{
     title: 'ID',
     key: 'idRes',
     width: 70,
     align: 'center'
-  },
+  },*/
   {
     title: 'Type',
     key: 'typeRes',
@@ -257,46 +328,82 @@ const fetchClientData = async () => {
     const clientData = await ClientService.getMyProfile(); 
     console.log("✅ Données client reçues:", clientData);
     
+    // Formatage du nom du client
     clientName.value = `${clientData.prenomCli || ''} ${clientData.nomCli || ''}`.trim() || 'Client';
     
+    // Mise à jour de clientInfo avec toutes les données
     clientInfo.value = {
       name: `${clientData.nomCli || ''} ${clientData.prenomCli || ''}`.trim(),
       email: clientData.emailCli || 'Non spécifié',
       phone: clientData.telephoneCli || 'Non spécifié',
       address: clientData.addresseCli || 'Non spécifiée',
-      type: clientData.typeCli === 'particulier' ? 'Particulier' : 'Entreprise',
-      status: clientData.statutCli === 'actif' ? 'Actif' : 'Inactif',
-      memberSince: clientData.createdAt ? new Date(clientData.createdAt).toLocaleDateString('fr-FR') : 'Non spécifiée'
+      type: clientData.typeCli === 'particulier' ? 'Particulier' : 
+            clientData.typeCli === 'entreprise' ? 'Entreprise' : 
+            clientData.typeCli || 'Non spécifié',
+      status: clientData.statutCli === 'actif' ? 'Actif' : 
+              clientData.statutCli === 'inactif' ? 'Inactif' : 
+              clientData.statutCli || 'Inconnu',
+      memberSince: clientData.createdAt ? new Date(clientData.createdAt).toLocaleDateString('fr-FR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }) : 'Non spécifiée'
     };
 
-    await fetchReservations(clientData.idCli);
+    // Charger les réservations avec l'ID client
+    if (clientData.idCli) {
+      await fetchReservations(clientData.idCli);
+    } else {
+      console.warn("⚠️ Aucun ID client trouvé pour charger les réservations");
+    }
     
   } catch (error) {
     console.error("❌ Erreur chargement données:", error);
+    message.error("Erreur lors du chargement de vos données");
     clientName.value = 'Erreur de chargement';
   } finally {
     isLoading.value = false;
   }
 };
-
 const fetchReservations = async (clientId) => {
   try {
     const response = await ClientService.getClientReservations(clientId);
     const reservations = response.reservations || [];
+    console.log("📋 Réservations reçues:", reservations);
     
+    // SIMPLIFICATION: Toujours afficher toutes les réservations dans l'historique
+    // La "prochaine" n'est qu'une vue, pas un filtre
+    
+    // Trier toutes les réservations par date
+    const sortedReservations = [...reservations].sort((a, b) => {
+      try {
+        return new Date(b.debRes) - new Date(a.debRes);
+      } catch (e) {
+        return 0;
+      }
+    });
+    
+    // La première réservation future est la "prochaine"
     const now = new Date();
-    const upcoming = reservations
-      .filter(res => new Date(res.debRes) > now)
-      .sort((a, b) => new Date(a.debRes) - new Date(b.debRes))[0];
+    const next = sortedReservations.find(res => {
+      try {
+        return new Date(res.debRes) > now;
+      } catch (e) {
+        return false;
+      }
+    });
     
-    nextReservation.value = upcoming || {};
+    nextReservation.value = next || {};
     
-    pastReservations.value = reservations
-      .filter(res => res !== upcoming)
-      .sort((a, b) => new Date(b.debRes) - new Date(a.debRes));
-      
+    // TOUTES les réservations vont dans l'historique
+    pastReservations.value = sortedReservations;
+    
+    console.log("✅ Prochaine réservation:", nextReservation.value);
+    console.log("✅ Historique total:", pastReservations.value.length, "réservations");
+    
   } catch (error) {
     console.error("❌ Erreur chargement réservations:", error);
+    message.error("Erreur lors du chargement de vos réservations");
   }
 };
 
@@ -306,7 +413,9 @@ const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('fr-FR', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   } catch {
     return 'Date invalide';
@@ -314,21 +423,74 @@ const formatDate = (dateString) => {
 };
 
 const formatCurrency = (amount) => {
-  if (!amount) return 'N/A';
+  if (!amount && amount !== 0) return 'N/A';
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
-    currency: 'MGA'
+    currency: 'MGA',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
   }).format(amount);
 };
-
+/*
 const getStatusType = (status) => {
-  switch (status) {
-    case 'Confirmée': return 'success';
-    case 'En attente': return 'warning';
-    case 'Annulée': return 'error';
-    case 'Terminée': return 'info';
+  switch (status?.toLowerCase()) {
+    case 'confirmée':
+    case 'validée':
+    case 'confirmé':
+    case 'validé': return 'success';
+    case 'en attente':
+    case 'en cours': return 'warning';
+    case 'annulée':
+    case 'refusée':
+    case 'annulé':
+    case 'refusé': return 'error';
+    case 'terminée':
+    case 'clôturée':
+    case 'terminé':
+    case 'clôturé': return 'info';
     default: return 'default';
   }
+};
+*/
+
+const getStatusType = (status) => {
+  if (!status) return 'default';
+  
+  const statusLower = status.toLowerCase();
+  
+  // Statuts positifs
+  if (['confirmée', 'confirmé', 'validée', 'validé', 'acceptée', 'accepté'].includes(statusLower)) {
+    return 'success';
+  }
+  
+  // Statuts en attente/en cours
+  if (['en attente', 'en cours', 'en traitement', 'pending', 'processing'].includes(statusLower)) {
+    return 'warning';
+  }
+  
+  // Statuts négatifs
+  if (['annulée', 'annulé', 'refusée', 'refusé', 'rejetée', 'rejeté', 'cancelled', 'refused', 'rejected'].includes(statusLower)) {
+    return 'error';
+  }
+  
+  // Statuts terminés
+  if (['terminée', 'terminé', 'clôturée', 'clôturé', 'complétée', 'complété', 'completed', 'closed'].includes(statusLower)) {
+    return 'info';
+  }
+  
+  return 'default';
+};
+const scrollToSection = (sectionId) => {
+  const element = document.getElementById(sectionId);
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+};
+
+const viewReservationDetails = (reservationId) => {
+  message.info(`Détails de la réservation #${reservationId}`);
+  // Ici vous pourriez rediriger vers une page de détails
+  // router.push({ name: 'ReservationDetails', params: { id: reservationId } });
 };
 
 onMounted(() => {
@@ -338,9 +500,97 @@ onMounted(() => {
 
 <style scoped>
 .main-content {
-  background-color: #ffffff;
+  background-color: #f8f9fa;
 }
 
+/* STYLES DU HEADER AMÉLIORÉ */
+.page-header {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border: 1px solid rgba(4, 5, 143, 0.1);
+}
+
+.header-container {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 255, 0.95) 100%);
+  backdrop-filter: blur(10px);
+}
+
+.header-icon-container {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #04058f 0%, #5811EE 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-icon {
+  font-size: 2rem;
+  color: white;
+}
+
+.header-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #02061E;
+  letter-spacing: -0.5px;
+}
+
+.header-subtitle {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.custom-tag {
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(88, 17, 238, 0.1) 0%, rgba(4, 5, 143, 0.1) 100%);
+  border: 1px solid rgba(88, 17, 238, 0.2);
+}
+
+/* Cartes d'informations */
+.info-card {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.info-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(88, 17, 238, 0.1);
+  border-color: rgba(88, 17, 238, 0.2);
+}
+
+.info-label {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 1rem;
+  color: #02061E;
+}
+
+/* Boutons d'actions */
+.action-btn {
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border-width: 2px;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* STYLES EXISTANTS MODIFIÉS */
 .cedii-btn-primary { 
   background-color: #5811EE;
   color: white;
@@ -352,7 +602,6 @@ onMounted(() => {
   border-color: #04058F;
 }
 
-/* Style pour l'affichage vertical des détails de réservation */
 .reservation-details-vertical .detail-item {
   border-left: 3px solid #5811EE;
   padding-left: 12px;
@@ -368,6 +617,7 @@ onMounted(() => {
   color: #02061E;
 }
 
+/* Overrides Naive UI */
 :deep(.n-card__content) {
   padding: 0;
 }
@@ -391,4 +641,62 @@ onMounted(() => {
   font-size: 0.95rem;
   font-weight: 600;
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header-container {
+    padding: 1.5rem !important;
+  }
+  
+  .header-icon-container {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .header-icon {
+    font-size: 1.5rem;
+  }
+  
+  .header-title {
+    font-size: 1.5rem;
+  }
+  
+  .header-subtitle {
+    font-size: 0.85rem;
+  }
+  
+  .header-info-row .row {
+    flex-direction: column;
+  }
+  
+  .header-actions .d-flex {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .action-btn {
+    flex: 1;
+    min-width: 140px;
+  }
+}
+
+@media (max-width: 576px) {
+  .header-title {
+    font-size: 1.25rem;
+  }
+  
+  .custom-tag {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+  }
+  
+  .info-card {
+    padding: 1rem !important;
+  }
+  
+  .action-btn {
+    font-size: 0.85rem;
+  }
+}
 </style>
+

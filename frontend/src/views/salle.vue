@@ -1,16 +1,58 @@
+
 <template>
   <div class="salle-management-container">
-    <!-- Header avec navigation -->
-    <div class="header-section mb-4">
-      <div class="d-flex justify-content-between align-items-center">
-       
-
-        <div class="header-title  flex-grow-1">
-          <h1 class="page-title cedii-text-primary mb-2">
-            <i class="bi bi-door-open-fill me-2"></i> 
-            Gestion des Salles
-          </h1>
+    <!-- EN-TÊTE AMÉLIORÉE -->
+    <div class="page-header mb-4">
+      <div class="header-container p-4 rounded-4 shadow-sm">
+        <!-- Première ligne : Titre principal et badge -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="d-flex align-items-center gap-3">
+            <div class="header-icon-container">
+              <i class="bi bi-door-open-fill header-icon"></i>
+            </div>
+            <div>
+              <h1 class="header-title mb-0">Salles CEDII</h1>
+              <p class="header-subtitle mb-0 text-muted">Administration complète du parc immobilier</p>
+            </div>
+          </div>
           
+          <n-tag type="info" size="large" class="custom-tag">
+            <template #icon>
+              <n-icon>
+                <i class="bi bi-building"></i>
+              </n-icon>
+            </template>
+            {{ statistiques.total }} salles
+          </n-tag>
+        </div>
+        
+        
+        <!-- Troisième ligne : Actions rapides -->
+        <div class="header-actions mt-4 pt-3 border-top">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+              <n-button type="primary" size="small" class="action-btn" @click="openModal('add')">
+                <template #icon>
+                  <i class="bi bi-plus-circle"></i>
+                </template>
+                Ajouter une salle
+              </n-button>
+              <n-button type="info" ghost size="small" class="action-btn" @click="fetchSalles">
+                <template #icon>
+                  <i class="bi bi-arrow-clockwise"></i>
+                </template>
+                Actualiser
+              </n-button>
+              <n-button type="default" ghost size="small" class="action-btn" @click="resetFilters">
+                <template #icon>
+                  <i class="bi bi-funnel"></i>
+                </template>
+                Réinitialiser filtres
+              </n-button>
+            </div>
+            
+           
+          </div>
         </div>
       </div>
     </div>
@@ -29,10 +71,10 @@
 
     <!-- VUE LISTE DES SALLES -->
     <div v-if="currentView === 'list'" class="list-view">
-      <!-- Filtres et recherche -->
+      <!-- Filtres avancés -->
       <n-card class="filters-card mb-4">
-        <n-grid :cols="3" :x-gap="12" :y-gap="8">
-          <n-gi>
+        <div class="row g-3 align-items-center">
+          <div class="col-md-3">
             <n-form-item label="Disponibilité" size="small">
               <n-select
                 v-model:value="filters.disponibilite"
@@ -41,12 +83,12 @@
                 @update:value="fetchSalles"
               />
             </n-form-item>
-          </n-gi>
-          <n-gi>
+          </div>
+          <div class="col-md-6">
             <n-form-item label="Recherche" size="small">
               <n-input
                 v-model:value="filters.search"
-                placeholder="Nom, numéro..."
+                placeholder="Rechercher par nom, numéro..."
                 clearable
                 @input="onSearchInput"
               >
@@ -55,87 +97,40 @@
                 </template>
               </n-input>
             </n-form-item>
-          </n-gi>
-          <n-gi>
-            <n-form-item label=" " size="small">
-              <n-button class="w-100" @click="resetFilters" ghost>
-                <template #icon>
-                  <n-icon><i class="bi bi-arrow-clockwise"></i></n-icon>
-                </template>
-                Réinitialiser
-              </n-button>
-            </n-form-item>
-          </n-gi>
-        </n-grid>
+          </div>
+          <div class="col-md-3">
+            <div class="d-flex gap-2">
+              <n-form-item label=" " size="small" style="flex: 1">
+                <n-button class="w-100" @click="resetFilters" ghost>
+                  <template #icon>
+                    <n-icon><i class="bi bi-arrow-clockwise"></i></n-icon>
+                  </template>
+                  Réinitialiser
+                </n-button>
+              </n-form-item>
+            </div>
+          </div>
+        </div>
       </n-card>
-
-      <!-- Cartes de statistiques -->
-      <n-grid :cols="4" :x-gap="12" :y-gap="12" class="mb-4">
-        <n-gi>
-          <n-card class="stat-card" content-class="text-center">
-            <n-statistic label="Total Salles" :value="statistiques.total">
-              <template #prefix>
-                <n-icon color="#5B11EE">
-                  <i class="bi bi-building"></i>
-                </n-icon>
-              </template>
-            </n-statistic>
-          </n-card>
-        </n-gi>
-        <n-gi>
-          <n-card class="stat-card" content-class="text-center">
-            <n-statistic label="Disponibles" :value="statistiques.disponibles">
-              <template #prefix>
-                <n-icon color="#52c41a">
-                  <i class="bi bi-check-circle"></i>
-                </n-icon>
-              </template>
-            </n-statistic>
-          </n-card>
-        </n-gi>
-        <n-gi>
-          <n-card class="stat-card" content-class="text-center">
-            <n-statistic label="Occupées" :value="statistiques.occupees">
-              <template #prefix>
-                <n-icon color="#faad14">
-                  <i class="bi bi-clock"></i>
-                </n-icon>
-              </template>
-            </n-statistic>
-          </n-card>
-        </n-gi>
-        <n-gi>
-          <n-card class="stat-card" content-class="text-center">
-            <n-statistic label="Maintenance" :value="statistiques.maintenance">
-              <template #prefix>
-                <n-icon color="#ff4d4f">
-                  <i class="bi bi-tools"></i>
-                </n-icon>
-              </template>
-            </n-statistic>
-          </n-card>
-        </n-gi>
-      </n-grid>
 
       <!-- Tableau des salles -->
       <n-card class="main-card">
         <template #header>
           <div class="d-flex justify-content-between align-items-center">
             <div>
-              <h3 class="card-title mb-0">
-                <i class="bi bi-list-ul me-2"></i>
-                Liste des Salles
-              </h3>
-              <p class="card-subtitle text-muted mb-0">
-                {{ filteredSalles.length }} salle(s) trouvée(s)
-              </p>
+              <div class="d-flex align-items-center gap-2">
+                <div class="card-icon">
+                  <i class="bi bi-list-ul"></i>
+                </div>
+                <div>
+                  <h3 class="card-title mb-0">Liste des Salles</h3>
+                  <p class="card-subtitle text-muted mb-0">
+                    {{ filteredSalles.length }} salle(s) trouvée(s) - <span class="text-success">{{ statistiques.disponibles }} disponible(s)</span>
+                  </p>
+                </div>
+              </div>
             </div>
-            <n-button type="primary" @click="openModal('add')">
-              <template #icon>
-                <n-icon><i class="bi bi-plus-circle"></i></n-icon>
-              </template>
-              Ajouter une salle
-            </n-button>
+           
           </div>
         </template>
 
@@ -153,158 +148,16 @@
         </div>
 
         <template #footer>
-          <div class="text-center text-muted small">
-            <n-text depth="3">
-              <i class="bi bi-info-circle me-1"></i>
-              Double-cliquez sur une salle pour voir son calendrier
+          <div class="d-flex justify-content-between align-items-center">
+            
+            <n-text depth="3" class="small">
+              Capacité totale : {{ totalCapacite }} personnes
             </n-text>
           </div>
         </template>
       </n-card>
     </div>
 
-    <!-- VUE CALENDRIER -->
-    <div v-if="currentView === 'calendar' && selectedSalleForCalendar" class="calendar-view">
-      <n-card class="main-card">
-        <template #header>
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <h3 class="card-title mb-1">
-                <i class="bi bi-calendar-week me-2"></i>
-                Calendrier : {{ selectedSalleForCalendar.nomSalle }}
-              </h3>
-              <div class="salle-info">
-                <n-space :size="16">
-                  <n-tag size="small" :type="getResourceTagType(selectedSalleForCalendar.disponibiliteSalle)">
-                    {{ getStatusText(selectedSalleForCalendar.disponibiliteSalle) }}
-                  </n-tag>
-                  <n-text depth="3">
-                    <i class="bi bi-geo-alt me-1"></i>{{ selectedSalleForCalendar.numeroSalle }}
-                  </n-text>
-                  <n-text depth="3">
-                    <i class="bi bi-people me-1"></i>{{ selectedSalleForCalendar.capaciteSalle }} personnes
-                  </n-text>
-                  <n-text depth="3">
-                    <i class="bi bi-currency-exchange me-1"></i>{{ formatCurrency(selectedSalleForCalendar.tarifJour) }}/jour
-                  </n-text>
-                </n-space>
-              </div>
-            </div>
-            <n-button-group size="small">
-              <n-button @click="prevMonth" :disabled="calendarLoading">
-                <template #icon>
-                  <n-icon><i class="bi bi-chevron-left"></i></n-icon>
-                </template>
-              </n-button>
-              <n-button @click="nextMonth" :disabled="calendarLoading">
-                <template #icon>
-                  <n-icon><i class="bi bi-chevron-right"></i></n-icon>
-                </template>
-              </n-button>
-            </n-button-group>
-          </div>
-        </template>
-
-        <div class="calendar-header">
-          <h4 class="text-center text-primary mb-3">
-            {{ currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' }) }}
-            <n-spin v-if="calendarLoading" size="small" class="ms-2" />
-          </h4>
-        </div>
-
-        <div class="calendar-scroll-container">
-          <div class="calendar-grid">
-            <!-- En-têtes des jours -->
-            <div class="calendar-day-header" v-for="day in ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']" :key="day">
-              {{ day }}
-            </div>
-
-            <!-- Jours du mois -->
-            <div
-              v-for="day in daysInMonth"
-              :key="day.date.getTime()"
-              :class="[
-                'calendar-day',
-                {
-                  'reserved': isReserved(day.date),
-                  'today': isToday(day.date),
-                  'weekend': day.isWeekend,
-                  'other-month': !day.isCurrentMonth
-                }
-              ]"
-              @dblclick="!isReserved(day.date) && openReservationModal(day.date)"
-            >
-              <div class="day-header">
-                <span class="day-number" :class="{ 'text-primary': isToday(day.date) }">
-                  {{ day.date.getDate() }}
-                </span>
-                <n-tag
-                  v-if="isReserved(day.date)"
-                  size="tiny"
-                  type="error"
-                  class="ms-1"
-                >
-                  <template #icon>
-                    <n-icon><i class="bi bi-clock"></i></n-icon>
-                  </template>
-                </n-tag>
-              </div>
-
-              <!-- Réservations du jour -->
-              <div class="reservations-list">
-                <div
-                  v-for="res in getReservationsForDay(day.date)"
-                  :key="res.idRes"
-                  class="reservation-item"
-                >
-                  <n-text depth="3" class="small">
-                    {{ formatTime(res.debRes) }}-{{ formatTime(res.finRes) }}
-                  </n-text>
-                  <n-text class="small d-block text-truncate">
-                    {{ res.Client?.nomCli || 'Client' }}
-                  </n-text>
-                </div>
-              </div>
-
-              <!-- Bouton réserver -->
-              <n-button
-                v-if="!isReserved(day.date) && day.isCurrentMonth"
-                type="primary"
-                size="tiny"
-                class="reserve-btn"
-                @click="openReservationModal(day.date)"
-                :disabled="selectedSalleForCalendar.disponibiliteSalle !== 'Disponible'"
-              >
-                <template #icon>
-                  <n-icon><i class="bi bi-plus"></i></n-icon>
-                </template>
-                Réserver
-              </n-button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Légende -->
-        <template #footer>
-          <div class="calendar-legend">
-            <n-space justify="center" :size="24">
-              <div class="legend-item">
-                <span class="legend-color available"></span>
-                <n-text depth="3" class="small">Disponible</n-text>
-              </div>
-              <div class="legend-item">
-                <span class="legend-color reserved"></span>
-                <n-text depth="3" class="small">Réservé</n-text>
-              </div>
-              <div class="legend-item">
-                <span class="legend-color today"></span>
-                <n-text depth="3" class="small">Aujourd'hui</n-text>
-              </div>
-            </n-space>
-          </div>
-        </template>
-      </n-card>
-    </div>
 
     <!-- Modal Salle -->
     <n-modal
@@ -463,7 +316,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed, watch, h } from 'vue';
-import { NButton, NTag } from 'naive-ui';
+import { NButton, NTag, NIcon, NText, NAlert, NFormItem, NSelect, NInput, NCard, NStatistic, NProgress } from 'naive-ui';
 import SalleService from '../services/SalleService';
 import ReservationService from '../services/LocationService';
 import ClientService from '../services/ClientService';
@@ -525,7 +378,7 @@ const clientOptions = computed(() => {
   }));
 });
 
-// Propriétés calculées
+// Propriétés calculées améliorées
 const filteredSalles = computed(() => {
   let filtered = salles.value;
 
@@ -588,6 +441,20 @@ const statistiques = computed(() => {
   return { total, disponibles, occupees, maintenance };
 });
 
+const tauxOccupation = computed(() => {
+  if (statistiques.value.total === 0) return 0;
+  const taux = Math.round((statistiques.value.occupees / statistiques.value.total) * 100);
+  return Math.min(taux, 100);
+});
+
+const totalTarifJournalier = computed(() => {
+  return filteredSalles.value.reduce((sum, salle) => sum + (salle.tarifJour || 0), 0);
+});
+
+const totalCapacite = computed(() => {
+  return filteredSalles.value.reduce((sum, salle) => sum + (salle.capaciteSalle || 0), 0);
+});
+
 // Configuration des colonnes du tableau
 const tableColumns = computed(() => [
   {
@@ -630,30 +497,13 @@ const tableColumns = computed(() => [
     width: 120,
     render: (row) => formatCurrency(row.tarifJour)
   },
-  {
-    title: 'Statut',
-    key: 'disponibiliteSalle',
-    width: 120,
-    render: (row) => {
-      const type = getResourceTagType(row.disponibiliteSalle);
-      const text = getStatusText(row.disponibiliteSalle);
-      return h(NTag, { type, size: 'small' }, { default: () => text });
-    }
-  },
+
   {
     title: 'Actions',
     key: 'actions',
     width: 200,
     render: (row) => h('div', { class: 'action-buttons' }, [
-      h(NButton, {
-        size: 'small',
-        type: 'success',
-        ghost: true,
-        onClick: () => openCalendar(row),
-        class: 'me-1'
-      }, {
-        icon: () => h('i', { class: 'bi bi-calendar-check' })
-      }),
+    
       h(NButton, {
         size: 'small',
         type: 'info',
@@ -976,7 +826,7 @@ const updateTarifEstime = async () => {
 watch(() => newReservation.typeDuree, updateTarifEstime);
 watch(() => selectedSalleForCalendar.value, updateTarifEstime);
 
-// Utilitaires
+// Fonctions utilitaires
 function resetFilters() {
   filters.value = { disponibilite: 'tous', search: '' };
 }
@@ -1040,6 +890,35 @@ const formatTime = (datetime) => {
     minute: '2-digit' 
   });
 };
+
+const exportData = () => {
+  const data = filteredSalles.value.map(salle => ({
+    ID: salle.idSalle,
+    Nom: salle.nomSalle,
+    Numéro: salle.numeroSalle,
+    Capacité: salle.capaciteSalle,
+    'Tarif/heure': formatCurrency(salle.tarifHeure),
+    'Tarif/demi-journée': formatCurrency(salle.tarifDemiJournee),
+    'Tarif/jour': formatCurrency(salle.tarifJour),
+    Statut: getStatusText(salle.disponibiliteSalle)
+  }));
+  
+  const csv = [
+    Object.keys(data[0]).join(','),
+    ...data.map(row => Object.values(row).join(','))
+  ].join('\n');
+  
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `salles-cedii-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  window.URL.revokeObjectURL(url);
+  
+  message.value = 'Exportation des données effectuée';
+  isError.value = false;
+};
 </script>
 
 <style scoped>
@@ -1050,24 +929,91 @@ const formatTime = (datetime) => {
   min-height: 100vh;
 }
 
-/* Header */
-.header-section {
-  background: transparent;
+/* STYLES DU HEADER AMÉLIORÉ */
+.page-header {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border: 1px solid rgba(4, 5, 143, 0.1);
 }
 
-.page-title {
+.header-container {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 255, 0.95) 100%);
+  backdrop-filter: blur(10px);
+}
+
+.header-icon-container {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #04058f 0%, #5811EE 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-icon {
   font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+  color: white;
 }
 
-.page-subtitle {
-  font-size: 1.1rem;
+.header-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #02061E;
+  letter-spacing: -0.5px;
+}
+
+.header-subtitle {
+  font-size: 0.9rem;
   opacity: 0.8;
 }
 
-.back-button {
-  min-width: 160px;
+.custom-tag {
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(88, 17, 238, 0.1) 0%, rgba(4, 5, 143, 0.1) 100%);
+  border: 1px solid rgba(88, 17, 238, 0.2);
+}
+
+/* Cartes d'informations */
+.info-card {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.info-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(88, 17, 238, 0.1);
+  border-color: rgba(88, 17, 238, 0.2);
+}
+
+.info-label {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 1rem;
+  color: #02061E;
+}
+
+/* Boutons d'actions */
+.action-btn {
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border-width: 2px;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Cards */
@@ -1083,6 +1029,18 @@ const formatTime = (datetime) => {
 
 .stat-card:hover {
   transform: translateY(-2px);
+}
+
+/* Icone de carte */
+.card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(88, 17, 238, 0.1) 0%, rgba(4, 5, 143, 0.1) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5811EE;
 }
 
 /* Table */
@@ -1288,18 +1246,39 @@ const formatTime = (datetime) => {
     padding: 12px;
   }
   
-  .page-title {
+  .header-container {
+    padding: 1.5rem !important;
+  }
+  
+  .header-icon-container {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .header-icon {
     font-size: 1.5rem;
   }
   
-  .header-section .d-flex {
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
+  .header-title {
+    font-size: 1.5rem;
   }
   
-  .back-button {
-    align-self: flex-start;
+  .header-subtitle {
+    font-size: 0.85rem;
+  }
+  
+  .header-info-row .row {
+    flex-direction: column;
+  }
+  
+  .header-actions .d-flex {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch !important;
+  }
+  
+  .action-btn {
+    width: 100%;
   }
   
   :deep(.n-grid) {
@@ -1316,6 +1295,23 @@ const formatTime = (datetime) => {
 }
 
 @media (max-width: 576px) {
+  .header-title {
+    font-size: 1.25rem;
+  }
+  
+  .custom-tag {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+  }
+  
+  .info-card {
+    padding: 1rem !important;
+  }
+  
+  .action-btn {
+    font-size: 0.85rem;
+  }
+  
   .table-scroll-container {
     font-size: 0.8rem;
   }
